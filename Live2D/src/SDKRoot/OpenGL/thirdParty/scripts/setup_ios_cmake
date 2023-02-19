@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+
+set -ue
+
+IOS_CMAKE_VERSION=3.1.2
+
+SCRIPT_PATH=$(cd $(dirname $0) && pwd)
+
+cd $SCRIPT_PATH/..
+
+###################
+# Setup ios-cmake #
+###################
+
+# Download and extract the archive.
+echo "- Setup ios-cmake $IOS_CMAKE_VERSION"
+echo 'Downloading...'
+curl -fsSL -o ios-cmake.zip \
+  "https://github.com/leetal/ios-cmake/archive/$IOS_CMAKE_VERSION.zip"
+echo 'Extracting...'
+unzip -oq ios-cmake.zip
+mv -f ios-cmake-* ios-cmake
+rm ios-cmake.zip
