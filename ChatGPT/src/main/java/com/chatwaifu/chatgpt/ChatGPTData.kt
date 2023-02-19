@@ -1,11 +1,12 @@
 package com.chatwaifu.chatgpt
 
+import androidx.annotation.Keep
 import com.google.gson.Gson
 import okhttp3.MediaType
 import okhttp3.RequestBody
 import org.json.JSONObject
 
-
+@Keep
 data class ChatGPTRequestData(
     val prompt: String,
     val model: String = DEFAULT_MODEL,
@@ -25,7 +26,7 @@ data class ChatGPTRequestData(
         )
     }
 }
-
+@Keep
 data class ChatGPTResponseData(
     var id: String?,
     var `object`: String?,
@@ -34,8 +35,10 @@ data class ChatGPTResponseData(
     var choices: List<ListBean>?,
     var usage: Usage?,
 )
-
+@Keep
 data class Usage(var prompt_tokens: Int?, val completion_tokens: Int?, val total_tokens: Int?)
+
+@Keep
 data class ListBean(
     var text: String?,
     var index: Int?,
