@@ -1,0 +1,295 @@
+7767517
+293 411
+Input                    in0                      0 1 in0
+Input                    in1                      0 1 in1
+Split                    splitncnn_0              1 16 in1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
+Input                    in2                      0 1 in2
+Split                    splitncnn_1              1 4 in2 19 20 21 22
+torch.flip               torch.flip_276           1 1 in0 23
+Slice                    split_0                  1 2 23 24 25 -23300=2,96,96 1=1
+Split                    splitncnn_2              1 2 24 26 27
+Convolution1D            conv1d_32                1 1 27 28 0=192 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_3              1 2 28 29 30
+Tensor.expand_as         Tensor.expand_as_32      2 1 17 29 31
+BinaryOp                 mul_0                    2 1 30 31 32 0=2
+Split                    splitncnn_4              1 3 32 33 34 35
+Convolution1D            conv1d_33                1 1 22 36 0=1536 1=1 2=1 3=1 4=0 5=1 6=393216
+Split                    splitncnn_5              1 4 36 37 38 39 40
+Convolution1D            conv1d_34                1 1 35 41 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_6              1 2 41 42 43
+Crop                     slice_76                 1 1 40 44 -23310=1,384 -23311=1,0 -23309=1,0
+Tensor.expand_as         Tensor.expand_as_34      2 1 44 42 45
+BinaryOp                 add_1                    2 1 43 45 46 0=0
+Slice                    tensor_split_0           1 2 46 47 48 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_0                1 1 48 49
+TanH                     tanh_16                  1 1 47 50
+BinaryOp                 mul_2                    2 1 50 49 51 0=2
+Tensor.expand_as         Tensor.expand_as_33      2 1 16 33 52
+Split                    splitncnn_7              1 4 52 53 54 55 56
+Convolution1D            conv1d_35                1 1 51 57 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_1           1 2 57 58 59 -23300=2,192,-233 1=0
+BinaryOp                 add_3                    2 1 34 58 60 0=0
+BinaryOp                 mul_4                    2 1 60 53 61 0=2
+Split                    splitncnn_8              1 2 61 62 63
+Convolution1D            conv1d_36                1 1 63 64 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_9              1 2 64 65 66
+Crop                     slice_77                 1 1 39 67 -23310=1,768 -23311=1,0 -23309=1,384
+Tensor.expand_as         Tensor.expand_as_35      2 1 67 65 68
+BinaryOp                 add_5                    2 1 66 68 69 0=0
+Slice                    tensor_split_2           1 2 69 70 71 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_1                1 1 71 72
+TanH                     tanh_17                  1 1 70 73
+BinaryOp                 mul_6                    2 1 73 72 74 0=2
+Convolution1D            conv1d_37                1 1 74 75 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_3           1 2 75 76 77 -23300=2,192,-233 1=0
+BinaryOp                 add_7                    2 1 62 76 78 0=0
+BinaryOp                 mul_8                    2 1 78 54 79 0=2
+Split                    splitncnn_10             1 2 79 80 81
+Convolution1D            conv1d_38                1 1 81 82 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_11             1 2 82 83 84
+Crop                     slice_78                 1 1 38 85 -23310=1,1152 -23311=1,0 -23309=1,768
+Tensor.expand_as         Tensor.expand_as_36      2 1 85 83 86
+BinaryOp                 add_9                    2 1 84 86 87 0=0
+Slice                    tensor_split_4           1 2 87 88 89 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_2                1 1 89 90
+TanH                     tanh_18                  1 1 88 91
+BinaryOp                 mul_10                   2 1 91 90 92 0=2
+Convolution1D            conv1d_39                1 1 92 93 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_5           1 2 93 94 95 -23300=2,192,-233 1=0
+BinaryOp                 add_11                   2 1 80 94 96 0=0
+BinaryOp                 mul_12                   2 1 96 55 97 0=2
+Convolution1D            conv1d_40                1 1 97 98 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_12             1 2 98 99 100
+Crop                     slice_79                 1 1 37 101 -23310=1,1536 -23311=1,0 -23309=1,1152
+Tensor.expand_as         Tensor.expand_as_37      2 1 101 99 102
+BinaryOp                 add_13                   2 1 100 102 103 0=0
+Slice                    tensor_split_6           1 2 103 104 105 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_3                1 1 105 106
+TanH                     tanh_19                  1 1 104 107
+BinaryOp                 mul_14                   2 1 107 106 108 0=2
+BinaryOp                 add_15                   2 1 59 77 109 0=0
+BinaryOp                 add_16                   2 1 109 95 110 0=0
+Convolution1D            conv1d_41                1 1 108 111 0=192 1=1 2=1 3=1 4=0 5=1 6=36864
+BinaryOp                 add_17                   2 1 110 111 112 0=0
+BinaryOp                 mul_18                   2 1 112 56 113 0=2
+Convolution1D            conv1d_42                1 1 113 114 0=96 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_13             1 2 114 115 116
+Tensor.expand_as         Tensor.expand_as_38      2 1 15 115 117
+BinaryOp                 mul_19                   2 1 116 117 118 0=2
+modules.ResidualReverse  out                      4 1 2 118 25 26 119 0=1
+torch.flip               torch.flip_277           1 1 119 120
+Slice                    split_1                  1 2 120 121 122 -23300=2,96,96 1=1
+Split                    splitncnn_14             1 2 121 123 124
+Convolution1D            conv1d_43                1 1 124 125 0=192 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_15             1 2 125 126 127
+Tensor.expand_as         Tensor.expand_as_39      2 1 14 126 128
+BinaryOp                 mul_20                   2 1 127 128 129 0=2
+Split                    splitncnn_16             1 3 129 130 131 132
+Convolution1D            conv1d_44                1 1 21 133 0=1536 1=1 2=1 3=1 4=0 5=1 6=393216
+Split                    splitncnn_17             1 4 133 134 135 136 137
+Convolution1D            conv1d_45                1 1 132 138 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_18             1 2 138 139 140
+Crop                     slice_80                 1 1 137 141 -23310=1,384 -23311=1,0 -23309=1,0
+Tensor.expand_as         Tensor.expand_as_41      2 1 141 139 142
+BinaryOp                 add_21                   2 1 140 142 143 0=0
+Slice                    tensor_split_7           1 2 143 144 145 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_4                1 1 145 146
+TanH                     tanh_20                  1 1 144 147
+BinaryOp                 mul_22                   2 1 147 146 148 0=2
+Tensor.expand_as         Tensor.expand_as_40      2 1 13 130 149
+Split                    splitncnn_19             1 4 149 150 151 152 153
+Convolution1D            conv1d_46                1 1 148 154 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_8           1 2 154 155 156 -23300=2,192,-233 1=0
+BinaryOp                 add_23                   2 1 131 155 157 0=0
+BinaryOp                 mul_24                   2 1 157 150 158 0=2
+Split                    splitncnn_20             1 2 158 159 160
+Convolution1D            conv1d_47                1 1 160 161 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_21             1 2 161 162 163
+Crop                     slice_81                 1 1 136 164 -23310=1,768 -23311=1,0 -23309=1,384
+Tensor.expand_as         Tensor.expand_as_42      2 1 164 162 165
+BinaryOp                 add_25                   2 1 163 165 166 0=0
+Slice                    tensor_split_9           1 2 166 167 168 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_5                1 1 168 169
+TanH                     tanh_21                  1 1 167 170
+BinaryOp                 mul_26                   2 1 170 169 171 0=2
+Convolution1D            conv1d_48                1 1 171 172 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_10          1 2 172 173 174 -23300=2,192,-233 1=0
+BinaryOp                 add_27                   2 1 159 173 175 0=0
+BinaryOp                 mul_28                   2 1 175 151 176 0=2
+Split                    splitncnn_22             1 2 176 177 178
+Convolution1D            conv1d_49                1 1 178 179 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_23             1 2 179 180 181
+Crop                     slice_82                 1 1 135 182 -23310=1,1152 -23311=1,0 -23309=1,768
+Tensor.expand_as         Tensor.expand_as_43      2 1 182 180 183
+BinaryOp                 add_29                   2 1 181 183 184 0=0
+Slice                    tensor_split_11          1 2 184 185 186 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_6                1 1 186 187
+TanH                     tanh_22                  1 1 185 188
+BinaryOp                 mul_30                   2 1 188 187 189 0=2
+Convolution1D            conv1d_50                1 1 189 190 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_12          1 2 190 191 192 -23300=2,192,-233 1=0
+BinaryOp                 add_31                   2 1 177 191 193 0=0
+BinaryOp                 mul_32                   2 1 193 152 194 0=2
+Convolution1D            conv1d_51                1 1 194 195 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_24             1 2 195 196 197
+Crop                     slice_83                 1 1 134 198 -23310=1,1536 -23311=1,0 -23309=1,1152
+Tensor.expand_as         Tensor.expand_as_44      2 1 198 196 199
+BinaryOp                 add_33                   2 1 197 199 200 0=0
+Slice                    tensor_split_13          1 2 200 201 202 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_7                1 1 202 203
+TanH                     tanh_23                  1 1 201 204
+BinaryOp                 mul_34                   2 1 204 203 205 0=2
+BinaryOp                 add_35                   2 1 156 174 206 0=0
+BinaryOp                 add_36                   2 1 206 192 207 0=0
+Convolution1D            conv1d_52                1 1 205 208 0=192 1=1 2=1 3=1 4=0 5=1 6=36864
+BinaryOp                 add_37                   2 1 207 208 209 0=0
+BinaryOp                 mul_38                   2 1 209 153 210 0=2
+Convolution1D            conv1d_53                1 1 210 211 0=96 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_25             1 2 211 212 213
+Tensor.expand_as         Tensor.expand_as_45      2 1 12 212 214
+BinaryOp                 mul_39                   2 1 213 214 215 0=2
+modules.ResidualReverse  pnnx_unique_6            4 1 3 215 122 123 216 0=1
+torch.flip               torch.flip_278           1 1 216 217
+Slice                    split_2                  1 2 217 218 219 -23300=2,96,96 1=1
+Split                    splitncnn_26             1 2 218 220 221
+Convolution1D            conv1d_54                1 1 221 222 0=192 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_27             1 2 222 223 224
+Tensor.expand_as         Tensor.expand_as_46      2 1 11 223 225
+BinaryOp                 mul_40                   2 1 224 225 226 0=2
+Split                    splitncnn_28             1 3 226 227 228 229
+Convolution1D            conv1d_55                1 1 20 230 0=1536 1=1 2=1 3=1 4=0 5=1 6=393216
+Split                    splitncnn_29             1 4 230 231 232 233 234
+Convolution1D            conv1d_56                1 1 229 235 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_30             1 2 235 236 237
+Crop                     slice_84                 1 1 234 238 -23310=1,384 -23311=1,0 -23309=1,0
+Tensor.expand_as         Tensor.expand_as_48      2 1 238 236 239
+BinaryOp                 add_41                   2 1 237 239 240 0=0
+Slice                    tensor_split_14          1 2 240 241 242 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_8                1 1 242 243
+TanH                     tanh_24                  1 1 241 244
+BinaryOp                 mul_42                   2 1 244 243 245 0=2
+Tensor.expand_as         Tensor.expand_as_47      2 1 10 227 246
+Split                    splitncnn_31             1 4 246 247 248 249 250
+Convolution1D            conv1d_57                1 1 245 251 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_15          1 2 251 252 253 -23300=2,192,-233 1=0
+BinaryOp                 add_43                   2 1 228 252 254 0=0
+BinaryOp                 mul_44                   2 1 254 247 255 0=2
+Split                    splitncnn_32             1 2 255 256 257
+Convolution1D            conv1d_58                1 1 257 258 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_33             1 2 258 259 260
+Crop                     slice_85                 1 1 233 261 -23310=1,768 -23311=1,0 -23309=1,384
+Tensor.expand_as         Tensor.expand_as_49      2 1 261 259 262
+BinaryOp                 add_45                   2 1 260 262 263 0=0
+Slice                    tensor_split_16          1 2 263 264 265 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_9                1 1 265 266
+TanH                     tanh_25                  1 1 264 267
+BinaryOp                 mul_46                   2 1 267 266 268 0=2
+Convolution1D            conv1d_59                1 1 268 269 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_17          1 2 269 270 271 -23300=2,192,-233 1=0
+BinaryOp                 add_47                   2 1 256 270 272 0=0
+BinaryOp                 mul_48                   2 1 272 248 273 0=2
+Split                    splitncnn_34             1 2 273 274 275
+Convolution1D            conv1d_60                1 1 275 276 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_35             1 2 276 277 278
+Crop                     slice_86                 1 1 232 279 -23310=1,1152 -23311=1,0 -23309=1,768
+Tensor.expand_as         Tensor.expand_as_50      2 1 279 277 280
+BinaryOp                 add_49                   2 1 278 280 281 0=0
+Slice                    tensor_split_18          1 2 281 282 283 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_10               1 1 283 284
+TanH                     tanh_26                  1 1 282 285
+BinaryOp                 mul_50                   2 1 285 284 286 0=2
+Convolution1D            conv1d_61                1 1 286 287 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_19          1 2 287 288 289 -23300=2,192,-233 1=0
+BinaryOp                 add_51                   2 1 274 288 290 0=0
+BinaryOp                 mul_52                   2 1 290 249 291 0=2
+Convolution1D            conv1d_62                1 1 291 292 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_36             1 2 292 293 294
+Crop                     slice_87                 1 1 231 295 -23310=1,1536 -23311=1,0 -23309=1,1152
+Tensor.expand_as         Tensor.expand_as_51      2 1 295 293 296
+BinaryOp                 add_53                   2 1 294 296 297 0=0
+Slice                    tensor_split_20          1 2 297 298 299 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_11               1 1 299 300
+TanH                     tanh_27                  1 1 298 301
+BinaryOp                 mul_54                   2 1 301 300 302 0=2
+BinaryOp                 add_55                   2 1 253 271 303 0=0
+BinaryOp                 add_56                   2 1 303 289 304 0=0
+Convolution1D            conv1d_63                1 1 302 305 0=192 1=1 2=1 3=1 4=0 5=1 6=36864
+BinaryOp                 add_57                   2 1 304 305 306 0=0
+BinaryOp                 mul_58                   2 1 306 250 307 0=2
+Convolution1D            conv1d_64                1 1 307 308 0=96 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_37             1 2 308 309 310
+Tensor.expand_as         Tensor.expand_as_52      2 1 9 309 311
+BinaryOp                 mul_59                   2 1 310 311 312 0=2
+modules.ResidualReverse  pnnx_unique_10           4 1 4 312 219 220 313 0=1
+torch.flip               torch.flip_279           1 1 313 314
+Slice                    split_3                  1 2 314 315 316 -23300=2,96,96 1=1
+Split                    splitncnn_38             1 2 315 317 318
+Convolution1D            conv1d_65                1 1 318 319 0=192 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_39             1 2 319 320 321
+Tensor.expand_as         Tensor.expand_as_53      2 1 8 320 322
+BinaryOp                 mul_60                   2 1 321 322 323 0=2
+Split                    splitncnn_40             1 3 323 324 325 326
+Convolution1D            conv1d_66                1 1 19 327 0=1536 1=1 2=1 3=1 4=0 5=1 6=393216
+Split                    splitncnn_41             1 4 327 328 329 330 331
+Convolution1D            conv1d_67                1 1 326 332 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_42             1 2 332 333 334
+Crop                     slice_88                 1 1 331 335 -23310=1,384 -23311=1,0 -23309=1,0
+Tensor.expand_as         Tensor.expand_as_55      2 1 335 333 336
+BinaryOp                 add_61                   2 1 334 336 337 0=0
+Slice                    tensor_split_21          1 2 337 338 339 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_12               1 1 339 340
+TanH                     tanh_28                  1 1 338 341
+BinaryOp                 mul_62                   2 1 341 340 342 0=2
+Tensor.expand_as         Tensor.expand_as_54      2 1 7 324 343
+Split                    splitncnn_43             1 4 343 344 345 346 347
+Convolution1D            conv1d_68                1 1 342 348 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_22          1 2 348 349 350 -23300=2,192,-233 1=0
+BinaryOp                 add_63                   2 1 325 349 351 0=0
+BinaryOp                 mul_64                   2 1 351 344 352 0=2
+Split                    splitncnn_44             1 2 352 353 354
+Convolution1D            conv1d_69                1 1 354 355 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_45             1 2 355 356 357
+Crop                     slice_89                 1 1 330 358 -23310=1,768 -23311=1,0 -23309=1,384
+Tensor.expand_as         Tensor.expand_as_56      2 1 358 356 359
+BinaryOp                 add_65                   2 1 357 359 360 0=0
+Slice                    tensor_split_23          1 2 360 361 362 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_13               1 1 362 363
+TanH                     tanh_29                  1 1 361 364
+BinaryOp                 mul_66                   2 1 364 363 365 0=2
+Convolution1D            conv1d_70                1 1 365 366 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_24          1 2 366 367 368 -23300=2,192,-233 1=0
+BinaryOp                 add_67                   2 1 353 367 369 0=0
+BinaryOp                 mul_68                   2 1 369 345 370 0=2
+Split                    splitncnn_46             1 2 370 371 372
+Convolution1D            conv1d_71                1 1 372 373 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_47             1 2 373 374 375
+Crop                     slice_90                 1 1 329 376 -23310=1,1152 -23311=1,0 -23309=1,768
+Tensor.expand_as         Tensor.expand_as_57      2 1 376 374 377
+BinaryOp                 add_69                   2 1 375 377 378 0=0
+Slice                    tensor_split_25          1 2 378 379 380 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_14               1 1 380 381
+TanH                     tanh_30                  1 1 379 382
+BinaryOp                 mul_70                   2 1 382 381 383 0=2
+Convolution1D            conv1d_72                1 1 383 384 0=384 1=1 2=1 3=1 4=0 5=1 6=73728
+Slice                    tensor_split_26          1 2 384 385 386 -23300=2,192,-233 1=0
+BinaryOp                 add_71                   2 1 371 385 387 0=0
+BinaryOp                 mul_72                   2 1 387 346 388 0=2
+Convolution1D            conv1d_73                1 1 388 389 0=384 1=5 2=1 3=1 4=2 5=1 6=368640
+Split                    splitncnn_48             1 2 389 390 391
+Crop                     slice_91                 1 1 328 392 -23310=1,1536 -23311=1,0 -23309=1,1152
+Tensor.expand_as         Tensor.expand_as_58      2 1 392 390 393
+BinaryOp                 add_73                   2 1 391 393 394 0=0
+Slice                    tensor_split_27          1 2 394 395 396 -23300=2,192,-233 1=0
+Sigmoid                  sigmoid_15               1 1 396 397
+TanH                     tanh_31                  1 1 395 398
+BinaryOp                 mul_74                   2 1 398 397 399 0=2
+BinaryOp                 add_75                   2 1 350 368 400 0=0
+BinaryOp                 add_76                   2 1 400 386 401 0=0
+Convolution1D            conv1d_74                1 1 399 402 0=192 1=1 2=1 3=1 4=0 5=1 6=36864
+BinaryOp                 add_77                   2 1 401 402 403 0=0
+BinaryOp                 mul_78                   2 1 403 347 404 0=2
+Convolution1D            conv1d_75                1 1 404 405 0=96 1=1 2=1 3=1 4=0 5=1 6=18432
+Split                    splitncnn_49             1 2 405 406 407
+Tensor.expand_as         Tensor.expand_as_59      2 1 6 406 408
+BinaryOp                 mul_79                   2 1 407 408 409 0=2
+modules.ResidualReverse  pnnx_unique_14           4 1 5 409 316 317 out0 0=1
