@@ -25,6 +25,9 @@ OpenAI Key [地址](https://platform.openai.com/account/api-keys)
 ### Live2D 模型
 如果需要的话需自行更改 Live2D/src/assets/Hiyori/ 下的内容，暂未添加本地读取功能
 
+### 示例图
+<img src="https://user-images.githubusercontent.com/30189805/219956344-bdaca0c6-8cc4-474a-9c6b-f0dae76dffbe.png" width="256"><img src="https://user-images.githubusercontent.com/30189805/219956378-1c87a8f6-fa38-4cc5-a6de-59da2d4519b8.png" width="256">
+
 # 免责声明
   **1、模型禁止商用！**
   
