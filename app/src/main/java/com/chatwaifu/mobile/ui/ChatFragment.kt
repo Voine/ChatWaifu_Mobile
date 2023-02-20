@@ -64,6 +64,9 @@ class ChatFragment : Fragment() {
                 ChatActivityViewModel.ChatStatus.GENERATE_SOUND ->{
                     showToast("generating sound...")
                 }
+                ChatActivityViewModel.ChatStatus.TRANSLATE -> {
+                    showToast("translating....")
+                }
                 else ->{
                     //ignored
                 }
@@ -84,7 +87,6 @@ class ChatFragment : Fragment() {
             viewModel.sendMessage(sendText)
             listAdapter.items.add(ListBean(isGpt = false, sendText))
             listAdapter.notifyItemChanged(listAdapter.items.size - 1)
-            binding.inputEditText.clearFocus()
             binding.inputEditText.setText("")
         }
     }

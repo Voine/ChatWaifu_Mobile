@@ -14,6 +14,7 @@ import androidx.core.view.GravityCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import com.chatwaifu.mobile.databinding.ActivityChatBinding
+import com.chatwaifu.mobile.ui.BaiduTranslateKeyDialogFragment
 import com.chatwaifu.mobile.ui.ChatFragment
 import com.chatwaifu.mobile.ui.PrivateKeyDialogFragment
 import com.chatwaifu.mobile.ui.showToast
@@ -58,6 +59,11 @@ class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         when (item.itemId) {
             R.id.nav_add_key ->{
                 val dialog = PrivateKeyDialogFragment.newInstance()
+                dialog.isCancelable = true
+                dialog.show(supportFragmentManager, null)
+            }
+            R.id.nav_translate_setting -> {
+                val dialog = BaiduTranslateKeyDialogFragment.newInstance()
                 dialog.isCancelable = true
                 dialog.show(supportFragmentManager, null)
             }

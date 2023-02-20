@@ -4,27 +4,29 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
 import com.chatwaifu.mobile.ChatActivityViewModel
-import com.chatwaifu.mobile.databinding.PrivateKeyDialogBinding
+import com.chatwaifu.mobile.R
+import com.chatwaifu.mobile.databinding.BaiduTranslateKeyDialogBinding
 
 /**
  * Description: PrivateKeyDialogFragment
  * Author: Voine
  * Date: 2023/2/19
  */
-class PrivateKeyDialogFragment : DialogFragment() {
+class BaiduTranslateKeyDialogFragment : DialogFragment() {
 
     private val viewModel: ChatActivityViewModel by activityViewModels()
-    lateinit var binding: PrivateKeyDialogBinding
+    lateinit var binding: BaiduTranslateKeyDialogBinding
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        binding = PrivateKeyDialogBinding.inflate(inflater, container, false)
+        binding = BaiduTranslateKeyDialogBinding.inflate(inflater, container, false)
         initView()
         return binding.root
     }
@@ -39,20 +41,21 @@ class PrivateKeyDialogFragment : DialogFragment() {
 
     private fun initView() {
         binding.inputConfirmBtn.setOnClickListener {
-            val currentText = binding.inputPrivateKey.text.toString()
-            if (currentText.isBlank()) {
-                showToast("empty key...")
+            val inputId = binding.inputAppid.text.toString()
+            val inputKey = binding.inputKey.text.toString()
+            if (inputId.isNotBlank() && inputKey.isNotBlank()) {
+                viewModel.setBaiduTranslate(inputId, inputKey)
+                dismiss()
                 return@setOnClickListener
             }
-            viewModel.setPrivateKey(currentText)
-            dismiss()
+            showToast("Error inputId or inputKey")
         }
     }
 
 
-    companion object{
-        fun newInstance(): PrivateKeyDialogFragment {
-            return PrivateKeyDialogFragment()
+    companion object {
+        fun newInstance(): BaiduTranslateKeyDialogFragment {
+            return BaiduTranslateKeyDialogFragment()
         }
     }
 }

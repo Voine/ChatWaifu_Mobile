@@ -8,5 +8,10 @@
             android:id="@+id/nav_add_key"
             android:icon="@drawable/ic_nav_key"
             android:title="Private Key" />
+
+        <item
+            android:id="@+id/nav_translate_setting"
+            android:icon="@drawable/translate_icon"
+            android:title="Translate Setting" />
     </group>
 </menu>

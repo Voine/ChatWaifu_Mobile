@@ -5,7 +5,8 @@
 Android 手机版的 ChatGPT 二次元聊天器，目前仍是一个相当简陋的 app。\
 内置 Blue Archive 优香语音，Live 2D 为官方模型 Hiyori，会自动播放 ChatGPT 的回复，由于内置为日语模型，其他语言的播放效果可能相当一言难尽。
 - 集成 GhatGPT + VITS + Live2D
-- 目前暂时只是把这三个功能连了起来，Live2D 也是播放的随机表情。日志记录，表情驱动，情感分析什么的，后面有空再搞把...
+- 接了翻译功能，如需则自行设置 appid 和 key，详见下文
+- 目前暂时只是把这几个功能连了起来，Live2D 也是播放的随机表情。日志记录，表情驱动，情感分析什么的，后面有空再搞把...
 
 ## 关于 ChatGPT
 内置了一个 private key，不过估计很快就会用完罢（悲\
@@ -24,6 +25,10 @@ OpenAI Key [地址](https://platform.openai.com/account/api-keys)
 
 ### Live2D 模型
 如果需要的话需自行更改 Live2D/src/assets/Hiyori/ 下的内容，暂未添加本地读取功能
+
+## 关于翻译
+设置后会默认将 GPT 输出的语言翻译成日文交给 VITS，否则内置的优香模型说别的语言可能基本不出声... \
+接了 baidu 翻译，可以免费申请一个开发者账号 [这里](https://api.fanyi.baidu.com/) ，将申请到的 appid 和 密钥填到菜单栏 translate setting 里应该就行了。
 
 ### 示例图
 <img src="https://user-images.githubusercontent.com/30189805/219956344-bdaca0c6-8cc4-474a-9c6b-f0dae76dffbe.png" width="256"><img src="https://user-images.githubusercontent.com/30189805/219956378-1c87a8f6-fa38-4cc5-a6de-59da2d4519b8.png" width="256">

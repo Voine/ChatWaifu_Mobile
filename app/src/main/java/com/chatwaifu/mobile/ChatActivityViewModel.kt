@@ -10,6 +10,8 @@ import com.chatwaifu.chatgpt.ChatGPTNetService
 import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.ui.showToast
+import com.chatwaifu.translate.ITranslate
+import com.chatwaifu.translate.baidu.BaiduTranslateService
 import com.chatwaifu.vits.utils.SoundGenerateHelper
 import com.chatwaifu.vits.utils.file.copyAssets2Local
 import kotlinx.coroutines.CancellableContinuation
@@ -34,6 +36,7 @@ class ChatActivityViewModel: ViewModel() {
         DEFAULT,
         FETCH_INPUT,
         SEND_REQUEST,
+        TRANSLATE,
         GENERATE_SOUND,
         PLAY_SOUND
     }
@@ -52,6 +55,7 @@ class ChatActivityViewModel: ViewModel() {
     private val sharedPreferences: SharedPreferences  by lazy {
         ChatWaifuApplication.context.getSharedPreferences("PRIVATE_KEY_STORE", Context.MODE_PRIVATE)
     }
+    private var translate: ITranslate? = null
 
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -64,8 +68,11 @@ class ChatActivityViewModel: ViewModel() {
                 val response = sendChatGPTRequest(input)
                 chatResponseLiveData.postValue(response)
 
+                val responseText = response?.choices?.firstOrNull()?.text
+                val translateText = fetchTranslateIfNeed(responseText)
+
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
-                generateSound(response)
+                generateSound(translateText)
 
                 chatStatusLiveData.postValue(ChatStatus.PLAY_SOUND)
                 playSound()
@@ -82,6 +89,14 @@ class ChatActivityViewModel: ViewModel() {
     fun setPrivateKey(currentText: String) {
         sharedPreferences.edit().putString(SAVED_KEY, currentText).apply()
         chatGPTNetService?.setPrivateKey(currentText)
+    }
+
+    fun setBaiduTranslate(appid: String, privateKey: String){
+        translate = BaiduTranslateService(
+            ChatWaifuApplication.context,
+            appid = appid,
+            privateKey = privateKey
+        )
     }
 
     //init yuuka sound~
@@ -141,8 +156,18 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    private suspend fun generateSound(response: ChatGPTResponseData?) {
-        val needPlayText = response?.choices?.firstOrNull()?.text
+    private suspend fun fetchTranslateIfNeed(responseText: String?): String? {
+        translate ?: return responseText
+        responseText ?: return null
+        chatStatusLiveData.postValue(ChatStatus.TRANSLATE)
+        return suspendCancellableCoroutine {
+            translate?.getTranslateResult(responseText){result ->
+                it.safeResume(result)
+            }
+        }
+    }
+
+    private suspend fun generateSound(needPlayText: String?) {
         val result = suspendCancellableCoroutine {
             vitsHelper.generate(needPlayText) { isSuccess ->
                 it.safeResume(isSuccess)
