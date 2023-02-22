@@ -47,7 +47,6 @@ class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         } else {
             chatViewModel.initYuuka()
         }
-        chatViewModel.setBaiduTranslate("20230220001569033","yF7uQIuBYgY13SfnbY3U")
     }
 
     private fun showBaseFragment() {
