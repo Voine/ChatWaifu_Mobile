@@ -169,6 +169,7 @@ class ChatActivityViewModel: ViewModel() {
 
     private suspend fun generateSound(needPlayText: String?) {
         val result = suspendCancellableCoroutine {
+            vitsHelper.stop()
             vitsHelper.generate(needPlayText) { isSuccess ->
                 it.safeResume(isSuccess)
             }

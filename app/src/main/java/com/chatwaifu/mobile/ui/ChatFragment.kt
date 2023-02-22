@@ -77,10 +77,6 @@ class ChatFragment : Fragment() {
     }
 
     private fun onSendBtnClick() {
-        if (viewModel.chatStatusLiveData.value != ChatActivityViewModel.ChatStatus.FETCH_INPUT) {
-            showToast("can't send msg now...")
-            return
-        }
         val sendText = binding.inputEditText.text.toString()
         if (sendText.isNotBlank()) {
             Log.d(TAG, "try to send msg $sendText")

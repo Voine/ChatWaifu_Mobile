@@ -59,9 +59,9 @@ class PlayerUtils {
     private fun writeChunk(){
         if (audio != null){
             for (chunkId in 0 until audio!!.size step chunkSize){
-                val end = min(chunkId+chunkSize, audio!!.size)
+                val end = min(chunkId + chunkSize, audio!!.size)
                 val slicedAudio =  audio!!.sliceArray(chunkId until end)
-                audioTrack!!.write( slicedAudio, 0, chunkSize, AudioTrack.WRITE_BLOCKING)
+                audioTrack!!.write( slicedAudio, 0, slicedAudio.size, AudioTrack.WRITE_BLOCKING)
             }
         }
     }
@@ -72,21 +72,14 @@ class PlayerUtils {
             audioTrack?.play()
             Log.i("AudioTrack", "start playing!")
             isPlaying = true
-            thread {
-                writeChunk()
-                isPlaying = false
-            }
+            writeChunk()
+            isPlaying = false
         }
-    }
-
-
-    fun release() {
-        audioTrack?.release()
-        audio = null
     }
 
     fun stop() {
         audioTrack?.stop()
+        audioTrack?.release()
         isPlaying = false
     }
 }

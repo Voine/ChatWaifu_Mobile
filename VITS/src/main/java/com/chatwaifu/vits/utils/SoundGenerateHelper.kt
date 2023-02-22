@@ -29,8 +29,8 @@ class SoundGenerateHelper(val context: Context) {
     private var n_vocab: Int = 0
     private var maxSpeaker = 1
     private var multi = true
-    private var noiseScale: Float = .667f
-    private var noiseScaleW: Float = .8f
+    private var noiseScale: Float = .9f
+    private var noiseScaleW: Float = .9f
     private var lengthScale: Float = 1f
     private var sid = 0
     private var modelInitState: Boolean = false
@@ -187,7 +187,7 @@ class SoundGenerateHelper(val context: Context) {
     }
 
     fun clear() {
-        playerUtils.release()
+        playerUtils.stop()
         modelInitState = false
         config = null
         audioArray.clear()

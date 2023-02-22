@@ -10,7 +10,7 @@ import okhttp3.Response
  * Date: 2023/2/18
  */
 class ChatGPTInterceptor: Interceptor {
-    var privateKey: String = "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"
+    var privateKey: String = "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"
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
