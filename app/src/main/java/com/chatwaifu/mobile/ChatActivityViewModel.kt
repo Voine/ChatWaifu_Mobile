@@ -72,10 +72,7 @@ class ChatActivityViewModel: ViewModel() {
                 val translateText = fetchTranslateIfNeed(responseText)
 
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
-                generateSound(translateText)
-
-                chatStatusLiveData.postValue(ChatStatus.PLAY_SOUND)
-                playSound()
+                generateAndPlaySound(translateText)
             }
         }
     }
@@ -167,21 +164,12 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    private suspend fun generateSound(needPlayText: String?) {
-        val result = suspendCancellableCoroutine {
-            vitsHelper.stop()
-            vitsHelper.generate(needPlayText) { isSuccess ->
-                it.safeResume(isSuccess)
-            }
+    private fun generateAndPlaySound(needPlayText: String?) {
+        vitsHelper.generateAndPlay(needPlayText){ isSuccess ->
+            Log.d(TAG, "generate sound $isSuccess")
         }
-        generateSoundLiveData.postValue(result)
-        return
     }
 
-    private fun playSound() {
-        vitsHelper.stop()
-        vitsHelper.play()
-    }
 
     override fun onCleared() {
         vitsHelper.clear()

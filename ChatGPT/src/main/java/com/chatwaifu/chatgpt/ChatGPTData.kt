@@ -15,8 +15,8 @@ data class ChatGPTRequestData(
 ) {
     companion object {
         private const val DEFAULT_MODEL = "text-davinci-003"
-        private const val DEFAULT_TEMPERATURE = 0
-        private const val DEFAULT_MAX_TOKENS = 50
+        private const val DEFAULT_TEMPERATURE = 1
+        private const val DEFAULT_MAX_TOKENS = 2048
     }
 
     fun toRequestBody(): RequestBody {

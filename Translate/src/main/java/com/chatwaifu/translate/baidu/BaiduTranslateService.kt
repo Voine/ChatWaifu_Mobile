@@ -44,11 +44,15 @@ class BaiduTranslateService(
 
     override fun getTranslateResult(input: String, callback: (result: String?) -> Unit) {
         if (appid == null || privateKey == null) {
-            return
+            return callback.invoke(null)
         }
-        sign = DigestUtils.md5("$appid$input$salt$privateKey")
+        val startIndex  = input.indexOfFirst { it.isLetterOrDigit() }
+        val endIndex = input.indexOfLast { it.isLetterOrDigit() }
+        val realInput = input.substring(startIndex, endIndex + 1).trimIndent()
+
+        sign = DigestUtils.md5("$appid$realInput$salt$privateKey")
         val call = baiduNetService.getTranslateResult(
-            input,
+            realInput,
             fromLanguage,
             toLanguage,
             appid!!,

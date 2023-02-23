@@ -3,9 +3,9 @@ package com.chatwaifu.vits.utils
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
+import com.chatwaifu.vits.SoundPlayHandler
 import com.chatwaifu.vits.Vits
 import com.chatwaifu.vits.data.Config
-import com.chatwaifu.vits.utils.audio.PlayerUtils
 import com.chatwaifu.vits.utils.file.FileUtils
 import com.chatwaifu.vits.utils.text.ChineseTextUtils
 import com.chatwaifu.vits.utils.text.JapaneseTextUtils
@@ -21,10 +21,8 @@ class SoundGenerateHelper(val context: Context) {
         private const val TAG = "SoundGenerateHelper"
     }
 
-    private val audioArray = ArrayList<Float>()
     private var textUtils: TextUtils? = null
     private var config: Config? = null
-    private val playerUtils = PlayerUtils()
     private var samplingRate = 22050
     private var n_vocab: Int = 0
     private var maxSpeaker = 1
@@ -38,6 +36,9 @@ class SoundGenerateHelper(val context: Context) {
     private var targetFolder: String = ""
     private val currentThreadCount: Int by lazy {
         VitsUtils.checkThreadsCpp()
+    }
+    private val soundHandler: SoundPlayHandler by lazy {
+        SoundPlayHandler()
     }
 
     // load config file
@@ -73,8 +74,7 @@ class SoundGenerateHelper(val context: Context) {
             if (textUtils == null) {
                 throw RuntimeException("暂不支持${cleanerName}")
             }
-
-            playerUtils.setTrackData(config!!.data!!.sampling_rate!!, 1)
+            soundHandler.setTrackData(config!!.data!!.sampling_rate!!, 1)
             callback.invoke(true)
         } else {
             callback.invoke(false)
@@ -125,42 +125,28 @@ class SoundGenerateHelper(val context: Context) {
 
     // processing inputs
     @SuppressLint("SetTextI18n")
-    fun generate(text: String?, callback: (isSuccess: Boolean) -> Unit) {
+    fun generateAndPlay(text: String?, callback: (isSuccess: Boolean) -> Unit) {
         text ?: return callback.invoke(false)
-        audioArray.clear()
         try {
             // convert inputs
             val inputs = textUtils?.convertText(text)
-
             if (inputs != null && inputs.isNotEmpty()) {
 
                 // inference for each sentence
                 for (i in inputs.indices) {
                     // start inference
-                    val output =
-                        Vits.forward(
-                            inputs[i],
-                            vulkan = false,
-                            multi,
-                            sid,
-                            noiseScale,
-                            noiseScaleW,
-                            lengthScale,
-                            currentThreadCount
-                        )
-
-                    if (output != null) {
-                        audioArray.addAll(output.toList())
+                    Vits.forward(
+                        inputs[i],
+                        vulkan = false,
+                        multi,
+                        sid,
+                        noiseScale,
+                        noiseScaleW,
+                        lengthScale,
+                        currentThreadCount
+                    )?.let {
+                        soundHandler.sendSound(it)
                     }
-                }
-
-                // prepare data
-                playerUtils.createAudioTrack(audioArray.toFloatArray())
-
-                // show play button and export button
-                if (audioArray.isEmpty()) {
-                    Log.e(TAG, "audio arr is empty")
-                    return callback.invoke(false)
                 }
                 return callback.invoke(true)
             }
@@ -171,26 +157,10 @@ class SoundGenerateHelper(val context: Context) {
         }
     }
 
-
-    fun play() {
-        if (!playerUtils.isPlaying) {
-            playerUtils.start()
-        } else {
-            playerUtils.stop()
-        }
-    }
-
-    fun stop() {
-        if (playerUtils.isPlaying) {
-            playerUtils.stop()
-        }
-    }
-
     fun clear() {
-        playerUtils.stop()
+        soundHandler.release()
         modelInitState = false
         config = null
-        audioArray.clear()
         Log.i("helper", "cleared!")
     }
 }

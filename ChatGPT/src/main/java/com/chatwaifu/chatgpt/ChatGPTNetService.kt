@@ -9,6 +9,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 /**
  * Description: ChatGPTNetService
@@ -19,6 +20,7 @@ class ChatGPTNetService(val context: Context) {
     companion object {
         private const val TAG = "ChatGPTNetService"
         private const val CHATGPT_BASE_URL = "https://api.openai.com/"
+        private const val TIME_OUT_SECOND = 100L
     }
 
     private val interceptor = ChatGPTInterceptor()
@@ -62,6 +64,9 @@ class ChatGPTNetService(val context: Context) {
 
     private fun createClient(): OkHttpClient {
         return OkHttpClient.Builder().run {
+            readTimeout(TIME_OUT_SECOND, TimeUnit.SECONDS)
+            connectTimeout(TIME_OUT_SECOND,TimeUnit.SECONDS)
+            writeTimeout(TIME_OUT_SECOND, TimeUnit.SECONDS)
             addInterceptor(interceptor)
             build()
         }
