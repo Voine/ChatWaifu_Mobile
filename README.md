@@ -46,7 +46,9 @@ live2d 模型的名字与需要与 vits 模型的目录名一致
 接了 baidu 翻译，可以免费申请一个开发者账号 [这里](https://api.fanyi.baidu.com/) ，将申请到的 appid 和 密钥填到登录页的第二第三栏，或者在左上角菜单里选取 setting ，进行更改就行了
 ### 示例图
 <img width="256" src="https://user-images.githubusercontent.com/30189805/221414807-11e1ca0e-4046-4702-a730-b80dbf8c4102.png"><img width="256" src="https://user-images.githubusercontent.com/30189805/221415390-1a75a515-912b-4024-9a16-9118fb897175.png">
-<img src="https://user-images.githubusercontent.com/30189805/219956344-bdaca0c6-8cc4-474a-9c6b-f0dae76dffbe.png" width="256">
+<img src="https://user-images.githubusercontent.com/30189805/221416029-7247c2eb-3973-49f4-bdb4-7a2cf81ae74a.png" width="256">
+
+
 # 免责声明
   **1、模型禁止商用！**
   
