@@ -59,6 +59,7 @@ class LoginActivity : AppCompatActivity() {
         Intent(this, ChatActivity::class.java).apply {
             startActivity(this)
         }
+        finish()
     }
 
     private fun jumpToNextInBuildIfNeed() {
