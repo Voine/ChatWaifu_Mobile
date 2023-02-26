@@ -9,11 +9,13 @@ import androidx.lifecycle.viewModelScope
 import com.chatwaifu.chatgpt.ChatGPTNetService
 import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.mobile.application.ChatWaifuApplication
+import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.ui.ChannelListBean
 import com.chatwaifu.mobile.ui.showToast
+import com.chatwaifu.mobile.utils.LocalModelManager
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
 import com.chatwaifu.vits.utils.SoundGenerateHelper
-import com.chatwaifu.vits.utils.file.copyAssets2Local
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,7 +32,6 @@ import kotlin.coroutines.resume
 class ChatActivityViewModel: ViewModel() {
     companion object {
         private const val TAG = "ChatActivityViewModel"
-        private const val SAVED_KEY = "saved_key"
     }
     enum class ChatStatus{
         DEFAULT,
@@ -38,12 +39,18 @@ class ChatActivityViewModel: ViewModel() {
         SEND_REQUEST,
         TRANSLATE,
         GENERATE_SOUND,
-        PLAY_SOUND
     }
 
     val chatStatusLiveData = MutableLiveData<ChatStatus>().apply { value = ChatStatus.DEFAULT }
     val chatResponseLiveData = MutableLiveData<ChatGPTResponseData?>()
     val generateSoundLiveData = MutableLiveData<Boolean>()
+    val initModelResultLiveData = MutableLiveData<List<ChannelListBean>>()
+    val loadVITSModelLiveData = MutableLiveData<Boolean>().apply { value = false }
+    val loadingUILiveData = MutableLiveData<Pair<Boolean, String>>()
+
+    var currentLive2DModelPath: String = ""
+    var currentLive2DModelName: String = ""
+    var currentVITSModelName: String = ""
 
     var inputFunc: ((input: String) -> Unit)? = null
     private val chatGPTNetService: ChatGPTNetService? by lazy {
@@ -52,14 +59,24 @@ class ChatActivityViewModel: ViewModel() {
     private val vitsHelper: SoundGenerateHelper by lazy {
         SoundGenerateHelper(ChatWaifuApplication.context)
     }
-    private val sharedPreferences: SharedPreferences  by lazy {
-        ChatWaifuApplication.context.getSharedPreferences("PRIVATE_KEY_STORE", Context.MODE_PRIVATE)
+    private val localModelManager: LocalModelManager by lazy {
+        LocalModelManager()
+    }
+    private val sp: SharedPreferences by lazy {
+        ChatWaifuApplication.context.getSharedPreferences(Constant.SAVED_STORE, Context.MODE_PRIVATE)
     }
     private var translate: ITranslate? = null
 
+    fun refreshAllKeys() {
+        sp.getString(Constant.SAVED_CHAT_KEY, null)?.let {
+            chatGPTNetService?.setPrivateKey(it)
+        }
+        val translateAppId = sp.getString(Constant.SAVED_TRANSLATE_APP_ID, null)
+        val translateKey = sp.getString(Constant.SAVED_TRANSLATE_KEY, null)
+        setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
+    }
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
-            initPrivateKey()
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
@@ -83,12 +100,7 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    fun setPrivateKey(currentText: String) {
-        sharedPreferences.edit().putString(SAVED_KEY, currentText).apply()
-        chatGPTNetService?.setPrivateKey(currentText)
-    }
-
-    fun setBaiduTranslate(appid: String, privateKey: String){
+    private fun setBaiduTranslate(appid: String, privateKey: String){
         translate = BaiduTranslateService(
             ChatWaifuApplication.context,
             appid = appid,
@@ -96,46 +108,44 @@ class ChatActivityViewModel: ViewModel() {
         )
     }
 
-    //init yuuka sound~
-    fun initYuuka() {
-        //copy yuuka to local...
-        var yuukaPath = ""
-        var srcPath = "model/yuuka"
-        ChatWaifuApplication.context.copyAssets2Local(
-            deleteIfExists = true,
-            srcPath = srcPath,
-            desPath = ChatWaifuApplication.baseAppDir + File.separator
-        ) { isSuccess: Boolean, absPath: String ->
-            if (!isSuccess) {
-                showToast("copy yuuka to disk failed....")
-                return@copyAssets2Local
-            }
-            yuukaPath = absPath + File.separator + srcPath
-        }
-        Log.d(TAG, "save yuuka to local success..")
-        val rootFiles = File(yuukaPath).listFiles()
-        //load yuuka ~
-        loadVitsModel(rootFiles?.toList())
-    }
 
-    private fun loadVitsModel(rootFiles: List<File>?) {
-        vitsHelper.loadConfigs(rootFiles?.find { it.name.endsWith("json") }?.absolutePath) { isSuccess ->
-            if (!isSuccess) {
-                showToast("load vits config failed..")
-            }
-        }
-        vitsHelper.loadModel(rootFiles?.find { it.name.endsWith("bin") }?.absolutePath) { isSuccess ->
-            if (!isSuccess) {
-                showToast("load vits model failed..")
-            }
+    fun initModel(context: Context) {
+        initModelResultLiveData.postValue(emptyList())
+        loadingUILiveData.postValue(Pair(true, "Init Models...."))
+        viewModelScope.launch(Dispatchers.IO) {
+            val finalModelList = mutableListOf<ChannelListBean>()
+            localModelManager.initInnerModel(context, finalModelList)
+            localModelManager.initExternalModel(context, finalModelList)
+            initModelResultLiveData.postValue(finalModelList)
+            loadingUILiveData.postValue(Pair(false, ""))
         }
     }
 
-    private fun initPrivateKey() {
-        val savedLocalKey = sharedPreferences.getString(SAVED_KEY, null)
-        setPrivateKey(savedLocalKey ?: return)
-    }
+    fun loadVitsModel(rootFiles: List<File>?) {
+        loadVITSModelLiveData.postValue(false)
+        loadingUILiveData.postValue(Pair(true, "Load VITS Model...."))
+        viewModelScope.launch(Dispatchers.IO) {
+            suspendCancellableCoroutine<Unit> {
+                vitsHelper.loadConfigs(rootFiles?.find { it.name.endsWith("json") }?.absolutePath) { isSuccess ->
+                    if (!isSuccess) {
+                        showToast("load vits config failed..")
+                    }
+                }
+                it.safeResume(Unit)
+            }
 
+            suspendCancellableCoroutine<Unit> {
+                vitsHelper.loadModel(rootFiles?.find { it.name.endsWith("bin") }?.absolutePath) { isSuccess ->
+                    if (!isSuccess) {
+                        showToast("load vits model failed..")
+                    }
+                }
+                it.safeResume(Unit)
+            }
+            loadVITSModelLiveData.postValue(true)
+            loadingUILiveData.postValue(Pair(false, ""))
+        }
+    }
 
     private suspend fun fetchInput(): String {
         return suspendCancellableCoroutine {
@@ -167,9 +177,11 @@ class ChatActivityViewModel: ViewModel() {
     private fun generateAndPlaySound(needPlayText: String?) {
         vitsHelper.generateAndPlay(needPlayText){ isSuccess ->
             Log.d(TAG, "generate sound $isSuccess")
+            if (chatStatusLiveData.value == ChatStatus.GENERATE_SOUND) {
+                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+            }
         }
     }
-
 
     override fun onCleared() {
         vitsHelper.clear()

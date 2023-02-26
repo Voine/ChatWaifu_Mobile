@@ -17,6 +17,9 @@ android {
         targetSdk 31
         versionCode 3
         versionName "1.2.1"
+        buildConfigField "String","CHAT_CHPT_KEY","${readLocalProperties("CHAT_CPT_KEY")}"
+        buildConfigField "String","TRANSLATE_APP_ID","${readLocalProperties("TRANSLATE_APP_ID")}"
+        buildConfigField "String","TRANSLATE_KEY","${readLocalProperties("TRANSLATE_KEY")}"
     }
 
     buildTypes {
@@ -60,4 +63,23 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.4.1'
     implementation 'androidx.navigation:navigation-fragment-ktx:2.4.1'
     implementation 'com.belerweb:pinyin4j:2.5.0'
+    implementation "io.coil-kt:coil:2.1.0"
+    implementation "io.getstream:stream-chat-android-ui-components:5.8.2"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.5.1"
+    implementation "androidx.activity:activity-ktx:1.5.1"
+    implementation 'androidx.annotation:annotation:1.3.0'
+}
+
+def readLocalProperties(String key) {
+    Properties local = new Properties()
+    String result = "\"\""
+    try {
+        local.load(new FileInputStream("${rootDir}/local.properties"))
+        result = local.getProperty(key) ?: result
+    } catch (Exception e) {
+        println(e.getMessage())
+        return ""
+    }
+    println("read local key...$key value is $result")
+    return result
 }

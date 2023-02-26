@@ -48,7 +48,7 @@ class BaiduTranslateService(
         }
         val startIndex  = input.indexOfFirst { it.isLetterOrDigit() }
         val endIndex = input.indexOfLast { it.isLetterOrDigit() }
-        val realInput = input.substring(startIndex, endIndex + 1).trimIndent()
+        val realInput = input.substring(startIndex, endIndex + 1).replace("\n","").trimIndent()
 
         sign = DigestUtils.md5("$appid$realInput$salt$privateKey")
         val call = baiduNetService.getTranslateResult(

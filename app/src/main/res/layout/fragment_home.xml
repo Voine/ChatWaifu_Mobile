@@ -4,45 +4,109 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.ChatFragment">
+    tools:context=".ui.chat.ChatFragment">
 
     <android.opengl.GLSurfaceView
         android:id="@+id/live2d_render_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/chat_log_list"
+    <View
+        android:id="@+id/show_text_bg"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        app:layout_constraintBottom_toTopOf="@id/input_edit_text"
-        android:background="#66000000" />
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="15dp"
+        android:background="@drawable/chat_show_shape"
+        app:layout_constraintBottom_toTopOf="@id/edit_bg" />
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/show_msg_character"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:paddingStart="15dp"
+        android:paddingEnd="15dp"
+        android:textSize="18sp"
+        android:textColor="@color/white"
+        app:layout_constraintEnd_toEndOf="@id/show_text_bg"
+        app:layout_constraintStart_toStartOf="@id/show_text_bg"
+        app:layout_constraintTop_toTopOf="@id/show_text_bg"
+        tools:text="Hiyori: " />
+
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:paddingStart="40dp"
+        android:paddingEnd="40dp"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@id/show_msg_response_sate"
+        app:layout_constraintEnd_toEndOf="@id/show_text_bg"
+        app:layout_constraintStart_toStartOf="@id/show_text_bg"
+        app:layout_constraintTop_toBottomOf="@id/show_msg_character">
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/show_msg_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:textColor="@color/white"
+            tools:text="this is a  text...." />
+    </ScrollView>
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/show_msg_response_sate"
+        android:layout_width="0dp"
+        android:layout_height="20dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:textColor="#CCCCCC"
+        app:layout_constraintBottom_toBottomOf="@id/show_text_bg"
+        app:layout_constraintEnd_toEndOf="@id/show_text_bg"
+        app:layout_constraintStart_toStartOf="@id/show_text_bg"
+        tools:text="send request...." />
+
+
+    <View
+        android:id="@+id/edit_bg"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:background="@color/white"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
     <EditText
         android:id="@+id/input_edit_text"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="50dp"
-        android:background="@color/white"
-        android:textAllCaps="false"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="10dp"
+        android:background="@drawable/shape_edit_text_round"
+        android:hint="type your msg here"
         android:paddingStart="10dp"
+        android:textAllCaps="false"
         android:textColor="@color/black"
         android:textColorHint="#66000000"
-        android:hint="type your msg here"
+        android:textSize="12sp"
         android:theme="@style/ThemeOverlay.Material3.TextInputEditText"
-        app:layout_constraintBottom_toBottomOf="parent"/>
-
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/send_msg_button"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/send_msg_button"
         android:layout_width="100dp"
         android:layout_height="30dp"
         android:layout_marginEnd="10dp"
+        android:background="@drawable/chat_edit_shape"
+        android:backgroundTint="@color/cardview_dark_background"
         android:text="Send"
         android:textAllCaps="false"
         android:textColor="@color/white"
-        android:background="@color/cardview_dark_background"
-        app:layout_constraintEnd_toEndOf="@id/input_edit_text"
-        app:layout_constraintTop_toTopOf="@id/input_edit_text"
-        app:layout_constraintBottom_toBottomOf="@id/input_edit_text" />
+        app:layout_constraintBottom_toBottomOf="@id/input_edit_text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/input_edit_text" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
