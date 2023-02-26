@@ -1,6 +1,7 @@
 package com.chatwaifu.mobile.utils
 
 import android.content.Context
+import android.os.Environment
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
@@ -85,7 +86,7 @@ class LocalModelManager {
 
 
     fun initExternalModel(context: Context, finalModelList: MutableList<ChannelListBean>) {
-        val chatWaifuExternalDir = "${context.getExternalFilesDir(null)}"
+        val chatWaifuExternalDir = Environment.getExternalStorageDirectory().path
         val externalLive2dModels =
             File(chatWaifuExternalDir, Constant.EXTEND_LIVE2D_PATH).listFiles()
         val externalVITSModels = File(chatWaifuExternalDir, Constant.EXTEND_VITS_PATH).listFiles()

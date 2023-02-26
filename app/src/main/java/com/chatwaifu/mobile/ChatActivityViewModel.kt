@@ -10,6 +10,7 @@ import com.chatwaifu.chatgpt.ChatGPTNetService
 import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.ui.ChannelListBean
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.utils.LocalModelManager
@@ -45,7 +46,7 @@ class ChatActivityViewModel: ViewModel() {
     val chatResponseLiveData = MutableLiveData<ChatGPTResponseData?>()
     val generateSoundLiveData = MutableLiveData<Boolean>()
     val initModelResultLiveData = MutableLiveData<List<ChannelListBean>>()
-    val loadVITSModelLiveData = MutableLiveData<Boolean>().apply { value = false }
+    val loadVITSModelLiveData = MutableLiveData<VITSLoadStatus>()
     val loadingUILiveData = MutableLiveData<Pair<Boolean, String>>()
 
     var currentLive2DModelPath: String = ""
@@ -122,27 +123,20 @@ class ChatActivityViewModel: ViewModel() {
     }
 
     fun loadVitsModel(rootFiles: List<File>?) {
-        loadVITSModelLiveData.postValue(false)
         loadingUILiveData.postValue(Pair(true, "Load VITS Model...."))
         viewModelScope.launch(Dispatchers.IO) {
-            suspendCancellableCoroutine<Unit> {
+            val configResult = suspendCancellableCoroutine<Boolean> {
                 vitsHelper.loadConfigs(rootFiles?.find { it.name.endsWith("json") }?.absolutePath) { isSuccess ->
-                    if (!isSuccess) {
-                        showToast("load vits config failed..")
-                    }
+                    it.safeResume(isSuccess)
                 }
-                it.safeResume(Unit)
             }
 
-            suspendCancellableCoroutine<Unit> {
+            val binResult = suspendCancellableCoroutine<Boolean> {
                 vitsHelper.loadModel(rootFiles?.find { it.name.endsWith("bin") }?.absolutePath) { isSuccess ->
-                    if (!isSuccess) {
-                        showToast("load vits model failed..")
-                    }
+                    it.safeResume(isSuccess)
                 }
-                it.safeResume(Unit)
             }
-            loadVITSModelLiveData.postValue(true)
+            loadVITSModelLiveData.postValue(if (binResult && configResult) VITSLoadStatus.STATE_FAILED else VITSLoadStatus.STATE_SUCCESS)
             loadingUILiveData.postValue(Pair(false, ""))
         }
     }

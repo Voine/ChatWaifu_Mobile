@@ -93,7 +93,7 @@ class SoundGenerateHelper(val context: Context) {
             path.endsWith("flow.ncnn.bin") ->
                 folder = path.replace("flow.ncnn.bin", "")
             path.endsWith("flow.reverse.ncnn.bin") ->
-                folder = path.replace("flow.ncnn.bin", "")
+                folder = path.replace("flow.reverse.ncnn.bin", "")
             path.endsWith("emb_g.bin") ->
                 folder = path.replace("emb_g.bin", "")
             path.endsWith("emb_t.bin") ->
@@ -118,9 +118,7 @@ class SoundGenerateHelper(val context: Context) {
         )
         Log.d(TAG, "model init status $modelInitState")
 
-        if (modelInitState) {
-            return callback.invoke(true)
-        }
+        callback.invoke(modelInitState)
     }
 
     // processing inputs

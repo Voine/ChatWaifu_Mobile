@@ -17,9 +17,11 @@ import com.chatwaifu.mobile.ChatActivity
 import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.Constant.SAVED_FLAG_NEED_COPY_DATA
+import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.databinding.FragmentChannelListBinding
 import com.chatwaifu.mobile.ui.ChannelListBean
 import com.chatwaifu.mobile.ui.dp
+import com.chatwaifu.mobile.ui.showToast
 import java.io.File
 
 class ChannelListFragment : Fragment() {
@@ -35,6 +37,7 @@ class ChannelListFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        initObserver()
         binding = FragmentChannelListBinding.inflate(inflater)
         listAdapter.onClick = ::onClick
         binding.channelList.adapter = listAdapter
@@ -47,13 +50,11 @@ class ChannelListFragment : Fragment() {
         binding.fabButton.setOnClickListener {
             onFabClick()
         }
-        activityViewModel.loadVITSModelLiveData.value = false
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        initObserver()
         activityViewModel.initModel(requireContext())
         if (sp.getBoolean(SAVED_FLAG_NEED_COPY_DATA, true)) {
             sp.edit().putBoolean(SAVED_FLAG_NEED_COPY_DATA, false).apply()
@@ -67,9 +68,12 @@ class ChannelListFragment : Fragment() {
             listAdapter.items.addAll(models)
             listAdapter.notifyDataSetChanged()
         }
-        activityViewModel.loadVITSModelLiveData.observe(viewLifecycleOwner){ success ->
-            if (success) {
+        activityViewModel.loadVITSModelLiveData.observe(viewLifecycleOwner){ status ->
+            if (status == VITSLoadStatus.STATE_SUCCESS) {
                 (requireActivity() as? ChatActivity)?.showChatFragment()
+            }
+            if (status == VITSLoadStatus.STATE_FAILED) {
+                showToast("load vits model failed....")
             }
         }
         activityViewModel.loadingUILiveData.observe(viewLifecycleOwner){show ->
