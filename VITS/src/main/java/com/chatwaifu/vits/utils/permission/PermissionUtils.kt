@@ -29,7 +29,7 @@ object PermissionUtils {
         } else {
             AlertDialog.Builder(activity).apply {
                 setTitle("警告")
-                setMessage("是否允许访问所有文件？")
+                setMessage("是否允许文件权限？")
                 setCancelable(false)
                 setPositiveButton("是") { dialog, which ->
                     val intent = Intent()
@@ -37,6 +37,7 @@ object PermissionUtils {
                     activity.startActivity(intent)
                 }
                 setNegativeButton("否") { dialog, which ->
+                    activity.finish()
                 }
                 show()
             }
