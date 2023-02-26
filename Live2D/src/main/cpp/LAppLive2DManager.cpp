@@ -14,6 +14,7 @@
 #include "LAppDelegate.hpp"
 #include "LAppModel.hpp"
 #include "LAppView.hpp"
+#include "JniBridgeC.hpp"
 
 using namespace Csm;
 using namespace LAppDefine;
@@ -54,7 +55,7 @@ LAppLive2DManager::LAppLive2DManager()
 {
     _viewMatrix = new CubismMatrix44();
 
-    ChangeScene(_sceneIndex);
+//    ChangeScene(_sceneIndex);
 }
 
 LAppLive2DManager::~LAppLive2DManager()
@@ -120,7 +121,7 @@ void LAppLive2DManager::OnTap(csmFloat32 x, csmFloat32 y)
     }
 }
 
-void LAppLive2DManager::OnUpdate() const
+void LAppLive2DManager::OnUpdate(LAppModelParameters parameters) const
 {
     int width = LAppDelegate::GetInstance()->GetWindowWidth();
     int height = LAppDelegate::GetInstance()->GetWindowHeight();
@@ -150,7 +151,7 @@ void LAppLive2DManager::OnUpdate() const
         // モデル1体描画前コール
         LAppDelegate::GetInstance()->GetView()->PreModelDraw(*model);
 
-        model->Update();
+        model->Update(parameters);
         model->Draw(projection);///< 参照渡しなのでprojectionは変質する
 
         // モデル1体描画後コール
@@ -225,6 +226,63 @@ void LAppLive2DManager::SetViewMatrix(CubismMatrix44* m)
 {
     for (int i = 0; i < 16; i++) {
         _viewMatrix->GetArray()[i] = m->GetArray()[i];
+    }
+}
+
+void LAppLive2DManager::ChangeModelTo(std::string modelPath, std::string modelJsonFileName)
+{
+    // モデルパスの「/」は必要な、モデルJsonファイル名前は「xxx.model3.json」
+    if (DebugLogEnable)
+    {
+        LAppPal::PrintLog("[APP]model load: %s (Dir: %s)", modelJsonFileName.c_str(), modelPath.c_str());
+    }
+
+    LAppModel* newModel = new LAppModel();
+
+    ReleaseAllModel();
+    if (newModel->LoadAssets(modelPath.c_str(), modelJsonFileName.c_str())) {
+        // ReleaseAllModel();
+        _models.PushBack(newModel);
+
+        /*
+         * モデル半透明表示を行うサンプルを提示する。
+         * ここでUSE_RENDER_TARGET、USE_MODEL_RENDER_TARGETが定義されている場合
+         * 別のレンダリングターゲットにモデルを描画し、描画結果をテクスチャとして別のスプライトに張り付ける。
+         */
+        {
+#if defined(USE_RENDER_TARGET)
+            // LAppViewの持つターゲットに描画を行う場合、こちらを選択
+        LAppView::SelectTarget useRenderTarget = LAppView::SelectTarget_ViewFrameBuffer;
+#elif defined(USE_MODEL_RENDER_TARGET)
+            // 各LAppModelの持つターゲットに描画を行う場合、こちらを選択
+        LAppView::SelectTarget useRenderTarget = LAppView::SelectTarget_ModelFrameBuffer;
+#else
+            // デフォルトのメインフレームバッファへレンダリングする(通常)
+            LAppView::SelectTarget useRenderTarget = LAppView::SelectTarget_None;
+#endif
+
+#if defined(USE_RENDER_TARGET) || defined(USE_MODEL_RENDER_TARGET)
+            // モデル個別にαを付けるサンプルとして、もう1体モデルを作成し、少し位置をずらす
+        _models.PushBack(new LAppModel());
+        _models[1]->LoadAssets(modelPath.c_str(), modelJsonName.c_str());
+        _models[1]->GetModelMatrix()->TranslateX(0.2f);
+#endif
+
+            LAppDelegate::GetInstance()->GetView()->SwitchRenderingTarget(useRenderTarget);
+
+            // 別レンダリング先を選択した際の背景クリア色
+            float clearColor[3] = { 1.0f, 1.0f, 1.0f };
+            LAppDelegate::GetInstance()->GetView()->SetRenderTargetClearColor(clearColor[0], clearColor[1], clearColor[2]);
+        }
+        LAppPal::PrintLog("[APP] L2D glGetError (INIT): %d", glGetError());
+        JniBridgeC::OnLoadDone();
+    } else {
+        delete newModel;
+        if (DebugLogEnable)
+        {
+            LAppPal::PrintLog("[APP]model load: %s (Dir: %s), failed.", modelJsonFileName.c_str(), modelPath.c_str());
+        }
+        JniBridgeC::OnLoadError();
     }
 }
 

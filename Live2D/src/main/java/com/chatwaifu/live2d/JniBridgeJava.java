@@ -10,6 +10,7 @@ package com.chatwaifu.live2d;
 import android.app.Activity;
 import android.content.Context;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -18,6 +19,8 @@ public class JniBridgeJava {
     private static final String LIBRARY_NAME = "chatwaifu-live2d";
     private static Activity _activityInstance;
     private static Context _context;
+    private static Live2DLoadInterface _loadCallback;
+
 
     static {
         System.loadLibrary(LIBRARY_NAME);
@@ -45,6 +48,12 @@ public class JniBridgeJava {
 
     public static native void nativeOnTouchesMoved(float pointX, float pointY);
 
+    public static native void nativeProjectChangeTo(String modelPath, String modelJsonFileName);
+
+    public static native void nativeApplyExpression(String expressionName);
+
+    public static native void needRenderBack(boolean back);
+
     // Java -----------------------------------------------------------------
 
     public static void SetContext(Context context) {
@@ -55,10 +64,18 @@ public class JniBridgeJava {
         _activityInstance = activity;
     }
 
+    public static void setLive2DLoadInterface(Live2DLoadInterface loadInterface) {
+        _loadCallback = loadInterface;
+    }
+
     public static byte[] LoadFile(String filePath) {
         InputStream fileData = null;
         try {
-            fileData = _context.getAssets().open(filePath);
+            if (filePath.startsWith("/")) {
+                fileData = new FileInputStream(filePath);
+            } else {
+                fileData = _context.getAssets().open(filePath);
+            }
             int fileSize = fileData.available();
             byte[] fileBuffer = new byte[fileSize];
             fileData.read(fileBuffer, 0, fileSize);
@@ -81,4 +98,37 @@ public class JniBridgeJava {
         _activityInstance.moveTaskToBack(true);
     }
 
+    public static void OnLoadError() {
+        if (_loadCallback != null) {
+            _loadCallback.onLoadError();
+        }
+    }
+
+    public static void OnLoadDone() {
+        if (_loadCallback != null) {
+            _loadCallback.onLoadDone();
+        }
+    }
+
+    public static void OnLoadOneMotion(String motionGroup, int index, String motionName) {
+        if (_loadCallback != null) {
+            _loadCallback.onLoadOneMotion(motionGroup, index, motionName);
+        }
+    }
+
+    public static void OnLoadOneExpression(String expressionName, int index) {
+        if (_loadCallback != null) {
+            _loadCallback.onLoadOneExpression(expressionName, index);
+        }
+    }
+
+    public interface Live2DLoadInterface {
+        void onLoadError();
+
+        void onLoadDone();
+
+        void onLoadOneMotion(String motionGroup, int index, String motionName);
+
+        void onLoadOneExpression(String expressionName, int index);
+    }
 }

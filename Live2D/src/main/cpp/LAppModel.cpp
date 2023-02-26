@@ -20,6 +20,8 @@
 #include "LAppPal.hpp"
 #include "LAppTextureManager.hpp"
 #include "LAppDelegate.hpp"
+#include "JniBridgeC.hpp"
+
 
 using namespace Live2D::Cubism::Framework;
 using namespace Live2D::Cubism::Framework::DefaultParameterId;
@@ -78,8 +80,9 @@ LAppModel::~LAppModel()
     delete _modelSetting;
 }
 
-void LAppModel::LoadAssets(const csmChar* dir, const csmChar* fileName)
+bool LAppModel::LoadAssets(const csmChar* dir, const csmChar* fileName)
 {
+    auto modelHomeDirBackup = _modelHomeDir;
     _modelHomeDir = dir;
 
     if (_debugMode)
@@ -91,22 +94,41 @@ void LAppModel::LoadAssets(const csmChar* dir, const csmChar* fileName)
     const csmString path = csmString(dir) + fileName;
 
     csmByte* buffer = CreateBuffer(path.GetRawString(), &size);
-    ICubismModelSetting* setting = new CubismModelSettingJson(buffer, size);
-    DeleteBuffer(buffer, path.GetRawString());
+    if (buffer) {
+        ICubismModelSetting* setting = new CubismModelSettingJson(buffer, size);
+        DeleteBuffer(buffer, path.GetRawString());
 
-    SetupModel(setting);
+        if (SetupModel(setting))
+        {
+            CreateRenderer();
+            SetupTextures();
+            return true;
+        }
+        else
+        {
+            _modelHomeDir = modelHomeDirBackup;
+            return false;
+        }
+    } else {
+        DeleteBuffer(buffer, path.GetRawString());
 
-    CreateRenderer();
+        if (_debugMode)
+        {
+            LAppPal::PrintLog("[APP]load model setting file: %s, failed.", fileName);
+        }
 
-    SetupTextures();
+        _modelHomeDir = modelHomeDirBackup;
+        return false;
+    }
 }
 
 
-void LAppModel::SetupModel(ICubismModelSetting* setting)
+bool LAppModel::SetupModel(ICubismModelSetting* setting)
 {
     _updating = true;
     _initialized = false;
 
+    auto modelSettingBakup = _modelSetting;
     _modelSetting = setting;
 
     csmByte* buffer;
@@ -124,8 +146,25 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
         }
 
         buffer = CreateBuffer(path.GetRawString(), &size);
-        LoadModel(buffer, size);
-        DeleteBuffer(buffer, path.GetRawString());
+
+        if (buffer)
+        {
+            LoadModel(buffer, size);
+            DeleteBuffer(buffer, path.GetRawString());
+        }
+        else
+        {
+            DeleteBuffer(buffer, path.GetRawString());
+            if (_debugMode)
+            {
+                LAppPal::PrintLog("[APP]create Model: %s, failed, abort.", setting->GetModelFileName());
+            }
+            _modelSetting = modelSettingBakup;
+            _updating = false;
+            _initialized = true;
+            return false;
+        }
+
     }
 
     //Expression
@@ -139,14 +178,26 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
             path = _modelHomeDir + path;
 
             buffer = CreateBuffer(path.GetRawString(), &size);
-            ACubismMotion* motion = LoadExpression(buffer, size, name.GetRawString());
 
-            if (_expressions[name] != NULL)
+            if (buffer)
             {
-                ACubismMotion::Delete(_expressions[name]);
-                _expressions[name] = NULL;
+                ACubismMotion* motion = LoadExpression(buffer, size, name.GetRawString());
+
+                if (_expressions[name] != NULL)
+                {
+                    ACubismMotion::Delete(_expressions[name]);
+                    _expressions[name] = NULL;
+                }
+                _expressions[name] = motion;
+                JniBridgeC::OnLoadOneExpression(name.GetRawString(), i);
             }
-            _expressions[name] = motion;
+            else
+            {
+                if (_debugMode)
+                {
+                    LAppPal::PrintLog("[APP]load Expression: %s, failed, skip.", name.GetRawString());
+                }
+            }
 
             DeleteBuffer(buffer, path.GetRawString());
         }
@@ -159,7 +210,19 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
         path = _modelHomeDir + path;
 
         buffer = CreateBuffer(path.GetRawString(), &size);
-        LoadPhysics(buffer, size);
+
+        if (buffer)
+        {
+            LoadPhysics(buffer, size);
+        }
+        else
+        {
+            if (_debugMode)
+            {
+                LAppPal::PrintLog("[APP]load Physics: %s, failed, skip.", path.GetRawString());
+            }
+        }
+
         DeleteBuffer(buffer, path.GetRawString());
     }
 
@@ -170,7 +233,19 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
         path = _modelHomeDir + path;
 
         buffer = CreateBuffer(path.GetRawString(), &size);
-        LoadPose(buffer, size);
+
+        if (buffer)
+        {
+            LoadPose(buffer, size);
+        }
+        else
+        {
+            if (_debugMode)
+            {
+                LAppPal::PrintLog("[APP]load Pose: %s, failed, skip.", path.GetRawString());
+            }
+        }
+
         DeleteBuffer(buffer, path.GetRawString());
     }
 
@@ -201,7 +276,19 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
         csmString path = _modelSetting->GetUserDataFile();
         path = _modelHomeDir + path;
         buffer = CreateBuffer(path.GetRawString(), &size);
-        LoadUserData(buffer, size);
+
+        if (buffer)
+        {
+            LoadUserData(buffer, size);
+        }
+        else
+        {
+            if (_debugMode)
+            {
+                LAppPal::PrintLog("[APP]load UserData: %s, failed, skip.", path.GetRawString());
+            }
+        }
+
         DeleteBuffer(buffer, path.GetRawString());
     }
 
@@ -229,6 +316,7 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
     _modelMatrix->SetupFromLayout(layout);
 
     _model->SaveParameters();
+    _model->SaveDefaultParameters();
 
     for (csmInt32 i = 0; i < _modelSetting->GetMotionGroupCount(); i++)
     {
@@ -240,6 +328,8 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
 
     _updating = false;
     _initialized = true;
+
+    return true;
 }
 
 void LAppModel::PreloadMotionGroup(const csmChar* group)
@@ -330,7 +420,7 @@ void LAppModel::ReleaseExpressions()
     _expressions.Clear();
 }
 
-void LAppModel::Update()
+void LAppModel::Update(LAppModelParameters parameters)
 {
     const csmFloat32 deltaTimeSeconds = LAppPal::GetDeltaTime();
     _userTimeSeconds += deltaTimeSeconds;
@@ -369,6 +459,14 @@ void LAppModel::Update()
     if (_expressionManager != NULL)
     {
         _expressionManager->UpdateMotion(_model, deltaTimeSeconds); // 表情でパラメータ更新（相対変化）
+    }
+
+    if (parameters.changeExpression) {
+        if (_debugMode)
+        {
+            LAppPal::PrintLog("[APP]try start expression: %s.", parameters.nextExpressionName.c_str());
+        }
+        SetExpression(parameters.nextExpressionName.c_str());
     }
 
     //ドラッグによる変化

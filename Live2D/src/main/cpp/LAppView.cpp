@@ -32,6 +32,7 @@ LAppView::LAppView():
     _power(NULL),
     _changeModel(false),
     _renderSprite(NULL),
+    _modelParameters(),
     _renderTarget(SelectTarget_None)
 {
     _clearColor[0] = 1.0f;
@@ -185,14 +186,17 @@ void LAppView::InitializeSprite()
 void LAppView::Render()
 {
     //no need this time...
-    _back->Render();
+    if (_needRenderBack) {
+        _back->Render();
+    }
 //    _gear->Render();
 //    _power->Render();
 
     if(_changeModel)
     {
         _changeModel = false;
-        LAppLive2DManager::GetInstance()->NextScene();
+        LAppLive2DManager::GetInstance()->ChangeModelTo(_nextModelPath, _nextModelJsonFileName);
+//        LAppLive2DManager::GetInstance()->NextScene();
     }
 
     LAppLive2DManager* Live2DManager = LAppLive2DManager::GetInstance();
@@ -200,7 +204,8 @@ void LAppView::Render()
     //Live2DManager->SetViewMatrix(_viewMatrix);
 
     // Cubism更新・描画
-    Live2DManager->OnUpdate();
+    Live2DManager->OnUpdate(_modelParameters);
+    _modelParameters.changeExpression = false;
 
     // 各モデルが持つ描画ターゲットをテクスチャとする場合
     if (_renderTarget == SelectTarget_ModelFrameBuffer && _renderSprite)
@@ -377,4 +382,20 @@ float LAppView::GetSpriteAlpha(int assign) const
     }
 
     return alpha;
+}
+
+void LAppView::ChangeModelTo(std::string modelPath, std::string modelJsonFileName)
+{
+    _nextModelPath = modelPath;
+    _nextModelJsonFileName = modelJsonFileName;
+    _changeModel = true;
+}
+
+void LAppView::ApplyExpression(const char* expressionName) {
+    _modelParameters.changeExpression = true;
+    _modelParameters.nextExpressionName = expressionName;
+}
+
+void LAppView::NeedRenderBack(bool needRender) {
+    _needRenderBack = needRender;
 }

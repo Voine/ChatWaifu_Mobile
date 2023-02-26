@@ -16,6 +16,10 @@ static JavaVM* g_JVM; // JavaVM is valid for all threads, so just save it global
 static jclass  g_JniBridgeJavaClass;
 static jmethodID g_LoadFileMethodId;
 static jmethodID g_MoveTaskToBackMethodId;
+static jmethodID g_OnLoadErrorMethodId;
+static jmethodID g_OnLoadDoneMethodId;
+static jmethodID g_OnLoadOneMotionMethodId;
+static jmethodID g_OnLoadOneExpressionMethodId;
 
 JNIEnv* GetEnv()
 {
@@ -39,6 +43,10 @@ jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     g_JniBridgeJavaClass = reinterpret_cast<jclass>(env->NewGlobalRef(clazz));
     g_LoadFileMethodId = env->GetStaticMethodID(g_JniBridgeJavaClass, "LoadFile", "(Ljava/lang/String;)[B");
     g_MoveTaskToBackMethodId = env->GetStaticMethodID(g_JniBridgeJavaClass, "MoveTaskToBack", "()V");
+    g_OnLoadErrorMethodId = env->GetStaticMethodID(g_JniBridgeJavaClass, "OnLoadError", "()V");
+    g_OnLoadDoneMethodId = env->GetStaticMethodID(g_JniBridgeJavaClass, "OnLoadDone", "()V");
+    g_OnLoadOneMotionMethodId = env->GetStaticMethodID(g_JniBridgeJavaClass, "OnLoadOneMotion", "(Ljava/lang/String;ILjava/lang/String;)V");
+    g_OnLoadOneExpressionMethodId = env->GetStaticMethodID(g_JniBridgeJavaClass, "OnLoadOneExpression","(Ljava/lang/String;I)V");
 
     return JNI_VERSION_1_6;
 }
@@ -69,6 +77,33 @@ void JniBridgeC::MoveTaskToBack()
 
     // アプリ終了
     env->CallStaticVoidMethod(g_JniBridgeJavaClass, g_MoveTaskToBackMethodId, NULL);
+}
+
+void JniBridgeC::OnLoadError() {
+    JNIEnv *env = GetEnv();
+
+    // モデルロードエラー
+    env->CallStaticVoidMethod(g_JniBridgeJavaClass, g_OnLoadErrorMethodId);
+}
+
+void JniBridgeC::OnLoadDone() {
+    JNIEnv *env = GetEnv();
+
+    // モデルロード完成
+    env->CallStaticVoidMethod(g_JniBridgeJavaClass, g_OnLoadDoneMethodId);
+}
+
+void JniBridgeC::OnLoadOneMotion(const char *motionGroup, int index, const char *motionName) {
+    JNIEnv *env = GetEnv();
+
+    env->CallStaticVoidMethod(g_JniBridgeJavaClass, g_OnLoadOneMotionMethodId, env->NewStringUTF(motionGroup), index, env->NewStringUTF(motionName));
+
+}
+
+void JniBridgeC::OnLoadOneExpression(const char *expressionName, int index) {
+    JNIEnv* env = GetEnv();
+    env->CallStaticVoidMethod(g_JniBridgeJavaClass, g_OnLoadOneExpressionMethodId, env->NewStringUTF(expressionName), index);
+
 }
 
 extern "C"
@@ -132,5 +167,25 @@ extern "C"
     {
         LAppDelegate::GetInstance()->OnTouchMoved(pointX, pointY);
     }
+JNIEXPORT void JNICALL
+    Java_com_chatwaifu_live2d_JniBridgeJava_nativeProjectChangeTo(JNIEnv *env, jclass clazz,
+                                                              jstring model_path,
+                                                              jstring model_json_file_name) {
+        auto modelPathStr = env->GetStringUTFChars(model_path, nullptr);
+        auto modelJsonFileNameStr = env->GetStringUTFChars(model_json_file_name, nullptr);
+        LAppDelegate::GetInstance()->ModelChangeTo(modelPathStr, modelJsonFileNameStr);
+        env->ReleaseStringUTFChars(model_path, modelPathStr);
+        env->ReleaseStringUTFChars(model_json_file_name, modelJsonFileNameStr);
+    }
+JNIEXPORT void JNICALL
+    Java_com_chatwaifu_live2d_JniBridgeJava_nativeApplyExpression(JNIEnv *env, jclass clazz,
+                                                              jstring expression_name) {
+        auto expressionName = env->GetStringUTFChars(expression_name, nullptr);
+        LAppDelegate::GetInstance()->ApplyExpression(expressionName);
+        env->ReleaseStringUTFChars(expression_name, expressionName);
+    }
+JNIEXPORT void JNICALL
+    Java_com_chatwaifu_live2d_JniBridgeJava_needRenderBack(JNIEnv *env, jclass clazz, jboolean back) {
+        LAppDelegate::GetInstance()->NeedRenderBack(back == JNI_TRUE);
+    }
 }
-

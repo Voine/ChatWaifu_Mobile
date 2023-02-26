@@ -22,4 +22,9 @@ public:
     * @brief アプリをバックグラウンドに移動
     */
     static void MoveTaskToBack();
+
+    static void OnLoadError();
+    static void OnLoadDone();
+    static void OnLoadOneMotion(const char* motionGroup, signed int index, const char* motionName);
+    static void OnLoadOneExpression(const char *expressionName, signed int index);
 };

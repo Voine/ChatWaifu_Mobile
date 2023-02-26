@@ -12,7 +12,9 @@
 #include <Math/CubismMatrix44.hpp>
 #include <Math/CubismViewMatrix.hpp>
 #include "CubismFramework.hpp"
+#include "LAppDelegate.hpp"
 #include <Rendering/OpenGL/CubismOffscreenSurface_OpenGLES2.hpp>
+#include <string>
 
 class TouchManager;
 class LAppSprite;
@@ -146,15 +148,27 @@ public:
      */
     void SetRenderTargetClearColor(float r, float g, float b);
 
+    void ChangeModelTo(std::string modelPath, std::string modelJsonFileName);
+
+    void ApplyExpression(const char* expressionName);
+
+    void NeedRenderBack(bool needRender);
+
 private:
     TouchManager* _touchManager;                 ///< タッチマネージャー
     Csm::CubismMatrix44* _deviceToScreen;    ///< デバイスからスクリーンへの行列
     Csm::CubismViewMatrix* _viewMatrix;      ///< viewMatrix
+    std::string _nextModelPath;              ///< 次のモデルパス
+    std::string _nextModelJsonFileName;      ///< 次のモデルJsonファイル名前
+    LAppModelParameters _modelParameters;    ///< モデルのパラメータ
+
+
     GLuint _programId;                       ///< シェーダID
     LAppSprite* _back;                       ///< 背景画像
     LAppSprite* _gear;                       ///< ギア画像
     LAppSprite* _power;                      ///< 電源画像
     bool _changeModel;                       ///< モデル切り替えフラグ
+    bool _needRenderBack = true;
 
     // レンダリング先を別ターゲットにする方式の場合に使用
     LAppSprite* _renderSprite;                                      ///< モードによっては_renderBufferのテクスチャを描画

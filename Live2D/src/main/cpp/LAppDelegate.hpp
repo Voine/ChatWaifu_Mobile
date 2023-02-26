@@ -10,10 +10,18 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include "LAppAllocator.hpp"
+#include <string>
 
 class LAppView;
 class LAppTextureManager;
+class LAppModelParameters
+{
+public:
 
+    bool changeExpression = false;
+    bool stopExpression = false;
+    std::string nextExpressionName = "";
+};
 /**
 * @brief   アプリケーションクラス。
 *   Cubism SDK の管理を行う。
@@ -125,6 +133,12 @@ public:
     * @brief   View情報を取得する。
     */
     LAppView* GetView() { return _view; }
+
+    void ModelChangeTo(const char* modelPath, const char* modelJsonFileName);
+
+    void ApplyExpression(const char* expressionName);
+
+    void NeedRenderBack(bool render);
 
 private:
     /**

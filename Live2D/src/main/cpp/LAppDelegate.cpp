@@ -129,10 +129,10 @@ void LAppDelegate::OnSurfaceChanged(float width, float height)
     _view->InitializeSprite();
 
     //load model
-    if (LAppLive2DManager::GetInstance()->GetSceneIndex() != _SceneIndex)
-    {
-        LAppLive2DManager::GetInstance()->ChangeScene(_SceneIndex);
-    }
+//    if (LAppLive2DManager::GetInstance()->GetSceneIndex() != _SceneIndex)
+//    {
+//        LAppLive2DManager::GetInstance()->ChangeScene(_SceneIndex);
+//    }
 
     _isActive = true;
 }
@@ -234,4 +234,27 @@ GLuint LAppDelegate::CreateShader()
     glUseProgram(programId);
 
     return programId;
+}
+
+void LAppDelegate::ModelChangeTo(const char* modelPath, const char* modelJsonFileName)
+{
+    if (_view != NULL)
+    {
+        _view->ChangeModelTo(modelPath, modelJsonFileName);
+    }
+}
+
+void LAppDelegate::ApplyExpression(const char *expressionName)
+{
+    if (_view != NULL)
+    {
+        _view->ApplyExpression(expressionName);
+    }
+}
+
+void LAppDelegate::NeedRenderBack(bool render) {
+    if (_view != NULL)
+    {
+        _view->NeedRenderBack(render);
+    }
 }

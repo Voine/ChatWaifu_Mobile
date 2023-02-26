@@ -12,6 +12,7 @@
 #include <ICubismModelSetting.hpp>
 #include <Type/csmRectF.hpp>
 #include <Rendering/OpenGL/CubismOffscreenSurface_OpenGLES2.hpp>
+#include "LAppDelegate.hpp"
 
 /**
  * @brief ユーザーが実際に使用するモデルの実装クラス<br>
@@ -36,7 +37,7 @@ public:
      * @brief model3.jsonが置かれたディレクトリとファイルパスからモデルを生成する
      *
      */
-    void LoadAssets(const Csm::csmChar* dir, const  Csm::csmChar* fileName);
+    bool LoadAssets(const Csm::csmChar* dir, const  Csm::csmChar* fileName);
 
     /**
      * @brief レンダラを再構築する
@@ -48,7 +49,7 @@ public:
      * @brief   モデルの更新処理。モデルのパラメータから描画状態を決定する。
      *
      */
-    void Update();
+    void Update(LAppModelParameters parameters);
 
     /**
      * @brief   モデルを描画する処理。モデルを描画する空間のView-Projection行列を渡す。
@@ -127,7 +128,7 @@ private:
      * @param[in]   setting     ICubismModelSettingのインスタンス
      *
      */
-    void SetupModel(Csm::ICubismModelSetting* setting);
+    bool SetupModel(Csm::ICubismModelSetting* setting);
 
     /**
      * @brief OpenGLのテクスチャユニットにテクスチャをロードする

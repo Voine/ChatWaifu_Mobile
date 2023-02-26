@@ -10,6 +10,8 @@
 #include <CubismFramework.hpp>
 #include <Math/CubismMatrix44.hpp>
 #include <Type/csmVector.hpp>
+#include <string>
+#include "LAppDelegate.hpp"
 
 class LAppModel;
 
@@ -70,7 +72,7 @@ public:
     * @brief   画面を更新するときの処理
     *          モデルの更新処理および描画処理を行う
     */
-    void OnUpdate() const;
+    void OnUpdate(LAppModelParameters parameters) const;
 
     /**
     * @brief   次のシーンに切り替える<br>
@@ -100,6 +102,8 @@ public:
      * @brief   viewMatrixをセットする
      */
     void SetViewMatrix(Live2D::Cubism::Framework::CubismMatrix44* m);
+
+    void ChangeModelTo(std::string modelPath, std::string modelJsonFileName);
 
 private:
     /**
