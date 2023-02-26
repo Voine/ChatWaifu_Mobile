@@ -136,7 +136,7 @@ class ChatActivityViewModel: ViewModel() {
                     it.safeResume(isSuccess)
                 }
             }
-            loadVITSModelLiveData.postValue(if (binResult && configResult) VITSLoadStatus.STATE_FAILED else VITSLoadStatus.STATE_SUCCESS)
+            loadVITSModelLiveData.postValue(if (binResult && configResult) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED)
             loadingUILiveData.postValue(Pair(false, ""))
         }
     }
