@@ -38,6 +38,7 @@ class ChannelListFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         initObserver()
+        activityViewModel.loadVITSModelLiveData.value = VITSLoadStatus.STATE_DEFAULT
         binding = FragmentChannelListBinding.inflate(inflater)
         listAdapter.onClick = ::onClick
         binding.channelList.adapter = listAdapter
