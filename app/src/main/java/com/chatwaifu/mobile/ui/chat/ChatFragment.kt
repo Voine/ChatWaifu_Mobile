@@ -103,7 +103,7 @@ class ChatFragment : Fragment() {
 
 
     private fun onReceiveResponse(response: ChatGPTResponseData?) {
-        val result = response?.choices?.firstOrNull()?.text
+        val result = response?.choices?.firstOrNull()?.message?.content
         if (result.isNullOrEmpty()) {
             showToast("Error occur...ChatGPT response empty")
             return

@@ -11,6 +11,6 @@ import retrofit2.http.POST
  * Date: 2023/2/18
  */
 interface GhatGPTAPI {
-    @POST("v1/completions")
+    @POST("v1/chat/completions")
     fun sendMsg(@Body requestMsg: RequestBody): Call<ChatGPTResponseData>
 }

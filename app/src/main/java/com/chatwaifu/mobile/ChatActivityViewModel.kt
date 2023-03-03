@@ -86,7 +86,7 @@ class ChatActivityViewModel: ViewModel() {
                 val response = sendChatGPTRequest(input)
                 chatResponseLiveData.postValue(response)
 
-                val responseText = response?.choices?.firstOrNull()?.text
+                val responseText = response?.choices?.firstOrNull()?.message?.content
                 val translateText = fetchTranslateIfNeed(responseText)
 
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
