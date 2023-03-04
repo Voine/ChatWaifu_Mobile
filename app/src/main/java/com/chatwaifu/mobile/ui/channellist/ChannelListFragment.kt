@@ -90,6 +90,7 @@ class ChannelListFragment : Fragment() {
     private fun onClick(item: ChannelListBean) {
         activityViewModel.currentLive2DModelPath = item.characterPath
         activityViewModel.currentLive2DModelName = item.characterName
+        activityViewModel.loadModelSystemSetting(item.characterName)
         if (item.characterName == activityViewModel.currentVITSModelName) {
             (requireActivity() as? ChatActivity)?.showChatFragment()
             return

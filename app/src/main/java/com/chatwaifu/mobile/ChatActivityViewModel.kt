@@ -10,6 +10,8 @@ import com.chatwaifu.chatgpt.ChatGPTNetService
 import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_HIYORI
+import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_KURISU
 import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.ui.ChannelListBean
 import com.chatwaifu.mobile.ui.showToast
@@ -139,6 +141,10 @@ class ChatActivityViewModel: ViewModel() {
             loadVITSModelLiveData.postValue(if (binResult && configResult) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED)
             loadingUILiveData.postValue(Pair(false, ""))
         }
+    }
+
+    fun loadModelSystemSetting(modelName: String) {
+        chatGPTNetService?.setSystemRole(localModelManager.getModelSystemSetting(modelName) ?: return)
     }
 
     private suspend fun fetchInput(): String {

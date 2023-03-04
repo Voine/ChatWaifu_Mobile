@@ -14,7 +14,7 @@ data class ChatGPTRequestData(
     val messages: List<RequestMessageBean> = emptyList()
 ) {
     companion object {
-        private const val DEFAULT_MODEL = "gpt-3.5-turbo-0301"
+        private const val DEFAULT_MODEL = "gpt-3.5-turbo"
         private const val DEFAULT_TEMPERATURE = 1
         private const val DEFAULT_MAX_TOKENS = 2048
     }

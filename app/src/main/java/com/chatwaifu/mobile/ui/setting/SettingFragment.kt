@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
 import com.chatwaifu.mobile.ChatActivityViewModel
+import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.databinding.SettingKeyDialogBinding
 import com.chatwaifu.mobile.ui.showToast
@@ -56,20 +57,52 @@ class SettingFragment : DialogFragment() {
             }
         }
 
+        sp.getString(Constant.SAVED_HIYORI_SETTING, null)?.let {
+            if (it.isNotBlank()) {
+                binding.defaultHiyoriSetting.setText(it)
+            }
+        } ?: binding.defaultHiyoriSetting.setText(resources.getString(R.string.default_system_hiyori))
+
+        sp.getString(Constant.SAVED_AMADEUS_SETTING, null)?.let {
+            if (it.isNotBlank()) {
+                binding.defaultAmadeusSetting.setText(it)
+            }
+        } ?: binding.defaultAmadeusSetting.setText(resources.getString(R.string.default_system_amadeus))
+
+        sp.getString(Constant.SAVED_EXTERNAL_SETTING, null)?.let {
+            if (it.isNotBlank()) {
+                binding.defaultExternalSetting.setText(it)
+            }
+        }
+
         binding.inputConfirmBtn.setOnClickListener {
             val inputAppId = binding.inputAppid.text.toString()
             val inputTranslateKey = binding.inputTranslateKey.text.toString()
             val inputChatKey = binding.inputChatKey.text.toString()
-            if (inputChatKey.isNotBlank()) {
-                sp.edit().putString(Constant.SAVED_CHAT_KEY, inputChatKey).apply()
-            }
-            if (inputAppId.isNotBlank() && inputTranslateKey.isNotBlank()) {
-                sp.edit().apply {
+            val inputHiyoriSetting = binding.defaultHiyoriSetting.text.toString()
+            val inputAmadeusSetting = binding.defaultAmadeusSetting.text.toString()
+            val inputExternalSetting = binding.defaultExternalSetting.text.toString()
+            sp.edit().apply {
+                if (inputChatKey.isNotBlank()) {
+                    putString(Constant.SAVED_CHAT_KEY, inputChatKey)
+                }
+                if (inputAppId.isNotBlank() && inputTranslateKey.isNotBlank()) {
                     putString(Constant.SAVED_TRANSLATE_APP_ID, inputAppId)
                     putString(Constant.SAVED_TRANSLATE_KEY, inputTranslateKey)
-                    apply()
                 }
+                if (inputHiyoriSetting.isNotBlank()) {
+                    putString(Constant.SAVED_HIYORI_SETTING, inputHiyoriSetting)
+                }
+                if (inputAmadeusSetting.isNotBlank()) {
+                    putString(Constant.SAVED_AMADEUS_SETTING, inputAmadeusSetting)
+                }
+
+                if (inputExternalSetting.isNotBlank()) {
+                    putString(Constant.SAVED_EXTERNAL_SETTING, inputExternalSetting)
+                }
+                apply()
             }
+
             viewModel.refreshAllKeys()
             showToast("save key success...")
         }

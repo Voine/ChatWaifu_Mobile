@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -9,60 +9,140 @@
     android:paddingTop="10dp"
     android:paddingEnd="10dp">
 
-
-    <EditText
-        android:id="@+id/input_chat_key"
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="30dp"
-        android:background="@color/white"
-        android:hint="input your chat gpt key here..."
-        android:textColor="@color/black"
-        android:textColorHint="#66000000"
-        android:textSize="12dp"
-        app:layout_constraintBottom_toTopOf="@id/input_appid"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <EditText
-        android:id="@+id/input_appid"
-        android:layout_width="match_parent"
-        android:layout_height="30dp"
-        android:layout_marginTop="10dp"
-        android:background="@color/white"
-        android:hint="input your translate appid here..."
-        android:textColor="@color/black"
-        android:textColorHint="#66000000"
-        android:textSize="12dp"
-        app:layout_constraintBottom_toTopOf="@id/input_translate_key"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/input_chat_key" />
-
-    <EditText
-        android:id="@+id/input_translate_key"
-        android:layout_width="match_parent"
-        android:layout_height="30dp"
-        android:layout_marginTop="10dp"
-        android:background="@color/white"
-        android:hint="input your translate key here..."
-        android:textColor="@color/black"
-        android:textColorHint="#66000000"
-        android:textSize="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/input_appid" />
-
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/input_confirm_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="Confirm"
-        android:textAllCaps="false"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/input_translate_key" />
+        android:layout_height="wrap_content">
 
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <EditText
+            android:id="@+id/input_chat_key"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:background="@color/white"
+            android:hint="input your chat gpt key here..."
+            android:textColor="@color/black"
+            android:textColorHint="#66000000"
+            android:textSize="12dp"
+            app:layout_constraintBottom_toTopOf="@id/input_appid"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <EditText
+            android:id="@+id/input_appid"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:layout_marginTop="10dp"
+            android:background="@color/white"
+            android:hint="input your translate appid here..."
+            android:textColor="@color/black"
+            android:textColorHint="#66000000"
+            android:textSize="12dp"
+            app:layout_constraintBottom_toTopOf="@id/input_translate_key"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/input_chat_key" />
+
+        <EditText
+            android:id="@+id/input_translate_key"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:layout_marginTop="10dp"
+            android:background="@color/white"
+            android:hint="input your translate key here..."
+            android:textColor="@color/black"
+            android:textColorHint="#66000000"
+            android:textSize="12dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/input_appid" />
+
+        <TextView
+            android:id="@+id/default_hiyori_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Hiyori Setting:"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="@id/input_translate_key"
+            app:layout_constraintTop_toBottomOf="@id/input_translate_key" />
+
+        <EditText
+            android:id="@+id/default_hiyori_setting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/default_hiyori_text"
+            app:layout_constraintStart_toStartOf="@id/default_hiyori_text"
+            android:text="@string/default_system_hiyori"
+            android:textSize="8dp"
+            android:textColor="#66FFFFFF"
+            />
+
+        <TextView
+            android:id="@+id/default_amadeus_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Amadeus Setting:"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="@id/default_hiyori_setting"
+            app:layout_constraintTop_toBottomOf="@id/default_hiyori_setting" />
+
+        <EditText
+            android:id="@+id/default_amadeus_setting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/default_amadeus_text"
+            app:layout_constraintStart_toStartOf="@id/default_amadeus_text"
+            android:text="@string/default_system_amadeus"
+            android:textSize="8dp"
+            android:textColorHint="#66FFFFFF"
+            android:textColor="#66FFFFFF"
+            />
+
+
+        <TextView
+            android:id="@+id/default_external_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="External Setting(Optional):"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="@id/default_amadeus_setting"
+            app:layout_constraintTop_toBottomOf="@id/default_amadeus_setting" />
+
+
+        <EditText
+            android:id="@+id/default_external_setting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/default_external_text"
+            app:layout_constraintStart_toStartOf="@id/default_external_text"
+            android:hint="input your setting here..."
+            android:textSize="8dp"
+            android:textColorHint="#66FFFFFF"
+            android:textColor="#66FFFFFF"
+            />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/input_confirm_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Confirm"
+            android:textAllCaps="false"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/default_external_setting" />
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+</ScrollView>

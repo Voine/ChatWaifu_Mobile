@@ -13,6 +13,9 @@ object Constant {
     const val SAVED_STORE = "saved_store"
     const val SAVED_CHAT_NAME = "saved_chat_name"
     const val SAVED_FLAG_NEED_COPY_DATA = "need_copy_data"
+    const val SAVED_HIYORI_SETTING = "saved_hiyori_setting"
+    const val SAVED_AMADEUS_SETTING = "saved_amadeus_setting"
+    const val SAVED_EXTERNAL_SETTING = "saved_external_setting"
 
     const val LIVE2D_BASE_PATH = "Live2DModels"
     const val VITS_BASE_PATH = "VITSModels"

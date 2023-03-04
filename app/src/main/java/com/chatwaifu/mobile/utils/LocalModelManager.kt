@@ -1,6 +1,7 @@
 package com.chatwaifu.mobile.utils
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Environment
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.application.ChatWaifuApplication
@@ -21,7 +22,13 @@ import java.io.File
  * Author: Voine
  * Date: 2023/2/25
  */
-class LocalModelManager {
+class LocalModelManager() {
+    private val sp: SharedPreferences by lazy {
+        ChatWaifuApplication.context.getSharedPreferences(
+            Constant.SAVED_STORE,
+            Context.MODE_PRIVATE
+        )
+    }
 
     suspend fun initInnerModel(context: Context, finalModelList: MutableList<ChannelListBean>) {
         // copy live2d
@@ -100,6 +107,26 @@ class LocalModelManager {
                     characterVitsPath = relativeVITSModel?.absolutePath ?: ""
                 )
             )
+        }
+    }
+
+    fun getModelSystemSetting(modelName: String): String? {
+        return when (modelName) {
+            LOCAL_MODEL_HIYORI -> {
+                sp.getString(Constant.SAVED_HIYORI_SETTING, null)?.let {
+                    it.ifBlank { null }
+                } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_hiyori)
+            }
+            LOCAL_MODEL_KURISU -> {
+                sp.getString(Constant.SAVED_AMADEUS_SETTING, null)?.let {
+                    it.ifBlank { null }
+                } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_amadeus)
+            }
+            else -> {
+                sp.getString(Constant.SAVED_EXTERNAL_SETTING, null)?.let {
+                    it.ifBlank { null }
+                }
+            }
         }
     }
 }
