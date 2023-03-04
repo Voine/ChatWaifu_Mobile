@@ -48,6 +48,7 @@ class ChatGPTNetService(val context: Context) {
     }
 
     fun setSystemRole(role: String) {
+        sendMessageAssistantList.clear()
         systemRole = RequestMessageBean(
             RequestMessageBean.ROLE_SYSTEM,
             role
