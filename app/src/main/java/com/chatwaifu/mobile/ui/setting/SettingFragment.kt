@@ -69,6 +69,13 @@ class SettingFragment : DialogFragment() {
             }
         } ?: binding.defaultAmadeusSetting.setText(resources.getString(R.string.default_system_amadeus))
 
+        sp.getString(Constant.SAVED_ATRI_SETTING, null)?.let {
+            if (it.isNotBlank()) {
+                binding.defaultAtriSetting.setText(it)
+            }
+        } ?: binding.defaultAtriSetting.setText(resources.getString(R.string.default_system_atri))
+
+
         sp.getString(Constant.SAVED_EXTERNAL_SETTING, null)?.let {
             if (it.isNotBlank()) {
                 binding.defaultExternalSetting.setText(it)
@@ -81,6 +88,7 @@ class SettingFragment : DialogFragment() {
             val inputChatKey = binding.inputChatKey.text.toString()
             val inputHiyoriSetting = binding.defaultHiyoriSetting.text.toString()
             val inputAmadeusSetting = binding.defaultAmadeusSetting.text.toString()
+            val inputATRISetting = binding.defaultAtriSetting.text.toString()
             val inputExternalSetting = binding.defaultExternalSetting.text.toString()
             sp.edit().apply {
                 if (inputChatKey.isNotBlank()) {
@@ -95,6 +103,10 @@ class SettingFragment : DialogFragment() {
                 }
                 if (inputAmadeusSetting.isNotBlank()) {
                     putString(Constant.SAVED_AMADEUS_SETTING, inputAmadeusSetting)
+                }
+
+                if (inputATRISetting.isNotBlank()) {
+                    putString(Constant.SAVED_ATRI_SETTING, inputATRISetting)
                 }
 
                 if (inputExternalSetting.isNotBlank()) {

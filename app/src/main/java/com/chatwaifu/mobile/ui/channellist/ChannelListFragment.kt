@@ -22,6 +22,7 @@ import com.chatwaifu.mobile.databinding.FragmentChannelListBinding
 import com.chatwaifu.mobile.ui.ChannelListBean
 import com.chatwaifu.mobile.ui.dp
 import com.chatwaifu.mobile.ui.showToast
+import com.chatwaifu.vits.utils.permission.PermissionUtils
 import java.io.File
 
 class ChannelListFragment : Fragment() {
@@ -37,6 +38,7 @@ class ChannelListFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        checkPermission()
         initObserver()
         activityViewModel.loadVITSModelLiveData.value = VITSLoadStatus.STATE_DEFAULT
         binding = FragmentChannelListBinding.inflate(inflater)
@@ -59,6 +61,12 @@ class ChannelListFragment : Fragment() {
         activityViewModel.initModel(requireContext())
         if (sp.getBoolean(SAVED_FLAG_NEED_COPY_DATA, true)) {
             sp.edit().putBoolean(SAVED_FLAG_NEED_COPY_DATA, false).apply()
+        }
+    }
+
+    private fun checkPermission() {
+        if (!PermissionUtils.checkStoragePermission(requireActivity())) {
+            PermissionUtils.requestStoragePermission(requireActivity())
         }
     }
 
@@ -97,7 +105,7 @@ class ChannelListFragment : Fragment() {
         }
         activityViewModel.currentVITSModelName = item.characterName
         val vitsDir = item.characterVitsPath
-        activityViewModel.loadVitsModel(File(vitsDir).listFiles()?.toList())
+        activityViewModel.loadVitsModel(vitsDir)
     }
 
     private fun onFabClick() {

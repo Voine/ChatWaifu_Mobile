@@ -5,11 +5,11 @@ plugins {
 
 android {
     namespace 'com.chatwaifu.vits'
-    compileSdk 32
+    compileSdk rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        minSdk 24
-        targetSdk 31
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
         versionCode 3
         versionName "1.2.1"
 
@@ -18,7 +18,6 @@ android {
                 cppFlags '-std=c++11'
             }
         }
-
     }
 
     externalNativeBuild {

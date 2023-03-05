@@ -5,11 +5,11 @@ plugins {
 
 android {
     namespace 'com.chatwaifu.chatgpt'
-    compileSdk 33
+    compileSdk rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        minSdk 24
-        targetSdk 33
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
         consumerProguardFiles "consumer-rules.pro"
     }
 

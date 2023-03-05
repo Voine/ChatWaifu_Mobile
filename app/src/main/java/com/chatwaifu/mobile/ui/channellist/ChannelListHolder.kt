@@ -33,5 +33,6 @@ data class ChannelListBean(
     var characterName: String,
     var characterTime: String = "",
     var characterPath: String = "",
-    var characterVitsPath: String = ""
+    var characterVitsPath: String = "",
+    var fromExternal: Boolean = false
 )

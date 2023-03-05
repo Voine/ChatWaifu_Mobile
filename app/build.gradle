@@ -10,16 +10,12 @@ static def getDate(){
 }
 
 android {
-    compileSdk 32
+    compileSdk rootProject.ext.compileSdkVersion
+
     defaultConfig {
-        applicationId "com.chatwaifu.mobile"
-        minSdk 24
-        targetSdk 31
-        versionCode 3
-        versionName "1.2.1"
-        buildConfigField "String","CHAT_CHPT_KEY","${readLocalProperties("CHAT_CPT_KEY")}"
-        buildConfigField "String","TRANSLATE_APP_ID","${readLocalProperties("TRANSLATE_APP_ID")}"
-        buildConfigField "String","TRANSLATE_KEY","${readLocalProperties("TRANSLATE_KEY")}"
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
+        consumerProguardFiles "consumer-rules.pro"
     }
 
     buildTypes {
@@ -31,6 +27,11 @@ android {
                     outputFileName = "ChatWaifu"+"_"+getDate()+".apk"
                 }
             }
+        }
+        debug{
+            buildConfigField "String","CHAT_CHPT_KEY","${readLocalProperties("CHAT_CPT_KEY")}"
+            buildConfigField "String","TRANSLATE_APP_ID","${readLocalProperties("TRANSLATE_APP_ID")}"
+            buildConfigField "String","TRANSLATE_KEY","${readLocalProperties("TRANSLATE_KEY")}"
         }
     }
     compileOptions {

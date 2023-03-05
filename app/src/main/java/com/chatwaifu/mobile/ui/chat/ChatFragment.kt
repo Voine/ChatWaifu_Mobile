@@ -120,9 +120,14 @@ class ChatFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         JniBridgeJava.nativeOnStart()
+        val jsonFileName = "${viewModel.currentLive2DModelName}.model3.json"
+        if (!File(viewModel.currentLive2DModelPath + File.separator, jsonFileName).exists()) {
+            showToast("cant find model3.json...")
+            return
+        }
         JniBridgeJava.nativeProjectChangeTo(
             viewModel.currentLive2DModelPath + File.separator,
-            "${viewModel.currentLive2DModelName}.model3.json"
+            jsonFileName
         )
         if (viewModel.currentLive2DModelName == Constant.LOCAL_MODEL_KURISU) {
             //fix kurisu live2d bug..

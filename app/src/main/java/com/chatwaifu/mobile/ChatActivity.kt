@@ -2,6 +2,7 @@ package com.chatwaifu.mobile
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.MenuItem
 import com.google.android.material.navigation.NavigationView
@@ -14,6 +15,7 @@ import com.chatwaifu.mobile.ui.channellist.ChannelListFragment
 import com.chatwaifu.mobile.ui.chat.ChatFragment
 import com.chatwaifu.mobile.ui.chatlog.ChatLogFragment
 import com.chatwaifu.mobile.ui.setting.SettingFragment
+import com.chatwaifu.mobile.ui.showToast
 
 class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
@@ -91,5 +93,17 @@ class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
         binding.drawerLayout.closeDrawer(GravityCompat.START)
         return true
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+            showToast("no permission...")
+            finish()
+        }
     }
 }

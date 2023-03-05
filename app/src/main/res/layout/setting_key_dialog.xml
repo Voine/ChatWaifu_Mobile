@@ -104,6 +104,32 @@
             android:textColor="#66FFFFFF"
             />
 
+        <TextView
+            android:id="@+id/default_atri_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="ATRI Setting:"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="@id/default_amadeus_setting"
+            app:layout_constraintTop_toBottomOf="@id/default_amadeus_setting" />
+
+
+        <EditText
+            android:id="@+id/default_atri_setting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/default_atri_text"
+            app:layout_constraintStart_toStartOf="@id/default_atri_text"
+            android:hint="input your setting here..."
+            android:textSize="8dp"
+            android:text="@string/default_system_atri"
+            android:textColorHint="#66FFFFFF"
+            android:textColor="#66FFFFFF"
+            />
+
 
         <TextView
             android:id="@+id/default_external_text"
@@ -114,8 +140,8 @@
             android:textColor="@color/white"
             android:textSize="10sp"
             android:textStyle="bold"
-            app:layout_constraintStart_toStartOf="@id/default_amadeus_setting"
-            app:layout_constraintTop_toBottomOf="@id/default_amadeus_setting" />
+            app:layout_constraintStart_toStartOf="@id/default_atri_setting"
+            app:layout_constraintTop_toBottomOf="@id/default_atri_setting" />
 
 
         <EditText

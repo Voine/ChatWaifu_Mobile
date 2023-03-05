@@ -7,6 +7,7 @@ import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.Constant.LIVE2D_BASE_PATH
+import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_ATRI
 import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_HIYORI
 import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_KURISU
 import com.chatwaifu.mobile.data.Constant.VITS_BASE_PATH
@@ -87,6 +88,7 @@ class LocalModelManager() {
         return when {
             name == LOCAL_MODEL_HIYORI -> R.drawable.hiyori_head
             name == LOCAL_MODEL_KURISU -> R.drawable.kurisu_head
+            name == LOCAL_MODEL_ATRI -> R.drawable.atri_head
             else -> R.drawable.external_default_icon
         }
     }
@@ -104,7 +106,8 @@ class LocalModelManager() {
                     avatarDrawable = R.drawable.external_default_icon,
                     characterPath = live2dModel.absolutePath,
                     characterName = live2dModel.name,
-                    characterVitsPath = relativeVITSModel?.absolutePath ?: ""
+                    characterVitsPath = relativeVITSModel?.absolutePath ?: "",
+                    fromExternal = true
                 )
             )
         }
@@ -122,6 +125,11 @@ class LocalModelManager() {
                     it.ifBlank { null }
                 } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_amadeus)
             }
+            LOCAL_MODEL_ATRI -> {
+                sp.getString(Constant.SAVED_ATRI_SETTING, null)?.let {
+                    it.ifBlank { null }
+                } ?: ChatWaifuApplication.context.resources.getString(R.string.default_system_atri)
+            }
             else -> {
                 sp.getString(Constant.SAVED_EXTERNAL_SETTING, null)?.let {
                     it.ifBlank { null }
@@ -129,4 +137,55 @@ class LocalModelManager() {
             }
         }
     }
+
+    /**
+     * 由于奇妙的权限问题，即使申请了权限， listFile 也返回空数组，但指定具体路径又能找得到文件，所以暂时这么处理
+     */
+    fun getVITSModelFiles(basePath: String): List<File>? {
+        val files = File(basePath).listFiles()
+        if (!files.isNullOrEmpty()) {
+            return files.toList()
+        }
+        val resultList = mutableListOf<File>()
+        vitsFileArr.forEach {
+            val file = File(basePath, it)
+            if (file.exists()) {
+                resultList.add(file)
+            }
+        }
+        return resultList
+    }
+
+    companion object {
+        val vitsFileArr= listOf(
+            "config.json",
+            "dec.ncnn.bin",
+            "dp.ncnn.bin",
+            "flow.ncnn.bin",
+            "flow.reverse.ncnn.bin",
+            "emb_g.bin",
+            "emb_t.bin",
+            "enc_p.ncnn.bin",
+            "enc_q.ncnn.bin"
+        )
+    }
+
+    //when {
+    //            path.endsWith("dec.ncnn.bin") ->
+    //                folder = path.replace("dec.ncnn.bin", "")
+    //            path.endsWith("dp.ncnn.bin") ->
+    //                folder = path.replace("dp.ncnn.bin", "")
+    //            path.endsWith("flow.ncnn.bin") ->
+    //                folder = path.replace("flow.ncnn.bin", "")
+    //            path.endsWith("flow.reverse.ncnn.bin") ->
+    //                folder = path.replace("flow.reverse.ncnn.bin", "")
+    //            path.endsWith("emb_g.bin") ->
+    //                folder = path.replace("emb_g.bin", "")
+    //            path.endsWith("emb_t.bin") ->
+    //                folder = path.replace("emb_t.bin", "")
+    //            path.endsWith("enc_p.ncnn.bin") ->
+    //                folder = path.replace("enc_p.ncnn.bin", "")
+    //            path.endsWith("enc_q.ncnn.bin") ->
+    //                folder = path.replace("enc_q.ncnn.bin", "")
+    //        }
 }

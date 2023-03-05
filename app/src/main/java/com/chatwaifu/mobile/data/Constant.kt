@@ -15,6 +15,7 @@ object Constant {
     const val SAVED_FLAG_NEED_COPY_DATA = "need_copy_data"
     const val SAVED_HIYORI_SETTING = "saved_hiyori_setting"
     const val SAVED_AMADEUS_SETTING = "saved_amadeus_setting"
+    const val SAVED_ATRI_SETTING = "saved_atri_setting"
     const val SAVED_EXTERNAL_SETTING = "saved_external_setting"
 
     const val LIVE2D_BASE_PATH = "Live2DModels"
@@ -22,6 +23,7 @@ object Constant {
 
     const val LOCAL_MODEL_HIYORI = "Hiyori"
     const val LOCAL_MODEL_KURISU = "kurisu"
+    const val LOCAL_MODEL_ATRI = "atri"
 
 
     val EXTEND_LIVE2D_PATH = "chatwaifu/live2d/"

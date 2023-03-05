@@ -10,11 +10,8 @@ import com.chatwaifu.chatgpt.ChatGPTNetService
 import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
-import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_HIYORI
-import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_KURISU
 import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.ui.ChannelListBean
-import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.utils.LocalModelManager
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
@@ -23,7 +20,6 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.io.File
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 
@@ -124,8 +120,9 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    fun loadVitsModel(rootFiles: List<File>?) {
+    fun loadVitsModel(basePath: String) {
         loadingUILiveData.postValue(Pair(true, "Load VITS Model...."))
+        val rootFiles = localModelManager.getVITSModelFiles(basePath)
         viewModelScope.launch(Dispatchers.IO) {
             val configResult = suspendCancellableCoroutine<Boolean> {
                 vitsHelper.loadConfigs(rootFiles?.find { it.name.endsWith("json") }?.absolutePath) { isSuccess ->
