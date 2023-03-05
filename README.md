@@ -6,7 +6,7 @@ Android 手机版的 ChatGPT 二次元聊天器，目前仍是一个相当简陋
 \
 **模型1: 语音来自 Blue Archive 优香，Live 2D 为官方模型 Hiyori。**\
 **模型2: 语音来自命运石之门牧濑红莉栖，Live2D 为 Amadeus.**\
-**模型3：语音和模型均来自 ANIPLEX 的作品 ATRI -My Dear Moments-**\
+**模型3：语音和模型均来自 ANIPLEX 的作品 ATRI -My Dear Moments-**
 
 - 集成 GhatGPT + VITS + Live2D
 - 接了翻译功能，如需则自行设置 appid 和 key，详见下文
