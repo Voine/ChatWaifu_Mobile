@@ -2,7 +2,7 @@
 ## 年轻人的第一个移动版老婆聊天器（雾
 ## 简介
 Android 手机版的 ChatGPT 二次元聊天器，目前仍是一个相当简陋的 app。\
-目前内置2个模型，会自动播放 ChatGPT 的回复，由于内置为日语模型，其他语言的播放效果可能相当一言难尽。\
+目前内置如下模型，会自动播放 ChatGPT 的回复，由于内置为日语模型，其他语言的播放效果可能相当一言难尽。\
 \
 **模型1: 语音来自 Blue Archive 优香，Live 2D 为官方模型 Hiyori。**\
 **模型2: 语音来自命运石之门牧濑红莉栖，Live2D 为 Amadeus.**\
@@ -37,13 +37,13 @@ OpenAI Key [地址](https://platform.openai.com/account/api-keys)，将其输入
 ├─chatwaifu
      ├─ live2d
          ├─ yourModel
-              ├─ xxx.model3.json
+              ├─ yourModel.model3.json
               ├─ xxx.moc3
               ├─ xxx.exp3.json
               ├─ .....
 ```
 ### 注意
-live2d 模型的名字与需要与 vits 模型的目录名一致
+live2d 模型的名字与需要与 vits 模型的目录名一致，Live2D 的 model3.json 要和目录名一致
 ## 关于翻译
 设置后会默认将 GPT 输出的语言翻译成日文交给 VITS，否则内置的优香模型说别的语言可能基本不出声... \
 接了 baidu 翻译，可以免费申请一个开发者账号 [这里](https://api.fanyi.baidu.com/) ，将申请到的 appid 和 密钥填到登录页的第二第三栏，或者在左上角菜单里选取 setting ，进行更改就行了
