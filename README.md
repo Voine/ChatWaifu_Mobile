@@ -3,8 +3,11 @@
 ## 简介
 Android 手机版的 ChatGPT 二次元聊天器，目前仍是一个相当简陋的 app。\
 目前内置2个模型，会自动播放 ChatGPT 的回复，由于内置为日语模型，其他语言的播放效果可能相当一言难尽。\
+\
 **模型1: 语音来自 Blue Archive 优香，Live 2D 为官方模型 Hiyori。**\
 **模型2: 语音来自命运石之门牧濑红莉栖，Live2D 为 Amadeus.**
+**模型3：语音和模型均来自 ANIPLEX 的作品 ATRI -My Dear Moments-**
+\
 - 集成 GhatGPT + VITS + Live2D
 - 接了翻译功能，如需则自行设置 appid 和 key，详见下文
 - 目前暂时只是把这几个功能连了起来，Live2D 也是播放的随机表情。日志记录，表情驱动，情感分析什么的，后面有空再搞把...
@@ -46,7 +49,7 @@ live2d 模型的名字与需要与 vits 模型的目录名一致
 接了 baidu 翻译，可以免费申请一个开发者账号 [这里](https://api.fanyi.baidu.com/) ，将申请到的 appid 和 密钥填到登录页的第二第三栏，或者在左上角菜单里选取 setting ，进行更改就行了
 ## 关于角色设定
 目前 Hiyori 和 Amadeus 都有内置的设定，外部导入的模型可将设定填写到 Setting 页面的 External Setting 部分
-### 示例图
+## 示例图
 <img width="256" src="https://user-images.githubusercontent.com/30189805/221414807-11e1ca0e-4046-4702-a730-b80dbf8c4102.png"><img width="256" src="https://user-images.githubusercontent.com/30189805/221415390-1a75a515-912b-4024-9a16-9118fb897175.png">
 <img src="https://user-images.githubusercontent.com/30189805/221416029-7247c2eb-3973-49f4-bdb4-7a2cf81ae74a.png" width="256">
 
