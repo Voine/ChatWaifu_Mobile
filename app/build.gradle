@@ -27,6 +27,9 @@ android {
                     outputFileName = "ChatWaifu"+"_"+getDate()+".apk"
                 }
             }
+            buildConfigField "String","CHAT_CHPT_KEY","\"\""
+            buildConfigField "String","TRANSLATE_APP_ID","\"\""
+            buildConfigField "String","TRANSLATE_KEY","\"\""
         }
         debug{
             buildConfigField "String","CHAT_CHPT_KEY","${readLocalProperties("CHAT_CPT_KEY")}"
