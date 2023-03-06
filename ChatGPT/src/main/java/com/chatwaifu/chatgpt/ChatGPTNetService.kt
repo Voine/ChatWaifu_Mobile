@@ -70,7 +70,11 @@ class ChatGPTNetService(val context: Context) {
                 call: Call<ChatGPTResponseData>,
                 response: Response<ChatGPTResponseData>
             ) {
-                Log.d(TAG, "send $call, receive ${response.body()}")
+                Log.d(TAG, "send $call, receive ${response.body()} ${response.errorBody()?.string()}")
+                if (!response.isSuccessful) {
+                    callback.invoke(ChatGPTResponseData(errorMsg = response.errorBody()?.string()))
+                    return
+                }
                 response.body()?.choices?.firstOrNull()?.message?.content?.let {
                     if (sendMessageAssistantList.size > MAX_LIST_SIZE) {
                         sendMessageAssistantList.removeFirst()

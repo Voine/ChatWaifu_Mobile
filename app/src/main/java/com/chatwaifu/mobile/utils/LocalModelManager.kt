@@ -169,23 +169,4 @@ class LocalModelManager() {
             "enc_q.ncnn.bin"
         )
     }
-
-    //when {
-    //            path.endsWith("dec.ncnn.bin") ->
-    //                folder = path.replace("dec.ncnn.bin", "")
-    //            path.endsWith("dp.ncnn.bin") ->
-    //                folder = path.replace("dp.ncnn.bin", "")
-    //            path.endsWith("flow.ncnn.bin") ->
-    //                folder = path.replace("flow.ncnn.bin", "")
-    //            path.endsWith("flow.reverse.ncnn.bin") ->
-    //                folder = path.replace("flow.reverse.ncnn.bin", "")
-    //            path.endsWith("emb_g.bin") ->
-    //                folder = path.replace("emb_g.bin", "")
-    //            path.endsWith("emb_t.bin") ->
-    //                folder = path.replace("emb_t.bin", "")
-    //            path.endsWith("enc_p.ncnn.bin") ->
-    //                folder = path.replace("enc_p.ncnn.bin", "")
-    //            path.endsWith("enc_q.ncnn.bin") ->
-    //                folder = path.replace("enc_q.ncnn.bin", "")
-    //        }
 }

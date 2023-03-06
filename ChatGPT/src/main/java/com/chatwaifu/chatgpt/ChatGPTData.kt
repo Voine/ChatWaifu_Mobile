@@ -40,12 +40,13 @@ data class RequestMessageBean(
 
 @Keep
 data class ChatGPTResponseData(
-    var id: String?,
-    var `object`: String?,
-    var created: Int?,
-    var model: String?,
-    var choices: List<ListBean>?,
-    var usage: Usage?,
+    var id: String? = null,
+    var `object`: String? = null,
+    var created: Int? = null,
+    var model: String? = null,
+    var choices: List<ListBean>? = null,
+    var usage: Usage? = null,
+    var errorMsg: String? = null,
 )
 @Keep
 data class Usage(var prompt_tokens: Int?, val completion_tokens: Int?, val total_tokens: Int?)

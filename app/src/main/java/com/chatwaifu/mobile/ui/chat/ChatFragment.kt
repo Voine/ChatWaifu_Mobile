@@ -103,6 +103,10 @@ class ChatFragment : Fragment() {
 
 
     private fun onReceiveResponse(response: ChatGPTResponseData?) {
+        if (!response?.errorMsg.isNullOrEmpty()) {
+            showToast("GPT Error: ${response?.errorMsg}")
+            return
+        }
         val result = response?.choices?.firstOrNull()?.message?.content
         if (result.isNullOrEmpty()) {
             showToast("Error occur...ChatGPT response empty")

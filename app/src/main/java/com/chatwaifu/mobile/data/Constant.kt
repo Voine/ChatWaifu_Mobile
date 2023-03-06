@@ -17,6 +17,7 @@ object Constant {
     const val SAVED_AMADEUS_SETTING = "saved_amadeus_setting"
     const val SAVED_ATRI_SETTING = "saved_atri_setting"
     const val SAVED_EXTERNAL_SETTING = "saved_external_setting"
+    const val SAVED_USE_TRANSLATE = "saved_use_translate"
 
     const val LIVE2D_BASE_PATH = "Live2DModels"
     const val VITS_BASE_PATH = "VITSModels"

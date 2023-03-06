@@ -26,12 +26,14 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        if (jumpToNextInBuildIfNeed()) {
+            return
+        }
+
         if (sp.getString(Constant.SAVED_CHAT_KEY, null) != null) {
             jumpToChat()
             return
         }
-
-        jumpToNextInBuildIfNeed()
 
         binding.done.setOnClickListener {
             val chatKey = binding.chatGptText.text.toString().trim()
@@ -62,16 +64,22 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun jumpToNextInBuildIfNeed() {
+    private fun jumpToNextInBuildIfNeed(): Boolean {
         if (BuildConfig.CHAT_CHPT_KEY.isNotBlank()) {
-            sp.edit().apply {
+            val editor = sp.edit()
+            editor.apply {
                 putString(Constant.SAVED_CHAT_KEY, BuildConfig.CHAT_CHPT_KEY)
                 putString(Constant.SAVED_TRANSLATE_APP_ID, BuildConfig.TRANSLATE_APP_ID)
                 putString(Constant.SAVED_TRANSLATE_KEY, BuildConfig.TRANSLATE_KEY)
-                apply()
             }
-            jumpToChat()
+            if (!editor.commit()) {
+                editor.apply()
+            } else {
+                jumpToChat()
+            }
+            return true
         }
+        return false
     }
 
     override fun onRequestPermissionsResult(

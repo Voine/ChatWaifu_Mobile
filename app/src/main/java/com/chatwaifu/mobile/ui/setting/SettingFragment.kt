@@ -82,6 +82,15 @@ class SettingFragment : DialogFragment() {
             }
         }
 
+        sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true).let {
+            binding.useTranslateSwitch.isChecked = it
+            updateTranslateSetting(it)
+        }
+
+        binding.useTranslateSwitch.setOnCheckedChangeListener { _, isChecked ->
+            updateTranslateSetting(isChecked)
+        }
+
         binding.inputConfirmBtn.setOnClickListener {
             val inputAppId = binding.inputAppid.text.toString()
             val inputTranslateKey = binding.inputTranslateKey.text.toString()
@@ -112,11 +121,18 @@ class SettingFragment : DialogFragment() {
                 if (inputExternalSetting.isNotBlank()) {
                     putString(Constant.SAVED_EXTERNAL_SETTING, inputExternalSetting)
                 }
+
+                putBoolean(Constant.SAVED_USE_TRANSLATE, binding.useTranslateSwitch.isChecked)
                 apply()
             }
 
             viewModel.refreshAllKeys()
             showToast("save key success...")
         }
+    }
+
+    private fun updateTranslateSetting(needTranslate: Boolean) {
+        viewModel.needTranslate = needTranslate
+        binding.translateViewGroup.visibility = if (needTranslate) View.VISIBLE else View.GONE
     }
 }

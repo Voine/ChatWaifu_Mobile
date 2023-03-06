@@ -50,6 +50,7 @@ class ChatActivityViewModel: ViewModel() {
     var currentLive2DModelPath: String = ""
     var currentLive2DModelName: String = ""
     var currentVITSModelName: String = ""
+    var needTranslate: Boolean = true
 
     var inputFunc: ((input: String) -> Unit)? = null
     private val chatGPTNetService: ChatGPTNetService? by lazy {
@@ -73,6 +74,7 @@ class ChatActivityViewModel: ViewModel() {
         val translateAppId = sp.getString(Constant.SAVED_TRANSLATE_APP_ID, null)
         val translateKey = sp.getString(Constant.SAVED_TRANSLATE_KEY, null)
         setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
+        needTranslate = sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true)
     }
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -163,10 +165,13 @@ class ChatActivityViewModel: ViewModel() {
     private suspend fun fetchTranslateIfNeed(responseText: String?): String? {
         translate ?: return responseText
         responseText ?: return null
+        if (!needTranslate) {
+            return responseText
+        }
         chatStatusLiveData.postValue(ChatStatus.TRANSLATE)
         return suspendCancellableCoroutine {
             translate?.getTranslateResult(responseText){result ->
-                it.safeResume(result)
+                it.safeResume(result?.ifBlank { responseText } ?: responseText)
             }
         }
     }
