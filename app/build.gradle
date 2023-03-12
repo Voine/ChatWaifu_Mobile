@@ -72,6 +72,7 @@ dependencies {
     implementation project(":Translate")
     implementation project(":Log")
     implementation project(":Lipsync")
+    implementation project(':Sherpa')
     implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
     implementation "androidx.appcompat:appcompat:${rootProject.ext.android_appcompat}"
     implementation "com.google.android.material:material:${rootProject.ext.android_material}"
@@ -79,8 +80,8 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'androidx.navigation:navigation-fragment:2.5.3'
     implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
-    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.6.1'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1'
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:${rootProject.ext.lifecycle_livedata_ktx}"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:${rootProject.ext.lifecycle_livedata_ktx}"
     implementation 'androidx.navigation:navigation-fragment-ktx:2.5.3'
     implementation 'com.belerweb:pinyin4j:2.5.0'
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
