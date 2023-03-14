@@ -38,7 +38,7 @@ class ChineseTextUtils(
         var cleanedText = ""
         val cleaner = ChineseCleaners()
         when{
-            (cleanerName == "chinese_cleaners" || cleanerName == "chinese_cleaners")->{
+            (cleanerName == "chinese_cleaners" || cleanerName == "chinese_cleaners1")->{
                 cleanedText = cleaner.chinese_clean_text1(text)
             }
             cleanerName == "chinese_cleaners2"->{

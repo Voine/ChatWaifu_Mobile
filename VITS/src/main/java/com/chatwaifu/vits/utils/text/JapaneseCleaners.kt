@@ -100,6 +100,6 @@ class JapaneseCleaners {
     external fun extract_labels(text: String): List<String>
 
     init {
-        System.loadLibrary("moereng-vits")
+        System.loadLibrary("moereng")
     }
 }

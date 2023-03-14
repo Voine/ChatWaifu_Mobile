@@ -19,11 +19,9 @@ import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.Constant.SAVED_FLAG_NEED_COPY_DATA
 import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.databinding.FragmentChannelListBinding
-import com.chatwaifu.mobile.ui.ChannelListBean
 import com.chatwaifu.mobile.ui.dp
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.vits.utils.permission.PermissionUtils
-import java.io.File
 
 class ChannelListFragment : Fragment() {
 
@@ -104,8 +102,8 @@ class ChannelListFragment : Fragment() {
             return
         }
         activityViewModel.currentVITSModelName = item.characterName
-        val vitsDir = item.characterVitsPath
-        activityViewModel.loadVitsModel(vitsDir)
+        activityViewModel.loadChatListCache(item.characterName)
+        activityViewModel.loadVitsModel(item.characterVitsPath)
     }
 
     private fun onFabClick() {

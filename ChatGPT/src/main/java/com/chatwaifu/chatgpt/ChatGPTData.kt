@@ -1,22 +1,30 @@
 package com.chatwaifu.chatgpt
 
 import androidx.annotation.Keep
+import com.chatwaifu.chatgpt.ChatGPTData.MAX_GENERATE_LIMIT
 import com.google.gson.Gson
 import okhttp3.MediaType
 import okhttp3.RequestBody
 import org.json.JSONObject
 
+
+object ChatGPTData {
+    const val MAX_TOKEN_LIMIT = 4096 //turbo 3.5 max context length
+    const val MAX_GENERATE_LIMIT = 1000 // chat gpt response limit
+    const val MAX_SEND_LIMIT = MAX_TOKEN_LIMIT - MAX_GENERATE_LIMIT //send message length limit
+    const val DEFAULT_SYSTEM_ROLE_LIMIT = 100 //default system role token length
+}
+
 @Keep
 data class ChatGPTRequestData(
     val model: String = DEFAULT_MODEL,
     val temperature: Int = DEFAULT_TEMPERATURE,
-    val max_tokens: Int = DEFAULT_MAX_TOKENS,
+    val max_tokens: Int = MAX_GENERATE_LIMIT,
     val messages: List<RequestMessageBean> = emptyList()
 ) {
     companion object {
         private const val DEFAULT_MODEL = "gpt-3.5-turbo"
         private const val DEFAULT_TEMPERATURE = 1
-        private const val DEFAULT_MAX_TOKENS = 2048
     }
 
     fun toRequestBody(): RequestBody {

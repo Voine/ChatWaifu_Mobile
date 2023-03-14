@@ -11,7 +11,8 @@ import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.VITSLoadStatus
-import com.chatwaifu.mobile.ui.ChannelListBean
+import com.chatwaifu.mobile.ui.channellist.ChannelListBean
+import com.chatwaifu.mobile.utils.AssistantMessageManager
 import com.chatwaifu.mobile.utils.LocalModelManager
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
@@ -52,7 +53,7 @@ class ChatActivityViewModel: ViewModel() {
     var currentVITSModelName: String = ""
     var needTranslate: Boolean = true
 
-    var inputFunc: ((input: String) -> Unit)? = null
+    private var inputFunc: ((input: String) -> Unit)? = null
     private val chatGPTNetService: ChatGPTNetService? by lazy {
         ChatGPTNetService(ChatWaifuApplication.context)
     }
@@ -64,6 +65,9 @@ class ChatActivityViewModel: ViewModel() {
     }
     private val sp: SharedPreferences by lazy {
         ChatWaifuApplication.context.getSharedPreferences(Constant.SAVED_STORE, Context.MODE_PRIVATE)
+    }
+    private val assistantMsgManager: AssistantMessageManager by lazy {
+        AssistantMessageManager(ChatWaifuApplication.context)
     }
     private var translate: ITranslate? = null
 
@@ -81,9 +85,11 @@ class ChatActivityViewModel: ViewModel() {
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
+                assistantMsgManager.insertUserMessage(input)
 
                 chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
-                val response = sendChatGPTRequest(input)
+                val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
+                assistantMsgManager.insertGPTMessage(response)
                 chatResponseLiveData.postValue(response)
 
                 val responseText = response?.choices?.firstOrNull()?.message?.content
@@ -142,6 +148,10 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
+    fun loadChatListCache(characterName: String) {
+//        assistantMsgManager.loadChatListCache(characterName)
+    }
+
     fun loadModelSystemSetting(modelName: String) {
         chatGPTNetService?.setSystemRole(localModelManager.getModelSystemSetting(modelName) ?: return)
     }
@@ -154,8 +164,9 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    private suspend fun sendChatGPTRequest(msg: String): ChatGPTResponseData? {
+    private suspend fun sendChatGPTRequest(msg: String, assistantList:List<String>): ChatGPTResponseData? {
         return suspendCancellableCoroutine {
+            chatGPTNetService?.setAssistantList(assistantList)
             chatGPTNetService?.sendChatMessage(msg){ response ->
                 it.safeResume(response)
             }

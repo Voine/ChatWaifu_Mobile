@@ -4,8 +4,6 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.chatwaifu.mobile.R
-import com.chatwaifu.mobile.ui.ChannelListBean
-import com.chatwaifu.mobile.ui.ChannelListHolder
 
 /**
  * Description: ChatListAdapter

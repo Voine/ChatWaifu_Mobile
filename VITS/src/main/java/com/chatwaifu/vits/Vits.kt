@@ -22,6 +22,6 @@ object Vits {
     ): FloatArray
 
     init {
-        System.loadLibrary("moereng-vits")
+        System.loadLibrary("moereng")
     }
 }

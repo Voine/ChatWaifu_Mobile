@@ -118,6 +118,6 @@ class JapaneseTextUtils(
     external fun splitSentenceCpp(text: String): String
 
     init {
-        System.loadLibrary("moereng-vits")
+        System.loadLibrary("moereng")
     }
 }

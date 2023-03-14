@@ -25,6 +25,6 @@ object VitsUtils {
     external fun checkThreadsCpp(): Int
 
     init {
-        System.loadLibrary("moereng-vits")
+        System.loadLibrary("moereng")
     }
 }

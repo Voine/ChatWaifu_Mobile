@@ -12,7 +12,7 @@ import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_HIYORI
 import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_KURISU
 import com.chatwaifu.mobile.data.Constant.VITS_BASE_PATH
 import com.chatwaifu.mobile.safeResume
-import com.chatwaifu.mobile.ui.ChannelListBean
+import com.chatwaifu.mobile.ui.channellist.ChannelListBean
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.vits.utils.file.copyAssets2Local
 import kotlinx.coroutines.suspendCancellableCoroutine

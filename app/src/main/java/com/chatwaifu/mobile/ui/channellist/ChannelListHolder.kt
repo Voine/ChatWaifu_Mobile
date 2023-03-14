@@ -1,4 +1,4 @@
-package com.chatwaifu.mobile.ui
+package com.chatwaifu.mobile.ui.channellist
 
 import android.view.View
 import android.widget.ImageView

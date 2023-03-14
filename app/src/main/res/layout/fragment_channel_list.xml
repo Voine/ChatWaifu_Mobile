@@ -19,7 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="20dp"
-        android:backgroundTint="@color/stream_gray_dark"
+        android:backgroundTint="#989898"
         android:elevation="20dp"
         android:src="@drawable/ic_chatlist_refresh"
         app:layout_constraintBottom_toBottomOf="parent"
