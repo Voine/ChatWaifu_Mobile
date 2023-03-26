@@ -35,7 +35,7 @@ fun ChatWaifuChatIcon(
         Icon(
             painter = painterResource(id = R.drawable.atri_head),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.secondary,
+            tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
         )
     }
 }

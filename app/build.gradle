@@ -71,6 +71,7 @@ dependencies {
     implementation project(":ChatGPT")
     implementation project(":Translate")
     implementation project(":Log")
+    implementation project(":Lipsync")
     implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
     implementation "androidx.appcompat:appcompat:${rootProject.ext.android_appcompat}"
     implementation "com.google.android.material:material:${rootProject.ext.android_material}"

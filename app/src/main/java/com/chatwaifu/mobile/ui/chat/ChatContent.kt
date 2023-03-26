@@ -58,7 +58,7 @@ fun ChatContentScaffold(
     modifier: Modifier = Modifier,
     onNavIconPressed: () -> Unit = { },
     chatTitle: String = "Yuuka",
-    defaultChatTitle: String = "Me:",
+    defaultChatTitle: String = "Me",
     originAndroidView: (Context) -> View,
     originAndroidViewUpdate: (View) -> Unit = {},
     onSendMsgButtonClick: (String) -> Unit = {},
