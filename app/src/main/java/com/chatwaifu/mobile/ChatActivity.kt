@@ -1,25 +1,17 @@
 package com.chatwaifu.mobile
 
-import android.content.Context
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.MenuItem
-import com.google.android.material.navigation.NavigationView
+import androidx.navigation.NavController
+import androidx.navigation.fragment.NavHostFragment
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.GravityCompat
+import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.ViewModelProvider
-import com.chatwaifu.mobile.data.Constant
-import com.chatwaifu.mobile.databinding.ActivityChatBinding
-import com.chatwaifu.mobile.ui.channellist.ChannelListFragment
-import com.chatwaifu.mobile.ui.chat.ChatFragment
-import com.chatwaifu.mobile.ui.chatlog.ChatLogFragment
-import com.chatwaifu.mobile.ui.setting.SettingFragment
+import com.chatwaifu.mobile.ui.base.ChatWaifuRootView
 import com.chatwaifu.mobile.ui.showToast
+import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 
-class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
-
-    private lateinit var binding: ActivityChatBinding
+class ChatActivity : AppCompatActivity() {
 
     private val chatViewModel: ChatActivityViewModel by lazy {
         ViewModelProvider(this)[ChatActivityViewModel::class.java]
@@ -27,74 +19,29 @@ class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityChatBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        initView()
-        showChannelListFragment()
+        setContentView(
+            ComposeView(this).apply {
+                setContent {
+                    ChatWaifu_MobileTheme {
+                        ChatWaifuRootView(
+                            chatViewModel = chatViewModel,
+                            onChannelListClick = {
+                                findNavController().navigate(R.id.nav_channel_list)
+                            },
+                            onChatLogClick = {
+                                findNavController().navigate(R.id.nav_chat_log)
+                            },
+                            onSettingClick = {
+                                findNavController().navigate(R.id.nav_setting)
+                            }
+                        )
+                    }
+                }
+            }
+        )
         chatViewModel.refreshAllKeys()
         chatViewModel.mainLoop()
     }
-
-    private fun showChannelListFragment() {
-        binding.appBarChat.toolbar.post {
-            title = "Character List"
-        }
-        val channelListFragment = ChannelListFragment()
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.host_fragment_content_chat, channelListFragment).commitAllowingStateLoss()
-    }
-    private fun initView() {
-        setSupportActionBar(binding.appBarChat.toolbar)
-        binding.appBarChat.toolbar.navigationIcon = resources.getDrawable(R.drawable.ic_nav_dark)
-        binding.appBarChat.toolbar.setNavigationOnClickListener {
-            binding.drawerLayout.openDrawer(GravityCompat.START)
-        }
-        binding.navView.setNavigationItemSelectedListener(this)
-    }
-
-    fun showChatFragment() {
-        binding.appBarChat.toolbar.post {
-            title = chatViewModel.currentLive2DModelName
-        }
-        val chatFragment = ChatFragment()
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.host_fragment_content_chat, chatFragment).commitAllowingStateLoss()
-    }
-
-    private fun showSetting() {
-        binding.appBarChat.toolbar.post {
-            title = "Setting"
-        }
-        val setting = SettingFragment()
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.host_fragment_content_chat, setting).commitAllowingStateLoss()
-    }
-
-    private fun showChatLog() {
-        binding.appBarChat.toolbar.post {
-            title = "Chat Log"
-        }
-        val chatLog = ChatLogFragment()
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.host_fragment_content_chat, chatLog).commitAllowingStateLoss()
-    }
-
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.drawer_channel_list -> {
-                showChannelListFragment()
-            }
-            R.id.drawer_setting -> {
-                showSetting()
-            }
-            R.id.drawer_chat_log -> {
-                showChatLog()
-            }
-        }
-        binding.drawerLayout.closeDrawer(GravityCompat.START)
-        return true
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -105,5 +52,15 @@ class ChatActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             showToast("no permission...")
             finish()
         }
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        return findNavController().navigateUp() || super.onSupportNavigateUp()
+    }
+
+    private fun findNavController(): NavController {
+        val navHostFragment =
+            supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        return navHostFragment.navController
     }
 }

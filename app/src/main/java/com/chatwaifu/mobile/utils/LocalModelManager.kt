@@ -116,9 +116,9 @@ class LocalModelManager() {
     fun getModelSystemSetting(modelName: String): String? {
         return when (modelName) {
             LOCAL_MODEL_HIYORI -> {
-                sp.getString(Constant.SAVED_HIYORI_SETTING, null)?.let {
+                sp.getString(Constant.SAVED_YUUKA_SETTING, null)?.let {
                     it.ifBlank { null }
-                } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_hiyori)
+                } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_yuuka)
             }
             LOCAL_MODEL_KURISU -> {
                 sp.getString(Constant.SAVED_AMADEUS_SETTING, null)?.let {

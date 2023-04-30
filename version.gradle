@@ -2,4 +2,11 @@ ext{
     minSdkVersion = 24
     targetSdkVersion = 33
     compileSdkVersion = 33
+
+    compose_kotlin_compiler_ext_ver = '1.4.0'
+
+    kotlin_ktx = '1.9.0'
+    android_appcompat = '1.6.1'
+    android_material = '1.9.0-beta01'
+    compose_bom_version = '2023.04.01'
 }

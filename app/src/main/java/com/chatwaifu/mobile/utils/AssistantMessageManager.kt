@@ -7,9 +7,10 @@ import com.chatwaifu.chatgpt.ChatGPTResponseData
 import com.chatwaifu.log.IChatLogDbApi
 import com.chatwaifu.log.room.ChatLogDbManager
 import com.chatwaifu.log.room.ChatMessage
+import com.chatwaifu.mobile.ChatActivityViewModel
 
 /**
- * Description: filter assistant message
+ * Description: filter chat gpt assistant message
  * Author: Voine
  * Date: 2023/3/14
  */
@@ -29,11 +30,12 @@ class AssistantMessageManager(context: Context) {
 
     fun loadChatListCache(characterName: String) {
         currentCharacterName = characterName
-        allAssistList = dbManager.getAllChatLog(characterName).filter {
+        allAssistList = dbManager.getChatLogWithLimit(characterName, limit = 200).filter {
             !it.sendFromMe
         }.sortedByDescending {
             it.timeline
         }.toMutableList()
+        Log.d(TAG, "load chat list assistant cache finish $allAssistList")
     }
 
     fun insertUserMessage(chatMessage: String) {

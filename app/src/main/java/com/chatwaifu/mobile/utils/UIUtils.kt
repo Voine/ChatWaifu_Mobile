@@ -1,10 +1,11 @@
 package com.chatwaifu.mobile.ui
 
+import android.content.Context
 import android.widget.Toast
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 
-fun showToast(text: String){
-    Toast.makeText(ChatWaifuApplication.context, text, Toast.LENGTH_SHORT).show()
+fun showToast(text: String, context: Context = ChatWaifuApplication.context) {
+    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 }
 
 val Int.dp : Int

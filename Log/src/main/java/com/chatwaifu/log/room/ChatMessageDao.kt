@@ -17,7 +17,10 @@ interface ChatMessageDao {
     fun updateChatMessage(msg: ChatMessage)
 
     @Query("select * from ChatMessage where characterName = :characterName limit :limit")
-    fun loadChatMessage(characterName: String, limit: Int): List<ChatMessage>
+    fun loadChatMessageWithLimit(characterName: String, limit: Int): List<ChatMessage>
+
+    @Query("select * from ChatMessage where characterName = :characterName")
+    fun loadAllChatMessage(characterName: String): List<ChatMessage>
 
     @Query("select * from ChatMessage where id > :id and characterName = :characterName limit :limit")
     fun loadChatMessageAfterId(characterName: String, id: Long, limit: Int): List<ChatMessage>

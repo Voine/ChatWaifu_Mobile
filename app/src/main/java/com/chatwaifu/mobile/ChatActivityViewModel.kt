@@ -17,8 +17,14 @@ import com.chatwaifu.mobile.utils.LocalModelManager
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
 import com.chatwaifu.vits.utils.SoundGenerateHelper
+import com.kunminx.architecture.ui.callback.UnPeekLiveData
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.Continuation
@@ -41,11 +47,14 @@ class ChatActivityViewModel: ViewModel() {
         GENERATE_SOUND,
     }
 
+    val drawerShouldBeOpened = MutableLiveData<Boolean>()
     val chatStatusLiveData = MutableLiveData<ChatStatus>().apply { value = ChatStatus.DEFAULT }
     val chatResponseLiveData = MutableLiveData<ChatGPTResponseData?>()
     val generateSoundLiveData = MutableLiveData<Boolean>()
     val initModelResultLiveData = MutableLiveData<List<ChannelListBean>>()
-    val loadVITSModelLiveData = MutableLiveData<VITSLoadStatus>()
+    //使用 shared flow 是为了解决数据倒灌的问题....
+    private val _loadVITSModelLiveData = MutableSharedFlow<VITSLoadStatus>()
+    val loadVITSModelLiveData = _loadVITSModelLiveData.asSharedFlow()
     val loadingUILiveData = MutableLiveData<Pair<Boolean, String>>()
 
     var currentLive2DModelPath: String = ""
@@ -143,13 +152,15 @@ class ChatActivityViewModel: ViewModel() {
                     it.safeResume(isSuccess)
                 }
             }
-            loadVITSModelLiveData.postValue(if (binResult && configResult) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED)
+            _loadVITSModelLiveData.emit(if (binResult && configResult) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED)
             loadingUILiveData.postValue(Pair(false, ""))
         }
     }
 
     fun loadChatListCache(characterName: String) {
-//        assistantMsgManager.loadChatListCache(characterName)
+        CoroutineScope(Dispatchers.IO).launch {
+            assistantMsgManager.loadChatListCache(characterName)
+        }
     }
 
     fun loadModelSystemSetting(modelName: String) {
@@ -199,6 +210,14 @@ class ChatActivityViewModel: ViewModel() {
     override fun onCleared() {
         vitsHelper.clear()
         super.onCleared()
+    }
+
+    fun openDrawer() {
+        drawerShouldBeOpened.value = true
+    }
+
+    fun resetOpenDrawerAction() {
+        drawerShouldBeOpened.value = false
     }
 }
 fun <T> CancellableContinuation<T>.safeResume(value: T) {

@@ -113,7 +113,7 @@
             android:id="@+id/default_hiyori_setting"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/default_system_hiyori"
+            android:text="@string/default_system_yuuka"
             android:textColor="#66FFFFFF"
             android:textSize="8dp"
             app:layout_constraintStart_toStartOf="@id/default_hiyori_text"

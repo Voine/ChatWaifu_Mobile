@@ -18,7 +18,9 @@ interface IChatLogDbApi {
 
     fun insertChatLog(chatMessage: ChatMessage) {}
 
-    fun getAllChatLog(characterName: String, limit: Int = 2000) = emptyList<ChatMessage>()
+    fun getAllChatLog(characterName: String) = emptyList<ChatMessage>()
+
+    fun getChatLogWithLimit(characterName: String, limit: Int) = emptyList<ChatMessage>()
 
     fun onLoadMoreChatLog(characterName: String, lastMessageId: Long, limit: Int) = emptyList<ChatMessage>()
 }

@@ -1,65 +1,83 @@
 package com.chatwaifu.mobile.ui.channellist
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.content.SharedPreferences
-import android.graphics.Rect
 import android.os.Bundle
-import androidx.fragment.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.RecyclerView.ItemDecoration
-import com.chatwaifu.mobile.ChatActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.findNavController
 import com.chatwaifu.mobile.ChatActivityViewModel
-import com.chatwaifu.mobile.data.Constant
-import com.chatwaifu.mobile.data.Constant.SAVED_FLAG_NEED_COPY_DATA
+import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.VITSLoadStatus
-import com.chatwaifu.mobile.databinding.FragmentChannelListBinding
-import com.chatwaifu.mobile.ui.dp
 import com.chatwaifu.mobile.ui.showToast
+import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import com.chatwaifu.vits.utils.permission.PermissionUtils
 
 class ChannelListFragment : Fragment() {
 
-    lateinit var binding: FragmentChannelListBinding
     private val activityViewModel: ChatActivityViewModel by activityViewModels()
-    private val listAdapter = ChannelListAdapter()
-    private val sp: SharedPreferences by lazy {
-        requireActivity().getSharedPreferences(Constant.SAVED_STORE, Context.MODE_PRIVATE)
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        checkPermission()
-        initObserver()
-        activityViewModel.loadVITSModelLiveData.value = VITSLoadStatus.STATE_DEFAULT
-        binding = FragmentChannelListBinding.inflate(inflater)
-        listAdapter.onClick = ::onClick
-        binding.channelList.adapter = listAdapter
-        binding.channelList.layoutManager = LinearLayoutManager(requireContext())
-        binding.channelList.addItemDecoration(object :ItemDecoration(){
-            override fun getItemOffsets(outRect: Rect, itemPosition: Int, parent: RecyclerView) {
-                outRect.set(0,0,0,2.dp)
-            }
-        })
-        binding.fabButton.setOnClickListener {
-            onFabClick()
-        }
-        return binding.root
-    }
+    ): View = ComposeView(inflater.context).apply {
+        layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
 
+        setContent {
+            ChatWaifu_MobileTheme {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    val resultLists = activityViewModel.initModelResultLiveData.observeAsState()
+                    ChannelListContent(
+                        channelListUiState = ChannelListUiState(
+                            messages = resultLists.value ?: emptyList()
+                        ),
+                        onNavIconPressed = {
+                            activityViewModel.openDrawer()
+                        },
+                        onChannelItemClick = ::onClick
+                    )
+
+                    val loadVitsResult by activityViewModel.loadVITSModelLiveData.collectAsStateWithLifecycle(
+                        initialValue = VITSLoadStatus.STATE_DEFAULT
+                    )
+                    when (loadVitsResult) {
+                        VITSLoadStatus.STATE_SUCCESS -> {
+                            Log.d(TAG, "navigate to chat")
+                            findNavController().navigate(R.id.nav_chat)
+                        }
+
+                        VITSLoadStatus.STATE_FAILED -> {
+                            showToast("load vits model failed....")
+                        }
+
+                        else -> {}
+                    }
+
+                    val loadingUIResult = activityViewModel.loadingUILiveData.observeAsState()
+                    val result = loadingUIResult.value
+                    if (result?.first == true) {
+                        LoadingIndicator(loadingText = result.second)
+                    }
+                }
+            }
+        }
+    }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        checkPermission()
         activityViewModel.initModel(requireContext())
-        if (sp.getBoolean(SAVED_FLAG_NEED_COPY_DATA, true)) {
-            sp.edit().putBoolean(SAVED_FLAG_NEED_COPY_DATA, false).apply()
-        }
     }
 
     private fun checkPermission() {
@@ -68,45 +86,16 @@ class ChannelListFragment : Fragment() {
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged")
-    private fun initObserver() {
-        activityViewModel.initModelResultLiveData.observe(viewLifecycleOwner){ models ->
-            listAdapter.items.clear()
-            listAdapter.items.addAll(models)
-            listAdapter.notifyDataSetChanged()
-        }
-        activityViewModel.loadVITSModelLiveData.observe(viewLifecycleOwner){ status ->
-            if (status == VITSLoadStatus.STATE_SUCCESS) {
-                (requireActivity() as? ChatActivity)?.showChatFragment()
-            }
-            if (status == VITSLoadStatus.STATE_FAILED) {
-                showToast("load vits model failed....")
-            }
-        }
-        activityViewModel.loadingUILiveData.observe(viewLifecycleOwner){show ->
-            showLoading(show.first, show.second)
-        }
-    }
-
-    private fun showLoading(show: Boolean, text: String = "") {
-        binding.loadingGroup.visibility = if (show) View.VISIBLE else View.GONE
-        binding.loadingText.text = text
-    }
-
     private fun onClick(item: ChannelListBean) {
         activityViewModel.currentLive2DModelPath = item.characterPath
         activityViewModel.currentLive2DModelName = item.characterName
         activityViewModel.loadModelSystemSetting(item.characterName)
-        if (item.characterName == activityViewModel.currentVITSModelName) {
-            (requireActivity() as? ChatActivity)?.showChatFragment()
-            return
-        }
         activityViewModel.currentVITSModelName = item.characterName
         activityViewModel.loadChatListCache(item.characterName)
         activityViewModel.loadVitsModel(item.characterVitsPath)
     }
 
-    private fun onFabClick() {
-        activityViewModel.initModel(requireContext())
+    companion object {
+        private const val TAG = "ChannelListFragment"
     }
 }

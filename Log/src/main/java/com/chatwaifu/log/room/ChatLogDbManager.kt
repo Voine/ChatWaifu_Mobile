@@ -32,8 +32,12 @@ class ChatLogDbManager(private val context: Context) : IChatLogDbApi {
         ChatDatabase.getDataBase(context).chatMessageDao().insertMessage(chatMessage)
     }
 
-    override fun getAllChatLog(characterName: String, limit: Int): List<ChatMessage> {
-        return ChatDatabase.getDataBase(context).chatMessageDao().loadChatMessage(characterName, limit)
+    override fun getAllChatLog(characterName: String): List<ChatMessage> {
+        return ChatDatabase.getDataBase(context).chatMessageDao().loadAllChatMessage(characterName)
+    }
+
+    override fun getChatLogWithLimit(characterName: String, limit: Int): List<ChatMessage> {
+        return ChatDatabase.getDataBase(context).chatMessageDao().loadChatMessageWithLimit(characterName, limit)
     }
 
     override fun onLoadMoreChatLog(
