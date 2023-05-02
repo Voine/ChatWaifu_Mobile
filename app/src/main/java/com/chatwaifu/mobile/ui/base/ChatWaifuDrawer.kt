@@ -73,7 +73,7 @@ import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 fun ChatWaifuDrawerScaffold(
     drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
     onItemClicked: (NavigationItemType) -> Unit,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     ChatWaifu_MobileTheme {
         ModalNavigationDrawer(
@@ -85,7 +85,8 @@ fun ChatWaifuDrawerScaffold(
                     )
                 }
             },
-            content = content
+            content = content,
+            gesturesEnabled = false
         )
     }
 }

@@ -258,3 +258,27 @@ void LAppDelegate::NeedRenderBack(bool render) {
         _view->NeedRenderBack(render);
     }
 }
+
+void LAppDelegate::ModelResize(float scale)
+{
+    if (_view != NULL)
+    {
+        _view->Resize(scale);
+    }
+}
+
+void LAppDelegate::ModelTranslateX(float x)
+{
+    if (_view != NULL)
+    {
+        _view->TranslateX(x);
+    }
+}
+
+void LAppDelegate::ModelTranslateY(float y)
+{
+    if (_view != NULL)
+    {
+        _view->TranslateY(y);
+    }
+}

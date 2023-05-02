@@ -21,6 +21,10 @@ public:
     bool changeExpression = false;
     bool stopExpression = false;
     std::string nextExpressionName = "";
+
+    float modelScale = 1.0f;               ///< モデル表示倍率
+    float modelTranslateX = 0.0f;          ///< モデル表示位置X
+    float modelTranslateY = 0.0f;          ///< モデル表示位置Y
 };
 /**
 * @brief   アプリケーションクラス。
@@ -139,6 +143,12 @@ public:
     void ApplyExpression(const char* expressionName);
 
     void NeedRenderBack(bool render);
+
+    void ModelResize(float scale);
+
+    void ModelTranslateX(float x);
+
+    void ModelTranslateY(float y);
 
 private:
     /**

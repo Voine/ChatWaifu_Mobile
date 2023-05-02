@@ -16,6 +16,7 @@
 
 package com.chatwaifu.mobile.ui.common
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -48,9 +49,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.Duo
+import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.outlined.InsertPhoto
 import androidx.compose.material.icons.outlined.Mood
+import androidx.compose.material.icons.outlined.Pinch
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -102,7 +106,8 @@ enum class InputSelector {
     DM,
     EMOJI,
     PHONE,
-    PICTURE
+    PICTURE,
+    TOUCH
 }
 
 enum class EmojiStickerSelector {
@@ -122,6 +127,7 @@ fun UserInput(
     onMessageSent: (String) -> Unit,
     modifier: Modifier = Modifier,
     resetScroll: () -> Unit = {},
+    onTouchButtonClick: () -> Unit = {}
 ) {
     var currentInputSelector by rememberSaveable { mutableStateOf(InputSelector.NONE) }
     val dismissKeyboard = { currentInputSelector = InputSelector.NONE }
@@ -156,7 +162,12 @@ fun UserInput(
                 focusState = textFieldFocusState
             )
             UserInputSelector(
-                onSelectorChange = { currentInputSelector = it },
+                onSelectorChange = {
+                    currentInputSelector = it
+                    if (it == InputSelector.TOUCH) {
+                        onTouchButtonClick()
+                    }
+                },
                 sendMessageEnabled = textState.text.isNotBlank(),
                 onMessageSent = {
                     onMessageSent(textState.text)
@@ -215,7 +226,9 @@ private fun SelectorExpanded(
             InputSelector.PICTURE -> FunctionalityNotAvailablePanel()
             InputSelector.MAP -> FunctionalityNotAvailablePanel()
             InputSelector.PHONE -> FunctionalityNotAvailablePanel()
-            else -> { throw NotImplementedError() }
+            else -> {
+                Log.d(TAG, "Not Implement Expand Selector $currentSelector")
+            }
         }
     }
 }
@@ -270,29 +283,35 @@ private fun UserInputSelector(
             selected = currentInputSelector == InputSelector.EMOJI,
             description = stringResource(id = R.string.emoji_selector_bt_desc)
         )
-        InputSelectorButton(
-            onClick = { onSelectorChange(InputSelector.DM) },
-            icon = Icons.Outlined.AlternateEmail,
-            selected = currentInputSelector == InputSelector.DM,
-            description = stringResource(id = R.string.dm_desc)
-        )
+//        InputSelectorButton(
+//            onClick = { onSelectorChange(InputSelector.DM) },
+//            icon = Icons.Outlined.AlternateEmail,
+//            selected = currentInputSelector == InputSelector.DM,
+//            description = stringResource(id = R.string.dm_desc)
+//        )
         InputSelectorButton(
             onClick = { onSelectorChange(InputSelector.PICTURE) },
             icon = Icons.Outlined.InsertPhoto,
             selected = currentInputSelector == InputSelector.PICTURE,
             description = stringResource(id = R.string.attach_photo_desc)
         )
+//        InputSelectorButton(
+//            onClick = { onSelectorChange(InputSelector.MAP) },
+//            icon = Icons.Outlined.Place,
+//            selected = currentInputSelector == InputSelector.MAP,
+//            description = stringResource(id = R.string.map_selector_desc)
+//        )
+//        InputSelectorButton(
+//            onClick = { onSelectorChange(InputSelector.PHONE) },
+//            icon = Icons.Outlined.Duo,
+//            selected = currentInputSelector == InputSelector.PHONE,
+//            description = stringResource(id = R.string.videochat_desc)
+//        )
         InputSelectorButton(
-            onClick = { onSelectorChange(InputSelector.MAP) },
-            icon = Icons.Outlined.Place,
-            selected = currentInputSelector == InputSelector.MAP,
-            description = stringResource(id = R.string.map_selector_desc)
-        )
-        InputSelectorButton(
-            onClick = { onSelectorChange(InputSelector.PHONE) },
-            icon = Icons.Outlined.Duo,
-            selected = currentInputSelector == InputSelector.PHONE,
-            description = stringResource(id = R.string.videochat_desc)
+            onClick = { onSelectorChange(InputSelector.TOUCH) },
+            icon = Icons.Outlined.Pinch,
+            selected = currentInputSelector == InputSelector.TOUCH,
+            description = stringResource(id = R.string.chat_bar_start_touch)
         )
 
         val border = if (!sendMessageEnabled) {
@@ -688,3 +707,4 @@ private val emojis = listOf(
     "\ud83d\udc6d", // Two Women Holding Hands
     "\ud83d\udc8f" // Kiss
 )
+private const val TAG = "UserInput"

@@ -27,6 +27,11 @@ object Constant {
     const val LOCAL_MODEL_KURISU = "kurisu"
     const val LOCAL_MODEL_ATRI = "atri"
 
+    const val LOCAL_MODEL_TRANSLATE_X_PREFIX = "local_model_translate_x_"
+    const val LOCAL_MODEL_TRANSLATE_Y_PREFIX = "local_model_translate_y_"
+    const val LOCAL_MODEL_TRANSLATE_SCALE_PREFIX = "local_model_translate_scale_"
+
+
 
     val EXTEND_LIVE2D_PATH = "chatwaifu/live2d/"
     val EXTEND_VITS_PATH = "chatwaifu/vits/"

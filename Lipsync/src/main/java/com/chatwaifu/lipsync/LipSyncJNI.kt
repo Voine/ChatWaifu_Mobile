@@ -10,9 +10,9 @@ class LipSyncJNI {
 
     external fun ovrLipSync_Initialize(sampleSize: Int, bufferSize: Int)
 
-    external fun ovrLipSync_CreateContextEx(sampleSize: Int, enableAcceleration: Boolean)
+    external fun ovrLipSync_CreateContextEx(sampleSize: Int, enableAcceleration: Boolean): Int
 
-    external fun ovrLipSync_ProcessFrame(data: FloatArray)
+    external fun ovrLipSync_ProcessFrame(sampleSize: Int, data: FloatArray, dataSize: Int): Array<String>
 
     companion object {
         // Used to load the 'lipsync' library on application startup.

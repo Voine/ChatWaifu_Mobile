@@ -122,8 +122,8 @@ void LAppView::InitializeSprite()
 
     float x = width * 0.5f;
     float y = height * 0.5f;
-    float fWidth = (backgroundTexture->width * 2.0f);
-    float fHeight = (height * 0.95f);
+    float fWidth = width;
+    float fHeight = height;
 
     if(_back == NULL)
     {
@@ -398,4 +398,19 @@ void LAppView::ApplyExpression(const char* expressionName) {
 
 void LAppView::NeedRenderBack(bool needRender) {
     _needRenderBack = needRender;
+}
+
+void LAppView::Resize(float scale)
+{
+    _modelParameters.modelScale = scale;
+}
+
+void LAppView::TranslateX(float x)
+{
+    _modelParameters.modelTranslateX = x;
+}
+
+void LAppView::TranslateY(float y)
+{
+    _modelParameters.modelTranslateY = y;
 }

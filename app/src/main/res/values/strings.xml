@@ -51,6 +51,7 @@
     <string name="search">Search</string>
     <string name="info">Information</string>
     <string name="more_options">More options</string>
+    <string name="chat_bar_start_touch">Start Touch</string>
 
     <string name="conversations">Conversations</string>
     <string name="profile">Profile</string>

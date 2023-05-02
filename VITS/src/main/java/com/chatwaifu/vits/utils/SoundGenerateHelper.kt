@@ -123,7 +123,11 @@ class SoundGenerateHelper(val context: Context) {
 
     // processing inputs
     @SuppressLint("SetTextI18n")
-    fun generateAndPlay(text: String?, callback: (isSuccess: Boolean) -> Unit) {
+    fun generateAndPlay(
+        text: String?,
+        callback: (isSuccess: Boolean) -> Unit,
+        forwardResult: (FloatArray) -> Unit
+    ) {
         text ?: return callback.invoke(false)
         try {
             // convert inputs
@@ -144,6 +148,7 @@ class SoundGenerateHelper(val context: Context) {
                         currentThreadCount
                     )?.let {
                         soundHandler.sendSound(it)
+                        forwardResult(it)
                     }
                 }
                 return callback.invoke(true)

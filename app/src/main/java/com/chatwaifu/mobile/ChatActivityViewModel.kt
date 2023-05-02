@@ -35,11 +35,12 @@ import kotlin.coroutines.resume
  * Author: Voine
  * Date: 2023/2/18
  */
-class ChatActivityViewModel: ViewModel() {
+class ChatActivityViewModel : ViewModel() {
     companion object {
         private const val TAG = "ChatActivityViewModel"
     }
-    enum class ChatStatus{
+
+    enum class ChatStatus {
         DEFAULT,
         FETCH_INPUT,
         SEND_REQUEST,
@@ -52,6 +53,7 @@ class ChatActivityViewModel: ViewModel() {
     val chatResponseLiveData = MutableLiveData<ChatGPTResponseData?>()
     val generateSoundLiveData = MutableLiveData<Boolean>()
     val initModelResultLiveData = MutableLiveData<List<ChannelListBean>>()
+
     //使用 shared flow 是为了解决数据倒灌的问题....
     private val _loadVITSModelLiveData = MutableSharedFlow<VITSLoadStatus>()
     val loadVITSModelLiveData = _loadVITSModelLiveData.asSharedFlow()
@@ -73,7 +75,10 @@ class ChatActivityViewModel: ViewModel() {
         LocalModelManager()
     }
     private val sp: SharedPreferences by lazy {
-        ChatWaifuApplication.context.getSharedPreferences(Constant.SAVED_STORE, Context.MODE_PRIVATE)
+        ChatWaifuApplication.context.getSharedPreferences(
+            Constant.SAVED_STORE,
+            Context.MODE_PRIVATE
+        )
     }
     private val assistantMsgManager: AssistantMessageManager by lazy {
         AssistantMessageManager(ChatWaifuApplication.context)
@@ -89,6 +94,7 @@ class ChatActivityViewModel: ViewModel() {
         setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
         needTranslate = sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true)
     }
+
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
             while (true) {
@@ -116,7 +122,7 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    private fun setBaiduTranslate(appid: String, privateKey: String){
+    private fun setBaiduTranslate(appid: String, privateKey: String) {
         translate = BaiduTranslateService(
             ChatWaifuApplication.context,
             appid = appid,
@@ -164,7 +170,9 @@ class ChatActivityViewModel: ViewModel() {
     }
 
     fun loadModelSystemSetting(modelName: String) {
-        chatGPTNetService?.setSystemRole(localModelManager.getModelSystemSetting(modelName) ?: return)
+        chatGPTNetService?.setSystemRole(
+            localModelManager.getModelSystemSetting(modelName) ?: return
+        )
     }
 
     private suspend fun fetchInput(): String {
@@ -175,10 +183,13 @@ class ChatActivityViewModel: ViewModel() {
         }
     }
 
-    private suspend fun sendChatGPTRequest(msg: String, assistantList:List<String>): ChatGPTResponseData? {
+    private suspend fun sendChatGPTRequest(
+        msg: String,
+        assistantList: List<String>
+    ): ChatGPTResponseData? {
         return suspendCancellableCoroutine {
             chatGPTNetService?.setAssistantList(assistantList)
-            chatGPTNetService?.sendChatMessage(msg){ response ->
+            chatGPTNetService?.sendChatMessage(msg) { response ->
                 it.safeResume(response)
             }
         }
@@ -192,19 +203,22 @@ class ChatActivityViewModel: ViewModel() {
         }
         chatStatusLiveData.postValue(ChatStatus.TRANSLATE)
         return suspendCancellableCoroutine {
-            translate?.getTranslateResult(responseText){result ->
+            translate?.getTranslateResult(responseText) { result ->
                 it.safeResume(result?.ifBlank { responseText } ?: responseText)
             }
         }
     }
 
     private fun generateAndPlaySound(needPlayText: String?) {
-        vitsHelper.generateAndPlay(needPlayText){ isSuccess ->
+        vitsHelper.generateAndPlay(needPlayText, callback = { isSuccess ->
             Log.d(TAG, "generate sound $isSuccess")
             if (chatStatusLiveData.value == ChatStatus.GENERATE_SOUND) {
                 chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+            }},
+            forwardResult = {
+
             }
-        }
+        )
     }
 
     override fun onCleared() {
@@ -220,6 +234,7 @@ class ChatActivityViewModel: ViewModel() {
         drawerShouldBeOpened.value = false
     }
 }
+
 fun <T> CancellableContinuation<T>.safeResume(value: T) {
     if (this.isActive) {
         (this as? Continuation<T>)?.resume(value)

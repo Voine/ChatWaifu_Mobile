@@ -127,20 +127,22 @@ void LAppLive2DManager::OnUpdate(LAppModelParameters parameters) const
     int height = LAppDelegate::GetInstance()->GetWindowHeight();
 
     CubismMatrix44 projection;
+    projection.Scale(1.0f * parameters.modelScale, static_cast<float>(width) / static_cast<float>(height) * parameters.modelScale);
+    projection.Translate(parameters.modelTranslateX, parameters.modelTranslateY);
     csmUint32 modelCount = _models.GetSize();
     for (csmUint32 i = 0; i < modelCount; ++i)
     {
         LAppModel* model = GetModel(i);
-        if (model->GetModel()->GetCanvasWidth() > 1.0f && width < height)
-        {
-            // 横に長いモデルを縦長ウィンドウに表示する際モデルの横サイズでscaleを算出する
-            model->GetModelMatrix()->SetWidth(2.0f);
-            projection.Scale(1.0f, static_cast<float>(width) / static_cast<float>(height));
-        }
-        else
-        {
-            projection.Scale(static_cast<float>(height) / static_cast<float>(width), 1.0f);
-        }
+//        if (model->GetModel()->GetCanvasWidth() > 1.0f && width < height)
+//        {
+//            // 横に長いモデルを縦長ウィンドウに表示する際モデルの横サイズでscaleを算出する
+//            model->GetModelMatrix()->SetWidth(2.0f);
+//            projection.Scale(1.0f, static_cast<float>(width) / static_cast<float>(height));
+//        }
+//        else
+//        {
+//            projection.Scale(static_cast<float>(height) / static_cast<float>(width), 1.0f);
+//        }
 
         // 必要があればここで乗算
         if (_viewMatrix != NULL)

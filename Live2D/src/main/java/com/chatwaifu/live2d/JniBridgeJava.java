@@ -54,6 +54,12 @@ public class JniBridgeJava {
 
     public static native void needRenderBack(boolean back);
 
+    public static native void nativeProjectScale(float scale);
+
+    public static native void nativeProjectTransformX(float transform);
+
+    public static native void nativeProjectTransformY(float transform);
+
     // Java -----------------------------------------------------------------
 
     public static void SetContext(Context context) {

@@ -154,6 +154,12 @@ public:
 
     void NeedRenderBack(bool needRender);
 
+    void Resize(float scale);
+
+    void TranslateX(float x);
+
+    void TranslateY(float y);
+
 private:
     TouchManager* _touchManager;                 ///< タッチマネージャー
     Csm::CubismMatrix44* _deviceToScreen;    ///< デバイスからスクリーンへの行列

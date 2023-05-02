@@ -2,9 +2,11 @@ package com.chatwaifu.mobile.ui.chat
 
 import android.content.Context
 import android.view.View
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,9 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.CloseFullscreen
+import androidx.compose.material.icons.outlined.ResetTv
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
@@ -63,6 +73,9 @@ fun ChatContentScaffold(
     originAndroidViewUpdate: (View) -> Unit = {},
     onSendMsgButtonClick: (String) -> Unit = {},
     onErrorOccur: (String) -> Unit = {},
+    onTouchStart: () -> Unit = {},
+    onTouchEnd: () -> Unit = {},
+    onResetModel: () -> Unit = {},
     chatActivityViewModel: ChatActivityViewModel
 ) {
 
@@ -138,7 +151,10 @@ fun ChatContentScaffold(
                 onSendMsgButtonClick = {
                     sendMessageTitle = defaultChatTitle
                     onSendMsgButtonClick(it)
-                }
+                },
+                onTouchStart = onTouchStart,
+                onTouchEnd = onTouchEnd,
+                onResetModel = onResetModel
             )
         }
     }
@@ -151,77 +167,156 @@ fun ChatContent(
     chatTitle: String = "example title",
     chatContent: String = stringResource(id = R.string.sample_very_long_str),
     chatStatus: String = "example status",
-    onSendMsgButtonClick: (String) -> Unit = {}
+    onSendMsgButtonClick: (String) -> Unit = {},
+    onTouchStart: () -> Unit = {},
+    onTouchEnd: () -> Unit = {},
+    onResetModel: () -> Unit = {}
 ) {
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .weight(1f)
-                .background(MaterialTheme.colorScheme.secondary),
-            contentAlignment = Alignment.BottomCenter
-        ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        var touchModeEnable by rememberSaveable { mutableStateOf(false) }
+        AndroidView(
+            modifier = Modifier.fillMaxSize(), // Occupy the max size in the Compose UI tree
+            factory = { context ->
+                // Creates view
+                originAndroidView(context)
+            },
+            update = { view ->
+                // View's been inflated or state read in this block has been updated
+                // Add logic here if necessary
 
-            // Adds view to Compose
-            AndroidView(
-                modifier = Modifier.fillMaxSize(), // Occupy the max size in the Compose UI tree
-                factory = { context ->
-                    // Creates view
-                    originAndroidView(context)
-                },
-                update = { view ->
-                    // View's been inflated or state read in this block has been updated
-                    // Add logic here if necessary
-
-                    // As selectedItem is read here, AndroidView will recompose
-                    // whenever the state changes
-                    // Example of Compose -> View communication
-                    originAndroidViewUpdate(view)
-                }
-            )
-
-
-            Column(
-                modifier = Modifier
-                    .height(200.dp)
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, bottom = 15.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
-                        shape = MaterialTheme.shapes.medium
-                    )
-            ) {
-                Text(
-                    text = "$chatTitle:",
-                    modifier = Modifier
-                        .padding(start = 15.dp, end = 15.dp, top = 15.dp, bottom = 10.dp)
-                        .fillMaxWidth(),
-                    fontSize = 20.sp,
-                    color = Color.White
+                // As selectedItem is read here, AndroidView will recompose
+                // whenever the state changes
+                // Example of Compose -> View communication
+                originAndroidViewUpdate(view)
+            }
+        )
+        Column {
+            if (touchModeEnable) {
+                TouchIndicator(
+                    onDismissClick = {
+                        touchModeEnable = false
+                        onTouchEnd()
+                    },
+                    onResetModelClick = onResetModel
                 )
-                Column(modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 20.dp)
-                    .verticalScroll(rememberScrollState())) {
+            } else {
+                Column(
+                    modifier = Modifier
+                        .height(200.dp)
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 15.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                            shape = MaterialTheme.shapes.medium
+                        )
+                ) {
                     Text(
-                        text = chatContent,
-                        fontSize = 14.sp,
-                        color = Color.White,
+                        text = "$chatTitle:",
+                        modifier = Modifier
+                            .padding(start = 15.dp, end = 15.dp, top = 15.dp, bottom = 10.dp)
+                            .fillMaxWidth(),
+                        fontSize = 20.sp,
+                        color = Color.White
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 20.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = chatContent,
+                            fontSize = 14.sp,
+                            color = Color.White,
+                        )
+                    }
+                    Text(
+                        text = chatStatus,
+                        modifier = Modifier
+                            .padding(start = 15.dp, end = 15.dp, top = 10.dp, bottom = 5.dp)
+                            .fillMaxWidth(),
+                        fontSize = 10.sp,
+                        color = Color_CC
                     )
                 }
-                Text(
-                    text = chatStatus,
-                    modifier = Modifier
-                        .padding(start = 15.dp, end = 15.dp, top = 10.dp, bottom = 5.dp)
-                        .fillMaxWidth(),
-                    fontSize = 10.sp,
-                    color = Color_CC
-                )
             }
 
+            AnimatedVisibility(visible = !touchModeEnable) {
+                UserInput(onMessageSent = onSendMsgButtonClick, onTouchButtonClick = {
+                    touchModeEnable = true
+                    onTouchStart()
+                })
+            }
         }
-        UserInput(onMessageSent = onSendMsgButtonClick)
+    }
+}
+
+
+@Composable
+fun TouchIndicator(
+    onDismissClick: () -> Unit = {},
+    onResetModelClick: () -> Unit = {},
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        contentAlignment = Alignment.TopEnd,
+    ) {
+
+        Column {
+            Box(
+                modifier = Modifier
+                    .width(50.dp)
+                    .height(30.dp)
+                    .background(
+                        MaterialTheme.colorScheme.background,
+                        shape = MaterialTheme.shapes.large
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    onClick = onDismissClick, modifier = Modifier
+                ) {
+                    val tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                    Icon(
+                        Icons.Outlined.CloseFullscreen,
+                        tint = tint,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .padding(5.dp),
+                        contentDescription = null
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .width(50.dp)
+                    .height(30.dp)
+                    .background(
+                        MaterialTheme.colorScheme.background,
+                        shape = MaterialTheme.shapes.large
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    onClick = onResetModelClick, modifier = Modifier
+                ) {
+                    val tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                    Icon(
+                        Icons.Outlined.Autorenew,
+                        tint = tint,
+                        modifier = Modifier
+                            .padding(5.dp),
+                        contentDescription = null
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -269,4 +364,10 @@ fun ChatContentScaffoldPreviewDark() {
             chatActivityViewModel = viewModel()
         )
     }
+}
+
+@Preview
+@Composable
+fun TouchIndicatorPreview() {
+    TouchIndicator()
 }

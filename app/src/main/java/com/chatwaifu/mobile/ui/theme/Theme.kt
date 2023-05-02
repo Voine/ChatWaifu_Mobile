@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun ChatWaifu_MobileTheme(
     darkTheme: Boolean = false,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val colors = if (darkTheme) {
         ChatWaifuDarkTheme
