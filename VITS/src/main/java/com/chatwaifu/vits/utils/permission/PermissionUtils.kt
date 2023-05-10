@@ -53,6 +53,12 @@ object PermissionUtils {
         )
     }
 
+    fun checkNetPermission(activity: Activity): Boolean {
+        val netRequest = Manifest.permission.INTERNET
+        val permissionRecord = ActivityCompat.checkSelfPermission(activity, netRequest)
+        return permissionRecord == PackageManager.PERMISSION_GRANTED
+    }
+
     // check storage permission
     fun checkStoragePermission(activity: Activity): Boolean{
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {

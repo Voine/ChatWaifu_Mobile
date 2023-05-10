@@ -84,6 +84,12 @@ class ChannelListFragment : Fragment() {
         if (!PermissionUtils.checkStoragePermission(requireActivity())) {
             PermissionUtils.requestStoragePermission(requireActivity())
         }
+        if (!PermissionUtils.checkNetPermission(requireActivity())) {
+            PermissionUtils.requestNetPermission(requireActivity())
+        }
+        if (!PermissionUtils.checkRecordPermission(requireActivity())) {
+            PermissionUtils.requestRecordPermission(requireActivity())
+        }
     }
 
     private fun onClick(item: ChannelListBean) {

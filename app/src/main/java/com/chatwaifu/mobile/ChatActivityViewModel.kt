@@ -18,14 +18,11 @@ import com.chatwaifu.mobile.utils.LocalModelManager
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
 import com.chatwaifu.vits.utils.SoundGenerateHelper
-import com.kunminx.architecture.ui.callback.UnPeekLiveData
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.Continuation
@@ -104,15 +101,16 @@ class ChatActivityViewModel : ViewModel() {
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
-//                assistantMsgManager.insertUserMessage(input)
+                assistantMsgManager.insertUserMessage(input)
 
-//                chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
-//                val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
-//                assistantMsgManager.insertGPTMessage(response)
-//                chatResponseLiveData.postValue(response)
+                chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
+                val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
+                assistantMsgManager.insertGPTMessage(response)
+                Log.d(TAG, "get response $response")
+                chatResponseLiveData.postValue(response)
 
-//                val responseText = response?.choices?.firstOrNull()?.message?.content
-                val translateText = fetchTranslateIfNeed(input)
+                val responseText = response?.choices?.firstOrNull()?.message?.content
+                val translateText = fetchTranslateIfNeed(responseText)
 
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
                 generateAndPlaySound(translateText)

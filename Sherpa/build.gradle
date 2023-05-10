@@ -29,6 +29,9 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+    buildFeatures {
+        aidl true
+    }
     sourceSets {
         main {
             jniLibs.srcDirs=['src/main/jniLibs']

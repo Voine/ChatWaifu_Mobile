@@ -97,8 +97,11 @@ class SherpaHelper(val context: Context) {
     fun stopRecord(recognizeCallback: (result: String) -> Unit) {
         isRecording = false
         audioRecord.stop()
-        audioRecord.release()
         recordJob?.cancel()
         recognizeCallback.invoke(results.joinToString())
+    }
+
+    fun releaseRecord() {
+        audioRecord.release()
     }
 }

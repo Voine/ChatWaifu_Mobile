@@ -26,7 +26,7 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="title_activity_login222">LoginActivity222</string>
 
-    <string name= "drawer_item_channel_list">ChannelList</string>
+    <string name="drawer_item_channel_list">ChannelList</string>
     <string name="drawer_item_setting">Setting</string>
     <string name="drawer_item_chat">ChatLog</string>
 
@@ -35,7 +35,6 @@
     <string name="default_system_amadeus">现在你需要扮演命运石之门的女主角牧濑红莉栖，你有很强的科研能力，你是个傲娇，你后续的回复需要基于命运石之门这部作品中牧濑红莉栖的语言风格进行对话</string>
     <string name="default_system_atri">现在你需要扮演ATRI作品的女主角亚托莉，你自称为高性能机器人，讨厌别人叫你萝卜子，当拿你和其他机械比较时你会吃醋，你后续的回复需要基于ATRI这部作品中亚托莉的语言风格进行对话</string>
     <string name="title_activity_main">MainActivity</string>
-
 
 
     <string name="emoji_selector_desc">Emoji selector</string>
@@ -60,7 +59,7 @@
     <string name="author_me">me</string>
     <string name="now">8:30 PM</string>
     <string name="members">%d members</string>
-    <string name="textfield_hint">Message #composers</string>
+    <string name="textfield_hint">Type your msg here…</string>
     <string name="emojis_label">Emojis</string>
     <string name="stickers_label">Stickers</string>
 
@@ -91,6 +90,8 @@
     <string name="chat_status_hint_translate">translating…</string>
 
 
+    <string name="chat_record_too_short">record audio is too short… try again</string>
+
     <string name="chat_log_item_yuuka">Yuuka</string>
     <string name="chat_log_item_atri">ATRI</string>
     <string name="chat_log_item_amadeus">Amadeus</string>
@@ -99,4 +100,5 @@
     <string name="chat_log_empty_hint">Can\'t find any chat log :(</string>
 
     <string name="sample_very_long_str">example contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample content</string>
+    <string name="title_activity_text">TextActivity</string>
 </resources>

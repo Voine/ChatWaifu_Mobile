@@ -21,20 +21,24 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -43,19 +47,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AlternateEmail
-import androidx.compose.material.icons.outlined.CloseFullscreen
-import androidx.compose.material.icons.outlined.Duo
-import androidx.compose.material.icons.outlined.Handshake
-import androidx.compose.material.icons.outlined.InsertPhoto
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.Pinch
-import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.SettingsVoice
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,6 +84,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsPropertyKey
@@ -107,7 +109,8 @@ enum class InputSelector {
     EMOJI,
     PHONE,
     PICTURE,
-    TOUCH
+    TOUCH,
+    MIC,
 }
 
 enum class EmojiStickerSelector {
@@ -121,19 +124,28 @@ fun UserInputPreview() {
     UserInput(onMessageSent = {})
 }
 
+@Preview
+@Composable
+fun MicroPhonePanelPreview() {
+    RecordButton()
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun UserInput(
     onMessageSent: (String) -> Unit,
     modifier: Modifier = Modifier,
+    currentSelector: InputSelector= InputSelector.NONE,
     resetScroll: () -> Unit = {},
-    onTouchButtonClick: () -> Unit = {}
+    onTouchButtonClick: () -> Unit = {},
+    onRecordStart: () -> Unit = {},
+    onRecordEnd: () -> Unit = {},
+    selectChangeFunc: (InputSelector)->Unit = {}
 ) {
-    var currentInputSelector by rememberSaveable { mutableStateOf(InputSelector.NONE) }
-    val dismissKeyboard = { currentInputSelector = InputSelector.NONE }
+    val dismissKeyboard = { selectChangeFunc(InputSelector.NONE) }
 
     // Intercept back navigation if there's a InputSelector visible
-    if (currentInputSelector != InputSelector.NONE) {
+    if (currentSelector != InputSelector.NONE) {
         BackHandler(onBack = dismissKeyboard)
     }
 
@@ -150,11 +162,11 @@ fun UserInput(
                 textFieldValue = textState,
                 onTextChanged = { textState = it },
                 // Only show the keyboard if there's no input selector and text field has focus
-                keyboardShown = currentInputSelector == InputSelector.NONE && textFieldFocusState,
+                keyboardShown = currentSelector == InputSelector.NONE && textFieldFocusState,
                 // Close extended selector if text field receives focus
                 onTextFieldFocused = { focused ->
                     if (focused) {
-                        currentInputSelector = InputSelector.NONE
+                        selectChangeFunc(InputSelector.NONE)
                         resetScroll()
                     }
                     textFieldFocusState = focused
@@ -163,7 +175,7 @@ fun UserInput(
             )
             UserInputSelector(
                 onSelectorChange = {
-                    currentInputSelector = it
+                    selectChangeFunc(it)
                     if (it == InputSelector.TOUCH) {
                         onTouchButtonClick()
                     }
@@ -177,12 +189,17 @@ fun UserInput(
                     resetScroll()
                     dismissKeyboard()
                 },
-                currentInputSelector = currentInputSelector
+                currentInputSelector = currentSelector
             )
             SelectorExpanded(
                 onCloseRequested = dismissKeyboard,
                 onTextAdded = { textState = textState.addText(it) },
-                currentSelector = currentInputSelector
+                currentSelector = currentSelector,
+                onRecordStart = onRecordStart,
+                onRecordEnd = {
+                    dismissKeyboard()
+                    onRecordEnd()
+                }
             )
         }
     }
@@ -206,7 +223,9 @@ private fun TextFieldValue.addText(newString: String): TextFieldValue {
 private fun SelectorExpanded(
     currentSelector: InputSelector,
     onCloseRequested: () -> Unit,
-    onTextAdded: (String) -> Unit
+    onTextAdded: (String) -> Unit,
+    onRecordStart: () -> Unit = {},
+    onRecordEnd: () -> Unit = {}
 ) {
     if (currentSelector == InputSelector.NONE) return
 
@@ -219,18 +238,91 @@ private fun SelectorExpanded(
         }
     }
 
-    Surface(tonalElevation = 8.dp) {
+    Surface(tonalElevation = 4.dp) {
         when (currentSelector) {
             InputSelector.EMOJI -> EmojiSelector(onTextAdded, focusRequester)
             InputSelector.DM -> NotAvailablePopup(onCloseRequested)
             InputSelector.PICTURE -> FunctionalityNotAvailablePanel()
             InputSelector.MAP -> FunctionalityNotAvailablePanel()
             InputSelector.PHONE -> FunctionalityNotAvailablePanel()
+            InputSelector.MIC -> MicroPhonePanel(onRecordStart = onRecordStart, onRecordEnd = onRecordEnd)
             else -> {
                 Log.d(TAG, "Not Implement Expand Selector $currentSelector")
             }
         }
     }
+}
+@Composable
+fun MicroPhonePanel(
+    onRecordStart: () -> Unit = {},
+    onRecordEnd: () -> Unit = {}
+) {
+    RecordButton(onRecordStart = onRecordStart, onRecordEnd = onRecordEnd)
+}
+
+@Composable
+fun RecordButton(
+    onRecordStart: () -> Unit = {},
+    onRecordEnd: () -> Unit = {}
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 80.dp)
+        , contentAlignment = Alignment.Center
+    ){
+        val isRecording = remember { mutableStateOf(false) }
+        val rippleAlpha = animateFloatAsState(if (isRecording.value) 1f else 0f)
+
+        Surface(
+            modifier = Modifier
+                .size(80.dp),
+            shape = CircleShape,
+            color = Color.Transparent,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                isRecording.value = true
+                                // 在这里开始录音
+                                onRecordStart()
+                                tryAwaitRelease()
+                                isRecording.value = false
+                                // 在这里停止录音
+                                onRecordEnd()
+                            }
+                        )
+                    }
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.SettingsVoice,
+                    contentDescription = "Microphone",
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxSize()
+                        .padding(10.dp),
+                    tint = if (isRecording.value) MaterialTheme.colorScheme.secondary else LocalContentColor.current
+                )
+                RippleAnimation(rippleAlpha.value)
+            }
+        }
+    }
+}
+
+@Composable
+fun RippleAnimation(alpha: Float) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val radius = size.minDimension * 0.5f
+        val rippleRadius = lerp(0f, radius, alpha)
+        val color = Color.White.copy(alpha = alpha * 0.2f)
+        drawCircle(color, center = center, radius = rippleRadius)
+    }
+}
+private fun lerp(start: Float, stop: Float, fraction: Float): Float {
+    return start + fraction * (stop - start)
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -289,12 +381,12 @@ private fun UserInputSelector(
 //            selected = currentInputSelector == InputSelector.DM,
 //            description = stringResource(id = R.string.dm_desc)
 //        )
-        InputSelectorButton(
-            onClick = { onSelectorChange(InputSelector.PICTURE) },
-            icon = Icons.Outlined.InsertPhoto,
-            selected = currentInputSelector == InputSelector.PICTURE,
-            description = stringResource(id = R.string.attach_photo_desc)
-        )
+//        InputSelectorButton(
+//            onClick = { onSelectorChange(InputSelector.PICTURE) },
+//            icon = Icons.Outlined.InsertPhoto,
+//            selected = currentInputSelector == InputSelector.PICTURE,
+//            description = stringResource(id = R.string.attach_photo_desc)
+//        )
 //        InputSelectorButton(
 //            onClick = { onSelectorChange(InputSelector.MAP) },
 //            icon = Icons.Outlined.Place,
@@ -312,6 +404,15 @@ private fun UserInputSelector(
             icon = Icons.Outlined.Pinch,
             selected = currentInputSelector == InputSelector.TOUCH,
             description = stringResource(id = R.string.chat_bar_start_touch)
+        )
+
+        InputSelectorButton(
+            onClick = {
+                onSelectorChange(InputSelector.MIC)
+            },
+            icon = Icons.Outlined.Mic,
+            description = "",
+            selected = currentInputSelector == InputSelector.MIC
         )
 
         val border = if (!sendMessageEnabled) {
@@ -375,7 +476,9 @@ private fun InputSelectorButton(
         Icon(
             icon,
             tint = tint,
-            modifier = Modifier.padding(8.dp).size(56.dp),
+            modifier = Modifier
+                .padding(8.dp)
+                .size(56.dp),
             contentDescription = description
         )
     }
@@ -441,7 +544,7 @@ private fun UserInputText(
                 )
 
                 val disableContentColor =
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 if (textFieldValue.text.isEmpty() && !focusState) {
                     Text(
                         modifier = Modifier

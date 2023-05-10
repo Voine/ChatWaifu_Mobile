@@ -8,6 +8,10 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -34,7 +38,7 @@ class ChatFragment : Fragment() {
     private val activityViewModel: ChatActivityViewModel by activityViewModels()
     private val fragmentViewModel:  ChatFragmentViewModel by viewModels()
 
-    var live2DView: GLSurfaceView? = null
+    private var live2DView: GLSurfaceView? = null
     @Volatile
     private var enableTouch: Boolean = false
     private var _live2dLoadInterface: JniBridgeJava.Live2DLoadInterface? = null
@@ -71,13 +75,15 @@ class ChatFragment : Fragment() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             setContent {
+                var sendMessageContent by rememberSaveable { mutableStateOf("") }
                 ChatWaifu_MobileTheme {
                     ChatContentScaffold(
                         originAndroidView = { live2DView!! },
                         onNavIconPressed = { activityViewModel.openDrawer() },
                         chatTitle = activityViewModel.currentLive2DModelName,
                         defaultChatTitle = resources.getString(R.string.chat_dialog_sender_me),
-                        onSendMsgButtonClick = ::onSendBtnClick,
+                        sendMessageContent = sendMessageContent,
+                        onSendMsgButtonClick = ::onSendMessage,
                         chatActivityViewModel = activityViewModel,
                         onErrorOccur = {
                             showToast(it)
@@ -91,11 +97,30 @@ class ChatFragment : Fragment() {
                         },
                         onResetModel = {
                             fragmentViewModel.resetModel()
+                        },
+                        onRecordStart = {
+                            fragmentViewModel.onRecordStart()
+                        },
+                        onRecordEnd = {
+                            fragmentViewModel.onRecordEnd{ result ->
+                                result?.let {
+                                    sendMessageContent = it
+                                    onSendMessage(it)
+                                }
+                            }
+                        },
+                        onSendMessageContentChanged = {
+                            sendMessageContent = it
                         }
                     )
                 }
             }
         }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        fragmentViewModel.bindSherpa(requireContext())
     }
 
     private fun onLoadModelDone() {
@@ -118,7 +143,7 @@ class ChatFragment : Fragment() {
         return fragmentViewModel.handleTouchEvent(event, v?.width, v?.height)
     }
 
-    private fun onSendBtnClick(sendText: String) {
+    private fun onSendMessage(sendText: String) {
         if (sendText.isNotBlank()) {
             Log.d(TAG, "try to send msg $sendText")
             activityViewModel.sendMessage(sendText)
@@ -152,6 +177,7 @@ class ChatFragment : Fragment() {
         live2DView = null
         JniBridgeJava.setLive2DLoadInterface(null)
         activityViewModel.lipsValueHandler.destroyContext()
+        fragmentViewModel.unbindSherpa(requireContext())
         super.onDestroyView()
     }
 

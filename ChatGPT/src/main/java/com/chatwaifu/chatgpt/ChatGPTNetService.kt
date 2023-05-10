@@ -3,6 +3,10 @@ package com.chatwaifu.chatgpt
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import retrofit2.Call
 import retrofit2.Callback
@@ -19,6 +23,7 @@ import java.util.concurrent.TimeUnit
  */
 class ChatGPTNetService(val context: Context) {
     companion object {
+        private const val TEST_MODE = true
         private const val TAG = "ChatGPTNetService"
         private const val CHATGPT_BASE_URL = "https://api.openai.com/"
         private const val TIME_OUT_SECOND = 100L
@@ -63,6 +68,10 @@ class ChatGPTNetService(val context: Context) {
     }
 
     fun sendChatMessage(msg: String, callback: (response: ChatGPTResponseData?) -> Unit) {
+        if (TEST_MODE) {
+            getResponseFromTest(msg, callback)
+            return
+        }
         val sendPart = sendMessageAssistantList + RequestMessageBean(
             RequestMessageBean.ROLE_USER,
             msg
@@ -111,6 +120,24 @@ class ChatGPTNetService(val context: Context) {
             writeTimeout(TIME_OUT_SECOND, TimeUnit.SECONDS)
             addInterceptor(interceptor)
             build()
+        }
+    }
+
+    private fun getResponseFromTest(msg: String, callback: (response: ChatGPTResponseData?) -> Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(1000)
+            val response = ChatGPTResponseData().apply {
+                choices =
+                    listOf(
+                        ListBean(
+                            message = ResponseInnerMessageBean(
+                                role = "Yuuka",
+                                content = "this is response for $msg"
+                            ), finish_reason = "", index = 0
+                        )
+                    )
+            }
+            callback.invoke(response)
         }
     }
 }

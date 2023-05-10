@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.View
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,6 +55,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.ui.common.ChannelNameBar
+import com.chatwaifu.mobile.ui.common.InputSelector
 import com.chatwaifu.mobile.ui.common.UserInput
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import com.chatwaifu.mobile.ui.theme.Color_CC
@@ -69,6 +72,7 @@ fun ChatContentScaffold(
     onNavIconPressed: () -> Unit = { },
     chatTitle: String = "Yuuka",
     defaultChatTitle: String = "Me",
+    sendMessageContent: String = "example content",
     originAndroidView: (Context) -> View,
     originAndroidViewUpdate: (View) -> Unit = {},
     onSendMsgButtonClick: (String) -> Unit = {},
@@ -76,9 +80,11 @@ fun ChatContentScaffold(
     onTouchStart: () -> Unit = {},
     onTouchEnd: () -> Unit = {},
     onResetModel: () -> Unit = {},
+    onRecordStart: () -> Unit = {},
+    onRecordEnd: () -> Unit = {},
+    onSendMessageContentChanged: (String) -> Unit = {},
     chatActivityViewModel: ChatActivityViewModel
 ) {
-
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
     val chatGPTResponseLiveData = chatActivityViewModel.chatResponseLiveData.observeAsState()
@@ -88,10 +94,7 @@ fun ChatContentScaffold(
         onErrorOccur("sound generate failed....")
     }
     var sendMessageTitle by rememberSaveable { mutableStateOf(chatTitle) }
-    var sendMessageContent by rememberSaveable { mutableStateOf("") }
-    val response by rememberSaveable {
-        mutableStateOf(chatGPTResponseLiveData.value)
-    }
+    val response = chatGPTResponseLiveData.value
     val chatStatus by rememberSaveable { mutableStateOf(chatStatusUILiveData.value) }
     if (!response?.errorMsg.isNullOrEmpty()) {
         onErrorOccur("GPT Error: ${response?.errorMsg}")
@@ -101,7 +104,7 @@ fun ChatContentScaffold(
         onErrorOccur("Error occur...ChatGPT response empty")
     } else {
         sendMessageTitle = chatTitle
-        sendMessageContent = result
+        onSendMessageContentChanged(result)
     }
     val chatStatusHint = when (chatStatus) {
         ChatActivityViewModel.ChatStatus.SEND_REQUEST -> {
@@ -150,10 +153,13 @@ fun ChatContentScaffold(
                 chatStatus = chatStatusHint,
                 onSendMsgButtonClick = {
                     sendMessageTitle = defaultChatTitle
+                    onSendMessageContentChanged(it)
                     onSendMsgButtonClick(it)
                 },
                 onTouchStart = onTouchStart,
                 onTouchEnd = onTouchEnd,
+                onRecordStart = onRecordStart,
+                onRecordEnd = onRecordEnd,
                 onResetModel = onResetModel
             )
         }
@@ -170,11 +176,21 @@ fun ChatContent(
     onSendMsgButtonClick: (String) -> Unit = {},
     onTouchStart: () -> Unit = {},
     onTouchEnd: () -> Unit = {},
-    onResetModel: () -> Unit = {}
+    onResetModel: () -> Unit = {},
+    onRecordStart: () -> Unit = {},
+    onRecordEnd: () -> Unit = {}
 ) {
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        var touchModeEnable by rememberSaveable { mutableStateOf(false) }
+    var touchModeEnable by rememberSaveable { mutableStateOf(false) }
+    var currentInputSelector by rememberSaveable { mutableStateOf(InputSelector.NONE) }
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .clickable(
+            enabled = !touchModeEnable,
+            onClick = {
+                currentInputSelector = InputSelector.NONE
+            }
+        ), contentAlignment = Alignment.BottomCenter) {
         AndroidView(
             modifier = Modifier.fillMaxSize(), // Occupy the max size in the Compose UI tree
             factory = { context ->
@@ -191,7 +207,7 @@ fun ChatContent(
                 originAndroidViewUpdate(view)
             }
         )
-        Column {
+        Column(modifier = Modifier) {
             if (touchModeEnable) {
                 TouchIndicator(
                     onDismissClick = {
@@ -243,10 +259,19 @@ fun ChatContent(
             }
 
             AnimatedVisibility(visible = !touchModeEnable) {
-                UserInput(onMessageSent = onSendMsgButtonClick, onTouchButtonClick = {
-                    touchModeEnable = true
-                    onTouchStart()
-                })
+                UserInput(
+                    onMessageSent = onSendMsgButtonClick,
+                    currentSelector = currentInputSelector,
+                    onTouchButtonClick = {
+                        touchModeEnable = true
+                        onTouchStart()
+                    },
+                    onRecordStart = onRecordStart,
+                    onRecordEnd = onRecordEnd,
+                    selectChangeFunc = {
+                        currentInputSelector = it
+                    }
+                )
             }
         }
     }
