@@ -201,3 +201,22 @@ Java_com_chatwaifu_live2d_JniBridgeJava_nativeProjectTransformY(JNIEnv *env, jcl
     LAppDelegate::GetInstance()->ModelTranslateY(transform);
 }
 }
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_chatwaifu_live2d_JniBridgeJava_nativeAutoBlinkEyes(JNIEnv *env, jclass clazz,
+                                                            jboolean enabled) {
+    LAppDelegate::GetInstance()->ModelAutoBlinkEyes(enabled == JNI_TRUE);
+
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_chatwaifu_live2d_JniBridgeJava_nativeProjectMouthForm(JNIEnv *env, jclass clazz,
+                                                               jfloat value) {
+    LAppDelegate::GetInstance()->ModelMouthForm(value);
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_chatwaifu_live2d_JniBridgeJava_nativeProjectMouthOpenY(JNIEnv *env, jclass clazz,
+                                                                jfloat value) {
+    LAppDelegate::GetInstance()->ModelMouthOpenY(value);
+}

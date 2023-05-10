@@ -60,6 +60,12 @@ public class JniBridgeJava {
 
     public static native void nativeProjectTransformY(float transform);
 
+    public static native void nativeAutoBlinkEyes(boolean enabled);
+
+    public static native void nativeProjectMouthForm(float value);
+
+    public static native void nativeProjectMouthOpenY(float value);
+
     // Java -----------------------------------------------------------------
 
     public static void SetContext(Context context) {

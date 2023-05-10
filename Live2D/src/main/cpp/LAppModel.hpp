@@ -181,6 +181,10 @@ private:
     const Csm::CubismId* _idParamBodyAngleX; ///< パラメータID: ParamBodyAngleX
     const Csm::CubismId* _idParamEyeBallX; ///< パラメータID: ParamEyeBallX
     const Csm::CubismId* _idParamEyeBallY; ///< パラメータID: ParamEyeBallXY
+    const Csm::CubismId* _idParamEyeLOpen; ///< パラメータID: ParamEyeLOpen
+    const Csm::CubismId* _idParamEyeROpen; ///< パラメータID: ParamEyeROpen
+    const Csm::CubismId* _idParamMouthForm; ///< パラメータID: ParamMouthForm
+    const Csm::CubismId* _idParamMouthOpenY; ///< パラメータID: ParamMouthOpenY
 
     Csm::Rendering::CubismOffscreenFrame_OpenGLES2  _renderBuffer;   ///< フレームバッファ以外の描画先
 };

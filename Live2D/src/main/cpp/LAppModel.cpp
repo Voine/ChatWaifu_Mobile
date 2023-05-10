@@ -63,6 +63,10 @@ LAppModel::LAppModel()
     _idParamBodyAngleX = CubismFramework::GetIdManager()->GetId(ParamBodyAngleX);
     _idParamEyeBallX = CubismFramework::GetIdManager()->GetId(ParamEyeBallX);
     _idParamEyeBallY = CubismFramework::GetIdManager()->GetId(ParamEyeBallY);
+    _idParamEyeLOpen = CubismFramework::GetIdManager()->GetId(ParamEyeLOpen);
+    _idParamEyeROpen = CubismFramework::GetIdManager()->GetId(ParamEyeROpen);
+    _idParamMouthForm = CubismFramework::GetIdManager()->GetId(ParamMouthForm);
+    _idParamMouthOpenY = CubismFramework::GetIdManager()->GetId(ParamMouthOpenY);
 }
 
 LAppModel::~LAppModel()
@@ -437,7 +441,7 @@ void LAppModel::Update(LAppModelParameters parameters)
     if (_motionManager->IsFinished())
     {
         // モーションの再生がない場合、待機モーションの中からランダムで再生する
-        StartRandomMotion(MotionGroupIdle, PriorityIdle);
+       // StartRandomMotion(MotionGroupIdle, PriorityIdle);
     }
     else
     {
@@ -449,12 +453,24 @@ void LAppModel::Update(LAppModelParameters parameters)
     // まばたき
     if (!motionUpdated)
     {
-        if (_eyeBlink != NULL)
+        if (_eyeBlink != NULL && parameters.autoBlinkEyesEnabled)
         {
             // メインモーションの更新がないとき
             _eyeBlink->UpdateParameters(_model, deltaTimeSeconds); // 目パチ
         }
     }
+
+    if (!parameters.autoBlinkEyesEnabled)
+    {
+        // 目の開閉、eg: ひゆりは0.0から1.2
+        _model->AddParameterValue(_idParamEyeLOpen, parameters.eyeLOpen - 1.0f);
+        _model->AddParameterValue(_idParamEyeROpen, parameters.eyeROpen - 1.0f);
+    }
+
+    // 口の変形、eg: ひゆりは-2.0から
+    _model->AddParameterValue(_idParamMouthForm, parameters.mouthForm - 1.0f);
+    // 口の開閉
+    _model->AddParameterValue(_idParamMouthOpenY, parameters.mouthOpenY);
 
     if (_expressionManager != NULL)
     {

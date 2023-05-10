@@ -13,6 +13,7 @@ import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.ui.channellist.ChannelListBean
 import com.chatwaifu.mobile.utils.AssistantMessageManager
+import com.chatwaifu.mobile.utils.LipsValueHandler
 import com.chatwaifu.mobile.utils.LocalModelManager
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
@@ -74,6 +75,9 @@ class ChatActivityViewModel : ViewModel() {
     private val localModelManager: LocalModelManager by lazy {
         LocalModelManager()
     }
+    val lipsValueHandler: LipsValueHandler by lazy {
+        LipsValueHandler()
+    }
     private val sp: SharedPreferences by lazy {
         ChatWaifuApplication.context.getSharedPreferences(
             Constant.SAVED_STORE,
@@ -100,15 +104,15 @@ class ChatActivityViewModel : ViewModel() {
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
-                assistantMsgManager.insertUserMessage(input)
+//                assistantMsgManager.insertUserMessage(input)
 
-                chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
-                val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
-                assistantMsgManager.insertGPTMessage(response)
-                chatResponseLiveData.postValue(response)
+//                chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
+//                val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
+//                assistantMsgManager.insertGPTMessage(response)
+//                chatResponseLiveData.postValue(response)
 
-                val responseText = response?.choices?.firstOrNull()?.message?.content
-                val translateText = fetchTranslateIfNeed(responseText)
+//                val responseText = response?.choices?.firstOrNull()?.message?.content
+                val translateText = fetchTranslateIfNeed(input)
 
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
                 generateAndPlaySound(translateText)
@@ -141,6 +145,7 @@ class ChatActivityViewModel : ViewModel() {
             initModelResultLiveData.postValue(finalModelList)
             loadingUILiveData.postValue(Pair(false, ""))
         }
+        lipsValueHandler.initLipSync()
     }
 
     fun loadVitsModel(basePath: String) {
@@ -216,13 +221,14 @@ class ChatActivityViewModel : ViewModel() {
                 chatStatusLiveData.postValue(ChatStatus.DEFAULT)
             }},
             forwardResult = {
-
+                lipsValueHandler.sendLipsValues(it)
             }
         )
     }
 
     override fun onCleared() {
         vitsHelper.clear()
+        lipsValueHandler.shutDown()
         super.onCleared()
     }
 

@@ -101,6 +101,7 @@ class ChatFragment : Fragment() {
     private fun onLoadModelDone() {
         CoroutineScope(Dispatchers.Main).launch{
             fragmentViewModel.initTouch(activityViewModel.currentLive2DModelName)
+            activityViewModel.lipsValueHandler.createContext()
         }
     }
 
@@ -150,6 +151,7 @@ class ChatFragment : Fragment() {
     override fun onDestroyView() {
         live2DView = null
         JniBridgeJava.setLive2DLoadInterface(null)
+        activityViewModel.lipsValueHandler.destroyContext()
         super.onDestroyView()
     }
 

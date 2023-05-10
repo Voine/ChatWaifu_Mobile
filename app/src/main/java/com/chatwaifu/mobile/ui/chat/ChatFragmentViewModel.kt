@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import androidx.lifecycle.ViewModel
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.utils.LipsValueHandler
 import com.chatwaifu.mobile.utils.Live2DTouchManager
 
 /**

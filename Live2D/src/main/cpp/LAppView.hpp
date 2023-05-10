@@ -160,6 +160,12 @@ public:
 
     void TranslateY(float y);
 
+    void AutoBlinkEyes(bool enabled);
+
+    void ModelMouthForm(float value);
+
+    void ModelMouthOpenY(float value);
+
 private:
     TouchManager* _touchManager;                 ///< タッチマネージャー
     Csm::CubismMatrix44* _deviceToScreen;    ///< デバイスからスクリーンへの行列

@@ -414,3 +414,19 @@ void LAppView::TranslateY(float y)
 {
     _modelParameters.modelTranslateY = y;
 }
+
+void LAppView::AutoBlinkEyes(bool enabled)
+{
+    _modelParameters.autoBlinkEyesEnabled = enabled;
+}
+
+void LAppView::ModelMouthForm(float value)
+{
+    _modelParameters.mouthForm = value;
+}
+
+void LAppView::ModelMouthOpenY(float value)
+{
+    _modelParameters.mouthOpenY = value;
+}
+

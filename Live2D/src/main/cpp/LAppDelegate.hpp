@@ -25,6 +25,12 @@ public:
     float modelScale = 1.0f;               ///< モデル表示倍率
     float modelTranslateX = 0.0f;          ///< モデル表示位置X
     float modelTranslateY = 0.0f;          ///< モデル表示位置Y
+    bool autoBlinkEyesEnabled = true;     ///< 自動まばたきを切り替える
+    float eyeLOpen = 1.0f;
+    float eyeROpen = 1.0f;
+    // 口
+    float mouthForm = 1.0f;
+    float mouthOpenY = 0.0f;
 };
 /**
 * @brief   アプリケーションクラス。
@@ -149,6 +155,12 @@ public:
     void ModelTranslateX(float x);
 
     void ModelTranslateY(float y);
+
+    void ModelAutoBlinkEyes(bool enabled);
+
+    void ModelMouthForm(float value);
+
+    void ModelMouthOpenY(float value);
 
 private:
     /**

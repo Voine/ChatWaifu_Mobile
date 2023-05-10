@@ -282,3 +282,27 @@ void LAppDelegate::ModelTranslateY(float y)
         _view->TranslateY(y);
     }
 }
+
+void LAppDelegate::ModelAutoBlinkEyes(bool enabled)
+{
+    if (_view != NULL)
+    {
+        _view->AutoBlinkEyes(enabled);
+    }
+}
+
+void LAppDelegate::ModelMouthForm(float value)
+{
+    if (_view != NULL)
+    {
+        _view->ModelMouthForm(value);
+    }
+}
+
+void LAppDelegate::ModelMouthOpenY(float value)
+{
+    if (_view != NULL)
+    {
+        _view->ModelMouthOpenY(value);
+    }
+}
