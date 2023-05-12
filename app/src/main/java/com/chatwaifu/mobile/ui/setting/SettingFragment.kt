@@ -15,6 +15,7 @@ import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.chatwaifu.mobile.ui.theme.globalDarkTheme
 
 class SettingFragment : Fragment() {
 
@@ -34,6 +35,7 @@ class SettingFragment : Fragment() {
             var currentDarkMode by rememberSaveable {
                 mutableStateOf(initData.darkModeSwitch)
             }
+            globalDarkTheme = currentDarkMode
             ChatWaifu_MobileTheme(darkTheme = currentDarkMode) {
                 SettingContentScaffold(
                     settingUIState = SettingUIState(initData),

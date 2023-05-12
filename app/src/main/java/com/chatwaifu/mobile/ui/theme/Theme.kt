@@ -6,12 +6,18 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
+var globalDarkTheme: Boolean = false
+
 @Composable
 fun ChatWaifu_MobileTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colors = if (darkTheme) {
+    var showTheme = darkTheme
+    if (darkTheme != globalDarkTheme) {
+        showTheme = globalDarkTheme
+    }
+    val colors = if (showTheme) {
         ChatWaifuDarkTheme
     } else {
         ChatWaifuLightTheme
