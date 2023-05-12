@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
  */
 class ChatGPTNetService(val context: Context) {
     companion object {
-        private const val TEST_MODE = true
+        private const val TEST_MODE = false
         private const val TAG = "ChatGPTNetService"
         private const val CHATGPT_BASE_URL = "https://api.openai.com/"
         private const val TIME_OUT_SECOND = 100L
