@@ -179,6 +179,13 @@ class LocalModelManager() {
         return list
     }
 
+    fun getChatLogExternalItemList(): List<String> {
+        val chatWaifuExternalDir = Environment.getExternalStorageDirectory().path
+        val externalLive2dNames =
+            File(chatWaifuExternalDir, Constant.EXTEND_LIVE2D_PATH).listFiles()?.map { it.name }
+        return externalLive2dNames ?: emptyList()
+    }
+
     companion object {
         val vitsFileArr= listOf(
             "config.json",

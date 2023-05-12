@@ -240,7 +240,7 @@ fun SettingEditText(
     hint: String = "this is a hint",
     onValueChanged: (String) -> Unit = {}
 ) {
-    val value by rememberSaveable { mutableStateOf(initValue) }
+    var value by rememberSaveable { mutableStateOf(initValue) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -255,7 +255,10 @@ fun SettingEditText(
                 ),
                 fontStyle = FontStyle.Italic
             ) else TextStyle.Default,
-            onValueChange = { onValueChanged(it) },
+            onValueChange = {
+                value = it
+                onValueChanged(it)
+            },
             decorationBox = { innerTextField ->
                 // Because the decorationBox is used, the whole Row gets the same behaviour as the
                 // internal input field would have otherwise. For example, there is no need to add a
