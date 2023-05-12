@@ -12,6 +12,7 @@ import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.ui.channellist.ChannelListBean
+import com.chatwaifu.mobile.ui.common.ChatDialogContentUIState
 import com.chatwaifu.mobile.utils.AssistantMessageManager
 import com.chatwaifu.mobile.utils.LipsValueHandler
 import com.chatwaifu.mobile.utils.LocalModelManager
@@ -48,13 +49,15 @@ class ChatActivityViewModel : ViewModel() {
 
     val drawerShouldBeOpened = MutableLiveData<Boolean>()
     val chatStatusLiveData = MutableLiveData<ChatStatus>().apply { value = ChatStatus.DEFAULT }
-    val chatResponseLiveData = MutableLiveData<ChatGPTResponseData?>()
-    val generateSoundLiveData = MutableLiveData<Boolean>()
-    val initModelResultLiveData = MutableLiveData<List<ChannelListBean>>()
 
-    //使用 shared flow 是为了解决数据倒灌的问题....
+    //使用 shared flow 为了解决数据倒灌的问题....
     private val _loadVITSModelLiveData = MutableSharedFlow<VITSLoadStatus>()
     val loadVITSModelLiveData = _loadVITSModelLiveData.asSharedFlow()
+    private val _chatContentUIFlow = MutableSharedFlow<ChatDialogContentUIState>()
+    val chatContentUIFlow = _chatContentUIFlow.asSharedFlow()
+
+    val generateSoundLiveData = MutableLiveData<Boolean>()
+    val initModelResultLiveData = MutableLiveData<List<ChannelListBean>>()
     val loadingUILiveData = MutableLiveData<Pair<Boolean, String>>()
 
     var currentLive2DModelPath: String = ""
@@ -107,7 +110,7 @@ class ChatActivityViewModel : ViewModel() {
                 val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
                 assistantMsgManager.insertGPTMessage(response)
                 Log.d(TAG, "get response $response")
-                chatResponseLiveData.postValue(response)
+                _chatContentUIFlow.emit(constructUIStateFromResponse(response))
 
                 val responseText = response?.choices?.firstOrNull()?.message?.content
                 val translateText = fetchTranslateIfNeed(responseText)
@@ -119,8 +122,10 @@ class ChatActivityViewModel : ViewModel() {
     }
 
     fun sendMessage(input: String) {
-        if (inputFunc != null) {
-            inputFunc?.invoke(input)
+        CoroutineScope(Dispatchers.IO).launch {
+            if (inputFunc != null) {
+                inputFunc?.invoke(input)
+            }
         }
     }
 
@@ -222,6 +227,29 @@ class ChatActivityViewModel : ViewModel() {
                 lipsValueHandler.sendLipsValues(it)
             }
         )
+    }
+
+    private fun constructUIStateFromResponse(response: ChatGPTResponseData?): ChatDialogContentUIState {
+
+        if (!response?.errorMsg.isNullOrEmpty()) {
+            return ChatDialogContentUIState(isFromMe = false, errorMsg = response?.errorMsg)
+        }
+
+        return ChatDialogContentUIState(
+            isFromMe = false,
+            chatContent = response?.choices?.firstOrNull()?.message?.content?.trim() ?: ""
+        )
+    }
+
+    fun sendMineMsgUIState(content: String) {
+        CoroutineScope(Dispatchers.Main).launch {
+            _chatContentUIFlow.emit(
+                ChatDialogContentUIState(
+                    isFromMe = true,
+                    chatContent = content
+                )
+            )
+        }
     }
 
     override fun onCleared() {

@@ -102,7 +102,7 @@ class LipsValueHandler() {
             while (true) {
                 animationList.forEach {
                     delay(10)
-                    JniBridgeJava.nativeProjectMouthOpenY(it)
+                    JniBridgeJava.nativeProjectMouthOpenY(it * 0.8f)
                 }
             }
         }

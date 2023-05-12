@@ -8,8 +8,8 @@ import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.Constant.LIVE2D_BASE_PATH
 import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_ATRI
-import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_HIYORI
-import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_KURISU
+import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_YUUKA
+import com.chatwaifu.mobile.data.Constant.LOCAL_MODEL_AMADEUS
 import com.chatwaifu.mobile.data.Constant.VITS_BASE_PATH
 import com.chatwaifu.mobile.safeResume
 import com.chatwaifu.mobile.ui.channellist.ChannelListBean
@@ -86,8 +86,8 @@ class LocalModelManager() {
 
     private fun getAvatarDrawableFromName(name: String): Int {
         return when {
-            name == LOCAL_MODEL_HIYORI -> R.drawable.hiyori_head
-            name == LOCAL_MODEL_KURISU -> R.drawable.kurisu_head
+            name == LOCAL_MODEL_YUUKA -> R.drawable.yuuka_head
+            name == LOCAL_MODEL_AMADEUS -> R.drawable.kurisu_head
             name == LOCAL_MODEL_ATRI -> R.drawable.atri_head
             else -> R.drawable.external_default_icon
         }
@@ -115,12 +115,12 @@ class LocalModelManager() {
 
     fun getModelSystemSetting(modelName: String): String? {
         return when (modelName) {
-            LOCAL_MODEL_HIYORI -> {
+            LOCAL_MODEL_YUUKA -> {
                 sp.getString(Constant.SAVED_YUUKA_SETTING, null)?.let {
                     it.ifBlank { null }
                 } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_yuuka)
             }
-            LOCAL_MODEL_KURISU -> {
+            LOCAL_MODEL_AMADEUS -> {
                 sp.getString(Constant.SAVED_AMADEUS_SETTING, null)?.let {
                     it.ifBlank { null }
                 } ?:  ChatWaifuApplication.context.resources.getString(R.string.default_system_amadeus)
@@ -154,6 +154,29 @@ class LocalModelManager() {
             }
         }
         return resultList
+    }
+
+
+    fun getDefaultModelPosition(modelName: String): List<Float> {
+        val list: List<Float>
+        when (modelName) {
+            Constant.LOCAL_MODEL_YUUKA -> {
+                list = listOf(0f, -0.6f, 4f)
+            }
+
+            Constant.LOCAL_MODEL_ATRI -> {
+                list = listOf(0f, -0.6f, 3f)
+            }
+
+            Constant.LOCAL_MODEL_AMADEUS -> {
+                list = listOf(0f, 0f, 2f)
+            }
+
+            else -> {
+                list = listOf(0f, 0f, 1f)
+            }
+        }
+        return list
     }
 
     companion object {

@@ -10,6 +10,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.R
+import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 
 class ChatLogFragment : Fragment() {
@@ -19,7 +20,7 @@ class ChatLogFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val initName = resources.getString(R.string.chat_log_item_yuuka)
+        val initName = Constant.LOCAL_MODEL_YUUKA
         fragmentViewModel.loadAllChatMessage(initName)
         return ComposeView(requireContext()).apply {
             setContent {

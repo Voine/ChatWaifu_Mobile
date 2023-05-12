@@ -171,7 +171,16 @@ fun UserInput(
                     }
                     textFieldFocusState = focused
                 },
-                focusState = textFieldFocusState
+                focusState = textFieldFocusState,
+                sendMessageEnabled = textState.text.isNotBlank(),
+                onMessageSent = {
+                    onMessageSent(textState.text)
+                    // Reset text field and close keyboard
+                    textState = TextFieldValue()
+                    // Move scroll to bottom
+                    resetScroll()
+                    dismissKeyboard()
+                },
             )
             UserInputSelector(
                 onSelectorChange = {
@@ -431,21 +440,21 @@ private fun UserInputSelector(
             disabledContainerColor = Color.Transparent,
             disabledContentColor = disabledContentColor
         )
-
-        // Send button
-        Button(
-            modifier = Modifier.height(36.dp),
-            enabled = sendMessageEnabled,
-            onClick = onMessageSent,
-            colors = buttonColors,
-            border = border,
-            contentPadding = PaddingValues(0.dp)
-        ) {
-            Text(
-                stringResource(id = R.string.send),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        }
+//
+//        // Send button
+//        Button(
+//            modifier = Modifier.height(36.dp),
+//            enabled = sendMessageEnabled,
+//            onClick = onMessageSent,
+//            colors = buttonColors,
+//            border = border,
+//            contentPadding = PaddingValues(0.dp)
+//        ) {
+//            Text(
+//                stringResource(id = R.string.send),
+//                modifier = Modifier.padding(horizontal = 16.dp)
+//            )
+//        }
     }
 }
 
@@ -500,63 +509,103 @@ private fun UserInputText(
     textFieldValue: TextFieldValue,
     keyboardShown: Boolean,
     onTextFieldFocused: (Boolean) -> Unit,
-    focusState: Boolean
+    focusState: Boolean,
+    sendMessageEnabled: Boolean = true,
+    onMessageSent: () -> Unit = {},
 ) {
     val a11ylabel = stringResource(id = R.string.textfield_desc)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .semantics {
-                contentDescription = a11ylabel
-                keyboardShownProperty = keyboardShown
-            },
-        horizontalArrangement = Arrangement.End
-    ) {
-        Surface {
-            Box(
-                modifier = Modifier
-                    .height(64.dp)
-                    .weight(1f)
-                    .align(Alignment.Bottom)
-            ) {
-                var lastFocusState by remember { mutableStateOf(false) }
-                BasicTextField(
-                    value = textFieldValue,
-                    onValueChange = { onTextChanged(it) },
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .height(64.dp),
+    contentAlignment = Alignment.CenterEnd){
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .semantics {
+                    contentDescription = a11ylabel
+                    keyboardShownProperty = keyboardShown
+                },
+            horizontalArrangement = Arrangement.End
+        ) {
+            Surface {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 32.dp)
-                        .align(Alignment.CenterStart)
-                        .onFocusChanged { state ->
-                            if (lastFocusState != state.isFocused) {
-                                onTextFieldFocused(state.isFocused)
-                            }
-                            lastFocusState = state.isFocused
-                        },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = keyboardType,
-                        imeAction = ImeAction.Send
-                    ),
-                    maxLines = 1,
-                    cursorBrush = SolidColor(LocalContentColor.current),
-                    textStyle = LocalTextStyle.current.copy(color = LocalContentColor.current)
-                )
-
-                val disableContentColor =
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                if (textFieldValue.text.isEmpty() && !focusState) {
-                    Text(
+                        .height(64.dp)
+                        .weight(1f)
+                        .align(Alignment.Bottom),
+                ) {
+                    var lastFocusState by remember { mutableStateOf(false) }
+                    BasicTextField(
+                        value = textFieldValue,
+                        onValueChange = { onTextChanged(it) },
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 32.dp)
                             .align(Alignment.CenterStart)
-                            .padding(start = 32.dp),
-                        text = stringResource(id = R.string.textfield_hint),
-                        style = MaterialTheme.typography.bodyLarge.copy(color = disableContentColor)
+                            .onFocusChanged { state ->
+                                if (lastFocusState != state.isFocused) {
+                                    onTextFieldFocused(state.isFocused)
+                                }
+                                lastFocusState = state.isFocused
+                            },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = keyboardType,
+                            imeAction = ImeAction.Send
+                        ),
+                        maxLines = 1,
+                        cursorBrush = SolidColor(LocalContentColor.current),
+                        textStyle = LocalTextStyle.current.copy(color = LocalContentColor.current)
                     )
+
+                    val disableContentColor =
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    if (textFieldValue.text.isEmpty() && !focusState) {
+                        Text(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = 32.dp),
+                            text = stringResource(id = R.string.textfield_hint),
+                            style = MaterialTheme.typography.bodyLarge.copy(color = disableContentColor)
+                        )
+                    }
                 }
             }
+
+
+        }
+
+
+        val disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+
+        val buttonColors = ButtonDefaults.buttonColors(
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = disabledContentColor
+        )
+        val border = if (!sendMessageEnabled) {
+            BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+            )
+        } else {
+            null
+        }
+        // Send button
+        Button(
+            modifier = Modifier.height(36.dp).padding(horizontal = 15.dp),
+            enabled = sendMessageEnabled,
+            onClick = onMessageSent,
+            colors = buttonColors,
+            border = border,
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            Text(
+                stringResource(id = R.string.send),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
+
 }
 
 @Composable

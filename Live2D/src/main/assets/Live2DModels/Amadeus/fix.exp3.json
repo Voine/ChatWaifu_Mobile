@@ -1,0 +1,10 @@
+{
+  "Type": "Live2D Expression",
+  "Parameters": [
+    {
+      "Id": "logo",
+      "Value": 0.01,
+      "Blend": "Add"
+    }
+  ]
+}

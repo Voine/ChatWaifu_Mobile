@@ -5,6 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
@@ -69,11 +73,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chatwaifu.mobile.R
+import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.common.JumpToBottom
 import com.chatwaifu.mobile.ui.common.Message
 import com.chatwaifu.mobile.ui.common.SymbolAnnotationType
 import com.chatwaifu.mobile.ui.common.ChannelNameBar
 import com.chatwaifu.mobile.ui.channellist.LoadingIndicator
+import com.chatwaifu.mobile.ui.common.ConversationContent
+import com.chatwaifu.mobile.ui.common.exampleUiMsg2
+import com.chatwaifu.mobile.ui.common.exampleUiState
 import com.chatwaifu.mobile.ui.common.initialMessages
 import com.chatwaifu.mobile.ui.common.messageFormatter
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
@@ -86,7 +94,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ChatLogContent(
-    channelName: String = stringResource(id = R.string.chat_log_item_yuuka),
+    channelName: String = Constant.LOCAL_MODEL_YUUKA,
     navigateToProfile: (String) -> Unit = {},
     onNavIconPressed: () -> Unit = { },
     chatLogViewModel: ChatLogViewModel = viewModel(),
@@ -95,6 +103,7 @@ fun ChatLogContent(
     var currentName by rememberSaveable { mutableStateOf(channelName) }
     val showList = chatLogViewModel.chatLogData.observeAsState()
     ChatLogContentScaffold(
+        chatChannelName = currentName,
         chatLogUiState = ChatLogUiState(channelName, showList.value ?: emptyList()),
         onChatCharacterClick = {
             if (it != currentName) {
@@ -112,12 +121,12 @@ fun ChatLogContent(
 @Composable
 fun ChatLogContentScaffold(
     modifier: Modifier = Modifier,
+    chatChannelName: String = Constant.LOCAL_MODEL_YUUKA,
     chatLogUiState: ChatLogUiState,
     navigateToProfile: (String) -> Unit = {},
     onChatCharacterClick: (String) -> Unit = {},
     onNavIconPressed: () -> Unit = { },
     externalModelList: List<String> = emptyList(),
-    chatLogViewModel: ChatLogViewModel = viewModel()
 ) {
     val topBarState = rememberTopAppBarState()
     val scrollState = rememberLazyListState()
@@ -125,38 +134,30 @@ fun ChatLogContentScaffold(
     Scaffold(
         topBar = {
             ChatLogAppBar(
-                chatLogUiState.channelName,
+                chatChannelName,
                 onNavIconPressed = onNavIconPressed,
                 onChatCharacterClick = onChatCharacterClick,
                 externalModelList = externalModelList
             )
         },
-        // Exclude ime and navigation bar padding so this can be added by the UserInput composable
-        contentWindowInsets = ScaffoldDefaults
-            .contentWindowInsets
-            .exclude(WindowInsets.navigationBars)
-            .exclude(WindowInsets.ime),
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
     ) { paddingValues ->
-        val needShowLoading = chatLogViewModel.chatLogLoadingUI.observeAsState()
-        if (needShowLoading.value == true) {
-            LoadingIndicator(loadingText = stringResource(id = R.string.chat_log_loading_hint))
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            if (chatLogUiState.messages.isEmpty()) {
+        if (chatLogUiState.messages.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
                 ErrorHint()
-            } else {
-                Messages(
-                    messages = chatLogUiState.messages,
-                    navigateToProfile = navigateToProfile,
-                    modifier = Modifier.weight(1f),
-                    scrollState = scrollState
-                )
             }
+        } else {
+            Messages(
+                messages = chatLogUiState.messages,
+                navigateToProfile = navigateToProfile,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                scrollState = scrollState
+            )
         }
     }
 }
@@ -172,9 +173,9 @@ fun ChatLogAppBar(
     onChatCharacterClick: (String) -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val yuukaName = stringResource(id = R.string.chat_log_item_yuuka)
-    val atriName = stringResource(id = R.string.chat_log_item_atri)
-    val kurisuName = stringResource(id = R.string.chat_log_item_amadeus)
+    val yuukaName = Constant.LOCAL_MODEL_YUUKA
+    val atriName = Constant.LOCAL_MODEL_ATRI
+    val kurisuName = Constant.LOCAL_MODEL_AMADEUS
 
     ChannelNameBar(
         channelName = chatName,
@@ -198,7 +199,7 @@ fun ChatLogAppBar(
                             modifier = Modifier
                                 .clip(CircleShape)
                                 .size(30.dp),
-                            painter = painterResource(id = R.drawable.hiyori_head),
+                            painter = painterResource(id = R.drawable.yuuka_head),
                             contentDescription = null
                         )
                     },
@@ -306,17 +307,6 @@ fun Messages(
                 val isFirstMessageByAuthor = prevAuthor != content.author
                 val isLastMessageByAuthor = nextAuthor != content.author
 
-                // Hardcode day dividers for simplicity
-                if (index == messages.size - 1) {
-                    item {
-                        DayHeader("20 Aug")
-                    }
-                } else if (index == 2) {
-                    item {
-                        DayHeader("Today")
-                    }
-                }
-
                 item {
                     Message(
                         onAuthorClick = { name -> navigateToProfile(name) },
@@ -325,7 +315,7 @@ fun Messages(
                         isFirstMessageByAuthor = isFirstMessageByAuthor,
                         isLastMessageByAuthor = isLastMessageByAuthor
                     )
-                }
+            }
             }
         }
         // Jump to bottom button shows up when user scrolls past a threshold.
@@ -608,6 +598,7 @@ private val ChatBubbleShape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
 private val JumpToBottomThreshold = 56.dp
 
 val exampleChatLogUIState = ChatLogUiState(
-    initialMessages = initialMessages,
-    channelName = "Yuuka",
+    initialMessages = exampleUiMsg2,
+    channelName = "yuuka",
 )
+

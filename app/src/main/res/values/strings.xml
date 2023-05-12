@@ -84,7 +84,7 @@
 
     <string name="drawer_function_list">Function List</string>
 
-    <string name="chat_dialog_sender_me">Me:</string>
+    <string name="chat_dialog_sender_me">Me</string>
     <string name="chat_status_hint_send_request">send request…</string>
     <string name="chat_status_hint_generate_sound">generating sound…</string>
     <string name="chat_status_hint_translate">translating…</string>
@@ -92,10 +92,6 @@
 
     <string name="chat_record_too_short">record audio is too short… try again</string>
 
-    <string name="chat_log_item_yuuka">Yuuka</string>
-    <string name="chat_log_item_atri">ATRI</string>
-    <string name="chat_log_item_amadeus">Amadeus</string>
-    <string name="chat_log_item_external">Other</string>
     <string name="chat_log_loading_hint">Loading…</string>
     <string name="chat_log_empty_hint">Can\'t find any chat log :(</string>
 

@@ -1,0 +1,295 @@
+
+{
+    "customName" : "\u672A\u547D\u540D\u4F5C\u54C1(4)",
+    "iconPath"   : "",
+    "bodyPhysics" : 0.9468966,
+    "useAnimBlend" : 0,
+    "modelPos"     : {
+        "x" : 0.277777254581451,
+        "y" : -2.71111035346985,
+        "z" : -0.800000011920929
+    },
+    "modelSize"    : {
+        "x" : 17.0,
+        "y" : 17.0,
+        "z" : 5.0
+    },
+    "modelAngle"   : {
+        "x" : 0.0,
+        "y" : 0.0,
+        "z" : 0.0
+    },
+    "capsuleRadius" : 3.4,
+    "capsuleHeight" : 13.6,
+    "capsulePos"    : {
+        "x" : 0.277777254581451,
+        "y" : -2.71111035346985,
+        "z" : -1.79999995231628
+    },
+    "defaultAnimIndex" : -1,
+    "keys"             : [
+        {
+            "type" : 0,
+            "bindAction" : "-1",
+            "bindVirtualAction" : {
+                "Keys" : [
+                    48
+                ],
+                "actionName" : "",
+                "isGlobal"   : false,
+                "isApply"    : true
+            }
+        }
+    ],
+    "useVoice"         : false,
+    "voiceParams"      : [
+        1,
+        1,
+        0.5,
+        0.3,
+        0.4,
+        0.1,
+        1,
+        -1,
+        0.4,
+        1
+    ],
+    "facialSettingMapV2" : {
+        "yaw" : {
+            "dataIndex" : 0,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamAngleX",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -30,
+                    "pMaxValue" : 30,
+                    "lerpValue" : 0.6
+                },
+                {
+                    "paramName" : "ParamBodyAngleX",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -10,
+                    "pMaxValue" : 10,
+                    "lerpValue" : 0.6
+                }
+            ]
+        },
+        "pitch" : {
+            "dataIndex" : 1,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamAngleY",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -30,
+                    "pMaxValue" : 30,
+                    "lerpValue" : 0.6
+                },
+                {
+                    "paramName" : "ParamBodyAngleY",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -10,
+                    "pMaxValue" : 10,
+                    "lerpValue" : 0.6
+                }
+            ]
+        },
+        "roll"  : {
+            "dataIndex" : 2,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamAngleZ",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -30,
+                    "pMaxValue" : 30,
+                    "lerpValue" : 0.6
+                },
+                {
+                    "paramName" : "ParamBodyAngleZ",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -10,
+                    "pMaxValue" : 10,
+                    "lerpValue" : 0.6
+                }
+            ]
+        },
+        "eyeL"  : {
+            "dataIndex" : 3,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamEyeLOpen",
+                    "fMinValue" : -0.8,
+                    "fMaxValue" : 0.8,
+                    "pMinValue" : 0,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.4
+                }
+            ]
+        },
+        "eyeR"  : {
+            "dataIndex" : 4,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamEyeROpen",
+                    "fMinValue" : -0.8,
+                    "fMaxValue" : 0.8,
+                    "pMinValue" : 0,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.4
+                }
+            ]
+        },
+        "browLY" : {
+            "dataIndex" : 5,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamBrowLY",
+                    "fMinValue" : -0.5,
+                    "fMaxValue" : 0.5,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                },
+                {
+                    "paramName" : "ParamBrowLAngle",
+                    "fMinValue" : -0.5,
+                    "fMaxValue" : 0.5,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                }
+            ]
+        },
+        "browRY" : {
+            "dataIndex" : 6,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamBrowRY",
+                    "fMinValue" : -0.5,
+                    "fMaxValue" : 0.5,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                },
+                {
+                    "paramName" : "ParamBrowRAngle",
+                    "fMinValue" : -0.5,
+                    "fMaxValue" : 0.5,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                }
+            ]
+        },
+        "mouthY" : {
+            "dataIndex" : 7,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamMouthOpenY",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 0,
+                    "pMinValue" : 0,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.4
+                }
+            ]
+        },
+        "mouthX" : {
+            "dataIndex" : 8,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamMouthForm",
+                    "fMinValue" : -0.6,
+                    "fMaxValue" : 0.6,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                }
+            ]
+        },
+        "eyeballX" : {
+            "dataIndex" : 9,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamEyeBallX",
+                    "fMinValue" : -0.5,
+                    "fMaxValue" : 0.5,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                }
+            ]
+        },
+        "eyeballY" : {
+            "dataIndex" : 10,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamEyeBallY",
+                    "fMinValue" : -0.5,
+                    "fMaxValue" : 0.5,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                }
+            ]
+        },
+        "browform" : {
+            "dataIndex" : 11,
+            "enableMapping" : true,
+            "paramSettingData" : [
+                {
+                    "paramName" : "ParamBrowLForm",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                },
+                {
+                    "paramName" : "ParamBrowRForm",
+                    "fMinValue" : -1,
+                    "fMaxValue" : 1,
+                    "pMinValue" : -1,
+                    "pMaxValue" : 1,
+                    "lerpValue" : 0.5
+                }
+            ]
+        },
+        "facesite" : {
+            "dataIndex" : 12,
+            "enableMapping" : true,
+            "paramSettingData" : [
+            ]
+        },
+        "facedistance" : {
+            "dataIndex" : 13,
+            "enableMapping" : true,
+            "paramSettingData" : [
+            ]
+        },
+        "tongue"       : {
+            "dataIndex" : 14,
+            "enableMapping" : true,
+            "paramSettingData" : [
+            ]
+        }
+    },
+    "L2DName"            : "",
+    "mapIsGlobal"        : false
+}

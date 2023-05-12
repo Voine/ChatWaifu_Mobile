@@ -23,9 +23,9 @@ object Constant {
     const val LIVE2D_BASE_PATH = "Live2DModels"
     const val VITS_BASE_PATH = "VITSModels"
 
-    const val LOCAL_MODEL_HIYORI = "Hiyori"
-    const val LOCAL_MODEL_KURISU = "kurisu"
-    const val LOCAL_MODEL_ATRI = "atri"
+    const val LOCAL_MODEL_YUUKA = "Yuuka"
+    const val LOCAL_MODEL_AMADEUS = "Amadeus"
+    const val LOCAL_MODEL_ATRI = "ATRI"
 
     const val LOCAL_MODEL_TRANSLATE_X_PREFIX = "local_model_translate_x_"
     const val LOCAL_MODEL_TRANSLATE_Y_PREFIX = "local_model_translate_y_"

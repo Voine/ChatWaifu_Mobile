@@ -201,7 +201,7 @@ fun LoadingIndicatorPreview() {
 @Composable
 fun ChannelListItemPreview() {
     ChatWaifu_MobileTheme {
-        ChannelListItem(R.drawable.hiyori_head, "Hiyori")
+        ChannelListItem(R.drawable.yuuka_head, "yuuka")
     }
 }
 
@@ -227,8 +227,8 @@ fun ChannelListContentDarkPreview() {
 
 val exampleUIList = listOf(
     ChannelListBean(
-        avatarDrawable = R.drawable.hiyori_head,
-        characterName = "Hiyori"
+        avatarDrawable = R.drawable.yuuka_head,
+        characterName = "yuuka"
     ),
     ChannelListBean(
         avatarDrawable = R.drawable.atri_head,

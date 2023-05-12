@@ -1,0 +1,34 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "kurisu.moc3",
+		"Textures": [
+			"kurisu.2048/texture_00.png",
+			"kurisu.2048/texture_01.png",
+			"kurisu.2048/texture_02.png"
+		],
+		"Physics": "kurisu.physics3.json",
+		"DisplayInfo": "kurisu.cdi3.json",
+		"Expressions": [
+			{
+				"File": "fix.exp3.json",
+				"Name": "fix"
+			}
+		]
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": []
+		},
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		}
+	]
+}

@@ -35,7 +35,7 @@ val initialMessages = listOf(
         "me",
         "Thank you!$EMOJI_PINK_HEART",
         "8:06 PM",
-        R.drawable.hiyori_head
+        R.drawable.yuuka_head
     ),
     Message(
         "Taylor Brooks",
@@ -64,6 +64,31 @@ val initialMessages = listOf(
     )
 )
 
+val exampleUiMsg2 = listOf(
+    Message(
+        "me",
+        "你在干嘛",
+        "8:03 PM",
+        isFromMe = true
+    ),
+    Message(
+        author = "Yuuka",
+        content = "在想你啊，还能干嘛",
+        timestamp = "8:04 PM"
+    ),
+    Message(
+        "me",
+        "捏麻麻滴你劈我瓜是吧！",
+        "8:05 PM",
+        isFromMe = true
+    ),
+    Message(
+        "Yuuka",
+        "你是不是想打架！\uD83D\uDE05",
+        "8:06 PM"
+    )
+).reversed()
+
 val exampleUiState = ConversationUiState(
     initialMessages = initialMessages,
     channelName = "#composers",
@@ -75,7 +100,7 @@ val exampleUiState = ConversationUiState(
  */
 val colleagueProfile = ProfileScreenState(
     userId = "12345",
-    photo = R.drawable.hiyori_head,
+    photo = R.drawable.yuuka_head,
     name = "Taylor Brooks",
     status = "Away",
     displayName = "taylor",
@@ -106,7 +131,7 @@ data class Message(
     val timestamp: String,
     val image: Int? = null,
     val isFromMe: Boolean = false,
-    val authorImage: Int = if (isFromMe) R.drawable.chat_log_person else R.drawable.hiyori_head
+    val authorImage: Int = if (isFromMe) R.drawable.chat_log_person else R.drawable.yuuka_head
 )
 
 @Immutable

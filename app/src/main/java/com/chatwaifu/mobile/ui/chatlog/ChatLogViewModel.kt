@@ -6,11 +6,16 @@ import com.chatwaifu.log.IChatLogDbApi
 import com.chatwaifu.log.room.ChatLogDbManager
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.application.ChatWaifuApplication
+import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.common.Message
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Description: ChatLogViewModel
@@ -32,23 +37,28 @@ class ChatLogViewModel : ViewModel() {
         getChatListJob?.cancel()
         getChatListJob = CoroutineScope(Dispatchers.IO).launch {
             try {
-                val msgList = dbManager.getAllChatLog(chatName)
-                val contextResource = ChatWaifuApplication.context.resources
+                val msgList = dbManager.getAllChatLog(chatName).reversed()
                 chatLogData.postValue(msgList.map {
                     Message(
-                        author = it.characterName,
+                        author = if (it.sendFromMe) ChatWaifuApplication.context.resources.getString(
+                            R.string.author_me
+                        ) else it.characterName,
                         content = it.chatMessage,
                         isFromMe = it.sendFromMe,
-                        timestamp = it.timeline.toString(),
+                        timestamp = SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.ENGLISH).format(
+                            Date(it.timeline)
+                        ).toString(),
                         authorImage = if (it.sendFromMe) R.drawable.chat_log_person else {
                             when (it.characterName) {
-                                contextResource.getString(R.string.chat_log_item_yuuka) -> {
-                                    R.drawable.hiyori_head
+                                Constant.LOCAL_MODEL_YUUKA -> {
+                                    R.drawable.yuuka_head
                                 }
-                                contextResource.getString(R.string.chat_log_item_atri) -> {
+
+                                Constant.LOCAL_MODEL_ATRI -> {
                                     R.drawable.atri_head
                                 }
-                                contextResource.getString(R.string.chat_log_item_amadeus) -> {
+
+                                Constant.LOCAL_MODEL_AMADEUS -> {
                                     R.drawable.kurisu_head
                                 }
                                 else -> {

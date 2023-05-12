@@ -23,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.CloseFullscreen
-import androidx.compose.material.icons.outlined.ResetTv
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +37,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,7 +56,7 @@ import com.chatwaifu.mobile.ui.common.ChannelNameBar
 import com.chatwaifu.mobile.ui.common.InputSelector
 import com.chatwaifu.mobile.ui.common.UserInput
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
-import com.chatwaifu.mobile.ui.theme.Color_CC
+import com.chatwaifu.mobile.ui.theme.Color_55
 
 /**
  * Description: Chat Page
@@ -70,8 +68,8 @@ import com.chatwaifu.mobile.ui.theme.Color_CC
 fun ChatContentScaffold(
     modifier: Modifier = Modifier,
     onNavIconPressed: () -> Unit = { },
-    chatTitle: String = "Yuuka",
-    defaultChatTitle: String = "Me",
+    chatTitle: String = "yuuka",
+    sendMessageTitle: String = "yuuka",
     sendMessageContent: String = "example content",
     originAndroidView: (Context) -> View,
     originAndroidViewUpdate: (View) -> Unit = {},
@@ -82,31 +80,16 @@ fun ChatContentScaffold(
     onResetModel: () -> Unit = {},
     onRecordStart: () -> Unit = {},
     onRecordEnd: () -> Unit = {},
-    onSendMessageContentChanged: (String) -> Unit = {},
     chatActivityViewModel: ChatActivityViewModel
 ) {
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
-    val chatGPTResponseLiveData = chatActivityViewModel.chatResponseLiveData.observeAsState()
     val vitsGenerateStatusLiveData = chatActivityViewModel.generateSoundLiveData.observeAsState()
     val chatStatusUILiveData = chatActivityViewModel.chatStatusLiveData.observeAsState()
     if (vitsGenerateStatusLiveData.value == false) {
         onErrorOccur("sound generate failed....")
     }
-    var sendMessageTitle by rememberSaveable { mutableStateOf(chatTitle) }
-    val response = chatGPTResponseLiveData.value
-    val chatStatus by rememberSaveable { mutableStateOf(chatStatusUILiveData.value) }
-    if (!response?.errorMsg.isNullOrEmpty()) {
-        onErrorOccur("GPT Error: ${response?.errorMsg}")
-    }
-    val result = response?.choices?.firstOrNull()?.message?.content?.trim()
-    if (result.isNullOrEmpty()) {
-        onErrorOccur("Error occur...ChatGPT response empty")
-    } else {
-        sendMessageTitle = chatTitle
-        onSendMessageContentChanged(result)
-    }
-    val chatStatusHint = when (chatStatus) {
+    val chatStatusHint = when (chatStatusUILiveData.value) {
         ChatActivityViewModel.ChatStatus.SEND_REQUEST -> {
             stringResource(id = R.string.chat_status_hint_send_request)
         }
@@ -127,7 +110,7 @@ fun ChatContentScaffold(
     Scaffold(
         topBar = {
             ChannelNameBar(
-                channelName = sendMessageTitle,
+                channelName = chatTitle,
                 onNavIconPressed = onNavIconPressed,
                 scrollBehavior = scrollBehavior,
                 externalActions = {}
@@ -151,11 +134,7 @@ fun ChatContentScaffold(
                 chatTitle = sendMessageTitle,
                 chatContent = sendMessageContent,
                 chatStatus = chatStatusHint,
-                onSendMsgButtonClick = {
-                    sendMessageTitle = defaultChatTitle
-                    onSendMessageContentChanged(it)
-                    onSendMsgButtonClick(it)
-                },
+                onSendMsgButtonClick = onSendMsgButtonClick,
                 onTouchStart = onTouchStart,
                 onTouchEnd = onTouchEnd,
                 onRecordStart = onRecordStart,
@@ -253,7 +232,7 @@ fun ChatContent(
                             .padding(start = 15.dp, end = 15.dp, top = 10.dp, bottom = 5.dp)
                             .fillMaxWidth(),
                         fontSize = 10.sp,
-                        color = Color_CC
+                        color = Color_55
                     )
                 }
             }

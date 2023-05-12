@@ -13,6 +13,9 @@ import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.vits.utils.permission.PermissionUtils
 
+/**
+ * 不要问为甚么登陆页面不用 compose 画，问就是懒
+ */
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding

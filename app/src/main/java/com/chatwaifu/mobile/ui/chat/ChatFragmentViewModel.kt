@@ -15,6 +15,7 @@ import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.utils.LipsValueHandler
 import com.chatwaifu.mobile.utils.Live2DTouchManager
+import com.chatwaifu.mobile.utils.LocalModelManager
 import com.k2fsa.sherpa.ncnn.ISherpaAidlInterface
 import com.k2fsa.sherpa.ncnn.ISherpaResultAidlCallback
 import com.k2fsa.sherpa.ncnn.SherpaHelper
@@ -32,6 +33,10 @@ class ChatFragmentViewModel: ViewModel() {
 
     private val touchManager: Live2DTouchManager by lazy {
         Live2DTouchManager(ChatWaifuApplication.context)
+    }
+
+    private val localModelManager: LocalModelManager by lazy {
+        LocalModelManager()
     }
 
     private val sp: SharedPreferences by lazy {
@@ -73,9 +78,10 @@ class ChatFragmentViewModel: ViewModel() {
     }
 
     fun initTouch(modelName: String) {
-        val translateX = sp.getFloat("${Constant.LOCAL_MODEL_TRANSLATE_X_PREFIX}$modelName",0f)
-        val translateY = sp.getFloat("${Constant.LOCAL_MODEL_TRANSLATE_Y_PREFIX}$modelName",0f)
-        val scale = sp.getFloat("${Constant.LOCAL_MODEL_TRANSLATE_SCALE_PREFIX}$modelName",1f)
+        val defaultPosition = localModelManager.getDefaultModelPosition(modelName)
+        val translateX = sp.getFloat("${Constant.LOCAL_MODEL_TRANSLATE_X_PREFIX}$modelName",defaultPosition[0])
+        val translateY = sp.getFloat("${Constant.LOCAL_MODEL_TRANSLATE_Y_PREFIX}$modelName",defaultPosition[1])
+        val scale = sp.getFloat("${Constant.LOCAL_MODEL_TRANSLATE_SCALE_PREFIX}$modelName",defaultPosition[2])
         touchManager.setInitParams(translateX, translateY, scale)
     }
 

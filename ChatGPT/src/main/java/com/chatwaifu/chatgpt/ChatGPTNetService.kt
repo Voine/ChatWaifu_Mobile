@@ -125,14 +125,14 @@ class ChatGPTNetService(val context: Context) {
 
     private fun getResponseFromTest(msg: String, callback: (response: ChatGPTResponseData?) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            delay(1000)
+            delay(5000)
             val response = ChatGPTResponseData().apply {
                 choices =
                     listOf(
                         ListBean(
                             message = ResponseInnerMessageBean(
-                                role = "Yuuka",
-                                content = "this is response for $msg"
+                                role = "atri",
+                                content = "萝卜子是对机器人的蔑称！萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称萝卜子是对机器人的蔑称"
                             ), finish_reason = "", index = 0
                         )
                     )

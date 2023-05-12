@@ -16,11 +16,13 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chatwaifu.live2d.GLRenderer
 import com.chatwaifu.live2d.JniBridgeJava
 import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.ui.common.ChatDialogContentUIState
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import kotlinx.coroutines.CoroutineScope
@@ -76,14 +78,32 @@ class ChatFragment : Fragment() {
             )
             setContent {
                 var sendMessageContent by rememberSaveable { mutableStateOf("") }
+                var sendMessageTitle by rememberSaveable { mutableStateOf("") }
+                val chatContentUIStateFlow =
+                    activityViewModel.chatContentUIFlow.collectAsStateWithLifecycle(initialValue = ChatDialogContentUIState(isInitState = true))
+                val contentDialogUIState = chatContentUIStateFlow.value
+                if (!contentDialogUIState.errorMsg.isNullOrEmpty()) {
+                    showToast("GPT Error: ${contentDialogUIState.errorMsg}")
+                }
+                if (contentDialogUIState.chatContent.isEmpty() && !contentDialogUIState.isInitState) {
+                    showToast("Error occur...ChatGPT response empty")
+                } else {
+                    Log.d("ChatContentScaffold", "set response $contentDialogUIState")
+                    sendMessageContent = contentDialogUIState.chatContent
+                }
+                sendMessageTitle =
+                    if (contentDialogUIState?.isFromMe == true) resources.getString(R.string.chat_dialog_sender_me) else activityViewModel.currentLive2DModelName
                 ChatWaifu_MobileTheme {
                     ChatContentScaffold(
                         originAndroidView = { live2DView!! },
                         onNavIconPressed = { activityViewModel.openDrawer() },
                         chatTitle = activityViewModel.currentLive2DModelName,
-                        defaultChatTitle = resources.getString(R.string.chat_dialog_sender_me),
+                        sendMessageTitle = sendMessageTitle,
                         sendMessageContent = sendMessageContent,
-                        onSendMsgButtonClick = ::onSendMessage,
+                        onSendMsgButtonClick = {
+                            activityViewModel.sendMineMsgUIState(it)
+                            onSendMessage(it)
+                        },
                         chatActivityViewModel = activityViewModel,
                         onErrorOccur = {
                             showToast(it)
@@ -109,9 +129,6 @@ class ChatFragment : Fragment() {
                                 }
                             }
                         },
-                        onSendMessageContentChanged = {
-                            sendMessageContent = it
-                        }
                     )
                 }
             }
@@ -166,7 +183,7 @@ class ChatFragment : Fragment() {
             activityViewModel.currentLive2DModelPath + File.separator,
             jsonFileName
         )
-        if (activityViewModel.currentLive2DModelName == Constant.LOCAL_MODEL_KURISU) {
+        if (activityViewModel.currentLive2DModelName == Constant.LOCAL_MODEL_AMADEUS) {
             //fix kurisu live2d bug..
             JniBridgeJava.needRenderBack(false)
             JniBridgeJava.nativeApplyExpression("fix")

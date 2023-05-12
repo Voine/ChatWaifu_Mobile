@@ -85,7 +85,6 @@ fun SettingContentScaffold(
             ChannelNameBar(
                 channelName = "Setting",
                 onNavIconPressed = onNavIconPressed,
-                scrollBehavior = scrollBehavior,
                 externalActions = {
                     OutlinedButton(
                         onClick = { onSave(settingUIState.convertState2Data()) },
@@ -104,17 +103,12 @@ fun SettingContentScaffold(
                 }
             )
         },
-        // Exclude ime and navigation bar padding so this can be added by the UserInput composable
-        contentWindowInsets = ScaffoldDefaults
-            .contentWindowInsets
-            .exclude(WindowInsets.navigationBars)
-            .exclude(WindowInsets.ime),
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
-    ) { paddingValues ->
+        ) { paddingValues ->
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            color = MaterialTheme.colorScheme.background
         ) {
             SettingContent(settingUIState)
         }
@@ -422,7 +416,7 @@ val exampleSettingUi = SettingUIData(
     translateSwitch = true,
     translateAppId = "example translate app id .....",
     translateAppKey = "example translate app key.....",
-    yuukaSetting = "example hiyori setting",
+    yuukaSetting = "example yuuka setting",
     amaduesSetting = "example amadeus setting",
     atriSetting = "example atri setting...",
     externalSetting = "example external setting....",

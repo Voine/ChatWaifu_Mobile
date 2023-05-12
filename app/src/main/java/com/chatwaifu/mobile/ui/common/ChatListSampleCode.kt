@@ -44,7 +44,7 @@ data class SimpleMessage(val author: String, val body: String)
 fun MessageCard(msg: SimpleMessage) {
     Row(modifier = Modifier.padding(all = 8.dp)) {
         Image(
-            painter = painterResource(R.drawable.hiyori_head),
+            painter = painterResource(R.drawable.yuuka_head),
             contentDescription = null,
             modifier = Modifier
                 .size(40.dp)

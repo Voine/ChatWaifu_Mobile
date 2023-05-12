@@ -56,6 +56,7 @@ data class ChatGPTResponseData(
     var usage: Usage? = null,
     var errorMsg: String? = null,
 )
+
 @Keep
 data class Usage(var prompt_tokens: Int?, val completion_tokens: Int?, val total_tokens: Int?)
 
