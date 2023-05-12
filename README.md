@@ -64,12 +64,7 @@ live2d 模型的名字与需要与 vits 模型的目录名一致，Live2D 的 mo
 目前每个模型都有内置的设定，外部导入的模型可将设定填写到 Setting 页面的 External Setting 部分
 ## 示例图
 
-<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237924461-2015dd47-1904-4c37-b1c0-d56e5f5f55bb.png">
-<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237924775-470978ae-ae0d-4e6e-9bfe-f6bc48f5b884.png">
-<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237924898-86f72843-511f-40e2-a854-b19b0056c13f.png">
-<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237925004-c1d908f1-9c63-40c6-bd09-efa262f3ae5d.png">
-<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237925541-4af5a8e7-745f-4b85-a434-23fb9c16e0b0.png">
-<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237936171-e651f62d-2ad1-4225-a936-e2c2c2081416.png">
+<img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237924461-2015dd47-1904-4c37-b1c0-d56e5f5f55bb.png"><img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237924775-470978ae-ae0d-4e6e-9bfe-f6bc48f5b884.png"><img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237924898-86f72843-511f-40e2-a854-b19b0056c13f.png"><img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237925004-c1d908f1-9c63-40c6-bd09-efa262f3ae5d.png"><img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237925541-4af5a8e7-745f-4b85-a434-23fb9c16e0b0.png"><img width="256" src="https://github-production-user-asset-6210df.s3.amazonaws.com/30189805/237936171-e651f62d-2ad1-4225-a936-e2c2c2081416.png">
 
 # 免责声明
   **1、模型禁止商用！**
