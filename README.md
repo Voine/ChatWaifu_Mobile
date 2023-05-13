@@ -73,3 +73,6 @@ live2d 模型的名字与需要与 vits 模型的目录名一致，Live2D 的 mo
 
 # 鸣谢
 感谢 @weirdseed 大佬实现的 Android 版 VITS !
+
+#说明视频
+https://www.bilibili.com/video/BV1w24y1K799/
