@@ -19,6 +19,7 @@ object Constant {
     const val SAVED_EXTERNAL_SETTING = "saved_external_setting"
     const val SAVED_USE_TRANSLATE = "saved_use_translate"
     const val SAVED_USE_DARKMODE = "saved_use_darkmode"
+    const val SAVED_EXTERNAL_MODEL_SPEAKER_ID = "saved_model_speaker_id"
 
     const val LIVE2D_BASE_PATH = "Live2DModels"
     const val VITS_BASE_PATH = "VITSModels"

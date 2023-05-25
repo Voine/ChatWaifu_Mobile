@@ -125,6 +125,7 @@ class SoundGenerateHelper(val context: Context) {
     @SuppressLint("SetTextI18n")
     fun generateAndPlay(
         text: String?,
+        targetSpeakerId: Int = 0,
         callback: (isSuccess: Boolean) -> Unit,
         forwardResult: (FloatArray) -> Unit
     ) {
@@ -141,7 +142,7 @@ class SoundGenerateHelper(val context: Context) {
                         inputs[i],
                         vulkan = false,
                         multi,
-                        sid,
+                        targetSpeakerId,
                         noiseScale,
                         noiseScaleW,
                         lengthScale,

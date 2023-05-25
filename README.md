@@ -6,7 +6,7 @@ Android 手机版的 ChatGPT 二次元聊天器。\
 \
 **模型1: 语音和模型均来自 Blue Archive 优香。**\
 **模型2: 语音和模型均来自命运石之门牧濑红莉栖 - Amadeus 限定，β 世界线警告 :).**\
-**模型3：语音和模型均来自 ANIPLEX 的作品 ATRI -My Dear Moments- 的主角亚托莉**
+**模型3: 语音和模型均来自 ANIPLEX 的作品 ATRI -My Dear Moments- 的主角亚托莉**
 
 - 语言大模型来自 GhatGPT
 - 语音推理为客户端本地 VITS - ncnn
@@ -56,7 +56,8 @@ OpenAI Key [地址](https://platform.openai.com/account/api-keys)，将其输入
               ├─ .....
 ```
 ### 注意
-live2d 模型的名字与需要与 vits 模型的目录名一致，Live2D 的 model3.json 要和目录名一致
+- live2d 模型的名字与需要与 vits 模型的目录名一致，Live2D 的 model3.json 要和目录名一致 
+- 如果你的 VITS 模型是多人混合的，需要在 Setting 页面指定 Speaker ID, 不指定默认为 0
 ## 关于翻译
 设置后会默认将 GPT 输出的语言翻译成日文交给 VITS，否则内置的模型说别的语言可能基本不出声... \
 接了 baidu 翻译，可以免费申请一个开发者账号 [这里](https://api.fanyi.baidu.com/) ，将申请到的 appid 和 密钥填到登录页的第二第三栏，或者在左上角菜单里选取 setting ，进行更改就行了

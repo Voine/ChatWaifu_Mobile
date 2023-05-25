@@ -114,7 +114,7 @@ class ChatActivityViewModel : ViewModel() {
 
                 val responseText = response?.choices?.firstOrNull()?.message?.content
                 val translateText = fetchTranslateIfNeed(responseText)
-
+                Log.d(TAG, "translate result: $translateText")
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
                 generateAndPlaySound(translateText)
             }
@@ -218,7 +218,9 @@ class ChatActivityViewModel : ViewModel() {
     }
 
     private fun generateAndPlaySound(needPlayText: String?) {
-        vitsHelper.generateAndPlay(needPlayText, callback = { isSuccess ->
+        vitsHelper.generateAndPlay(text = needPlayText,
+            targetSpeakerId = localModelManager.getVITSSpeakerId(currentLive2DModelName),
+            callback = { isSuccess ->
             Log.d(TAG, "generate sound $isSuccess")
             if (chatStatusLiveData.value == ChatStatus.GENERATE_SOUND) {
                 chatStatusLiveData.postValue(ChatStatus.DEFAULT)

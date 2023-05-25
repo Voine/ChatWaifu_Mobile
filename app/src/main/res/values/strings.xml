@@ -72,6 +72,7 @@
     <string name="setting_atri_hint">Input your ATRI setting here....</string>
     <string name="setting_amadeus_hint">Input your Amadeus setting here.....</string>
     <string name="setting_external_model_hint">Input your external model setting here....</string>
+    <string name="setting_external_model_speaker_id">input your external model speaker id....</string>
     <string name="setting_title_chatgpt">ChatGPT Key:</string>
     <string name="setting_title_translate_switch">Translate Switch</string>
     <string name="setting_title_translate_app_id">Translate App Id:</string>
@@ -80,6 +81,7 @@
     <string name="setting_title_atri_setting">ATRI Setting:</string>
     <string name="setting_title_amadeus_setting">Amadeus Setting:</string>
     <string name="setting_title_external_model_setting">External Model Setting:</string>
+    <string name="setting_title_external_model_speakerid">External Model Speaker Id:</string>
     <string name="setting_title_darkmode_switch">DarkMode Switch</string>
 
     <string name="drawer_function_list">Function List</string>

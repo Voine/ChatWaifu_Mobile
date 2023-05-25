@@ -186,6 +186,20 @@ class LocalModelManager() {
         return externalLive2dNames ?: emptyList()
     }
 
+    /**
+     * if external model has multi speaker, get speaker id from setting
+     */
+    fun getVITSSpeakerId(currentLive2DModelName: String): Int {
+        return when (currentLive2DModelName) {
+            Constant.LOCAL_MODEL_YUUKA,
+            Constant.LOCAL_MODEL_AMADEUS,
+            Constant.LOCAL_MODEL_ATRI -> 0
+            else -> {
+                sp.getInt(Constant.SAVED_EXTERNAL_MODEL_SPEAKER_ID, 0)
+            }
+        }
+    }
+
     companion object {
         val vitsFileArr= listOf(
             "config.json",

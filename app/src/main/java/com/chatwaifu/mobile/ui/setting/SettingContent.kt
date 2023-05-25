@@ -18,10 +18,13 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -60,6 +63,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.chatwaifu.mobile.R
@@ -144,12 +148,12 @@ fun SettingContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 ItemTitle(stringResource(id = R.string.setting_title_translate_app_id))
-                SettingEditText(settingUIState.translateAppId) {
+                SettingEditText(initValue = settingUIState.translateAppId) {
                     settingUIState.translateAppId = it
                 }
                 DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
                 ItemTitle(stringResource(id = R.string.setting_title_translate_app_key))
-                SettingEditText(settingUIState.translateAppKey) {
+                SettingEditText(initValue = settingUIState.translateAppKey) {
                     settingUIState.translateAppKey = it
                 }
             }
@@ -186,6 +190,19 @@ fun SettingContent(
             hint = stringResource(id = R.string.setting_external_model_hint)
         ) {
             settingUIState.externalSetting = it
+        }
+        DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
+        ItemTitle(stringResource(id = R.string.setting_title_external_model_speakerid))
+        SettingEditText(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            initValue = settingUIState.externalModelSpeakerId.toString(),
+            hint = stringResource(id = R.string.setting_external_model_speaker_id),
+            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+            singleLine = true
+        ) {
+            settingUIState.externalModelSpeakerId = try { it.toInt() } catch (e:Exception){0}
         }
         DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
         SettingSwitch(
@@ -236,25 +253,22 @@ fun SettingSwitch(switchName: String, checked: Boolean, onCheckedChange: (Boolea
 
 @Composable
 fun SettingEditText(
+    modifier: Modifier = Modifier
+        .fillMaxWidth()
+        .height(150.dp),
     initValue: String? = null,
     hint: String = "this is a hint",
+    singleLine: Boolean = false,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     onValueChanged: (String) -> Unit = {}
 ) {
     var value by rememberSaveable { mutableStateOf(initValue) }
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp)
+        modifier =  modifier,
     ) {
         val showHint = value.isNullOrEmpty()
         BasicTextField(
-            value = if (showHint) hint else value!!,
-            textStyle = if (showHint) TextStyle.Default.copy(
-                color = MaterialTheme.colorScheme.onSecondary.copy(
-                    alpha = 0.8f,
-                ),
-                fontStyle = FontStyle.Italic
-            ) else TextStyle.Default,
+            value = value ?: "",
             onValueChange = {
                 value = it
                 onValueChanged(it)
@@ -264,19 +278,34 @@ fun SettingEditText(
                 // internal input field would have otherwise. For example, there is no need to add a
                 // Modifier.clickable to the Row anymore to bring the text field into focus when user
                 // taps on a larger text field area which includes paddings and the icon areas.
-                Row(
-                    Modifier
-                        .background(
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-                            RoundedCornerShape(percent = 5)
+                Box(modifier = Modifier, contentAlignment = Alignment.Center) {
+                    Row(
+                        Modifier
+                            .background(
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
+                                RoundedCornerShape(percent = 5)
+                            )
+                            .padding(5.dp)
+                            .fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        innerTextField()
+                    }
+                    if (showHint) {
+                        Text(
+                            text = hint,
+                            style = TextStyle.Default.copy(
+                                color = MaterialTheme.colorScheme.onSecondary.copy(
+                                    alpha = 0.8f,
+                                )
+                            ),
+                            fontStyle = FontStyle.Italic
                         )
-                        .padding(5.dp)
-                        .fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    innerTextField()
+                    }
                 }
-            }
+            },
+            keyboardOptions = keyboardOptions,
+            singleLine = singleLine
         )
     }
 }
@@ -382,6 +411,7 @@ class SettingUIState(data: SettingUIData) {
     var atriSetting by mutableStateOf(data.atriSetting)
     var externalSetting by mutableStateOf(data.externalSetting)
     var darkModeSwitch by mutableStateOf(data.darkModeSwitch)
+    var externalModelSpeakerId by mutableStateOf(data.externalModelSpeakerId)
 
     fun convertState2Data(): SettingUIData {
         return SettingUIData(
@@ -394,6 +424,7 @@ class SettingUIState(data: SettingUIData) {
             atriSetting = atriSetting,
             externalSetting = externalSetting,
             darkModeSwitch = darkModeSwitch,
+            externalModelSpeakerId = externalModelSpeakerId
         )
     }
 }
@@ -412,10 +443,11 @@ data class SettingUIData(
     var atriSetting: String = "",
     var externalSetting: String = "",
     var darkModeSwitch: Boolean = false,
+    var externalModelSpeakerId: Int = 0
 )
 
 val exampleSettingUi = SettingUIData(
-    chatGPTAppId = "1234567",
+    chatGPTAppId = "",
     translateSwitch = true,
     translateAppId = "example translate app id .....",
     translateAppKey = "example translate app key.....",
@@ -423,5 +455,6 @@ val exampleSettingUi = SettingUIData(
     amaduesSetting = "example amadeus setting",
     atriSetting = "example atri setting...",
     externalSetting = "example external setting....",
-    darkModeSwitch = false
+    darkModeSwitch = false,
+    externalModelSpeakerId = 123456
 )

@@ -80,6 +80,7 @@ class SettingFragmentViewModel: ViewModel() {
 
             putBoolean(Constant.SAVED_USE_TRANSLATE, saved.translateSwitch)
             putBoolean(Constant.SAVED_USE_DARKMODE, saved.darkModeSwitch)
+            putInt(Constant.SAVED_EXTERNAL_MODEL_SPEAKER_ID, saved.externalModelSpeakerId)
             if (!commit()) apply()
         }
     }
