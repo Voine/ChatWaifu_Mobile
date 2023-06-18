@@ -64,6 +64,7 @@ class ChatActivityViewModel : ViewModel() {
     var currentLive2DModelName: String = ""
     var currentVITSModelName: String = ""
     var needTranslate: Boolean = true
+    var needChatGPTProxy: Boolean = false
 
     private var inputFunc: ((input: String) -> Unit)? = null
     private val chatGPTNetService: ChatGPTNetService? by lazy {
@@ -97,6 +98,9 @@ class ChatActivityViewModel : ViewModel() {
         val translateKey = sp.getString(Constant.SAVED_TRANSLATE_KEY, null)
         setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
         needTranslate = sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true)
+        needChatGPTProxy = sp.getBoolean(Constant.SAVED_USE_CHATGPT_PROXY, false)
+        val proxyUrl = if(needChatGPTProxy) sp.getString(Constant.SAVED_USE_CHATGPT_PROXY_URL, null) else null
+        chatGPTNetService?.updateRetrofit(proxyUrl)
     }
 
     fun mainLoop() {

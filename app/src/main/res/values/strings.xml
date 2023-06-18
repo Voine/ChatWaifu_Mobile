@@ -83,6 +83,8 @@
     <string name="setting_title_external_model_setting">External Model Setting:</string>
     <string name="setting_title_external_model_speakerid">External Model Speaker Id:</string>
     <string name="setting_title_darkmode_switch">DarkMode Switch</string>
+    <string name="setting_title_use_gpt_proxy">GPT Proxy Switch:</string>
+    <string name="setting_gpt_proxy_hint">Input your gpt proxy Url…</string>
 
     <string name="drawer_function_list">Function List</string>
 

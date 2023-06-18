@@ -50,6 +50,12 @@ class SettingFragmentViewModel: ViewModel() {
         sp.getBoolean(Constant.SAVED_USE_DARKMODE, false).let {
             data.darkModeSwitch = it
         }
+        sp.getBoolean(Constant.SAVED_USE_CHATGPT_PROXY, false).let {
+            data.gptProxySwitch = it
+        }
+        sp.getString(Constant.SAVED_USE_CHATGPT_PROXY_URL, null)?.let {
+            data.gptProxyUrl = it
+        }
         return data
     }
 
@@ -81,6 +87,10 @@ class SettingFragmentViewModel: ViewModel() {
             putBoolean(Constant.SAVED_USE_TRANSLATE, saved.translateSwitch)
             putBoolean(Constant.SAVED_USE_DARKMODE, saved.darkModeSwitch)
             putInt(Constant.SAVED_EXTERNAL_MODEL_SPEAKER_ID, saved.externalModelSpeakerId)
+            putBoolean(Constant.SAVED_USE_CHATGPT_PROXY, saved.gptProxySwitch)
+            if (!saved.gptProxyUrl.isNullOrBlank()) {
+                putString(Constant.SAVED_USE_CHATGPT_PROXY_URL, saved.gptProxyUrl)
+            }
             if (!commit()) apply()
         }
     }

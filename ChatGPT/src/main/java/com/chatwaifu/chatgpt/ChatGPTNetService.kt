@@ -3,6 +3,7 @@ package com.chatwaifu.chatgpt
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
+import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -26,6 +27,7 @@ class ChatGPTNetService(val context: Context) {
         private const val TEST_MODE = false
         private const val TAG = "ChatGPTNetService"
         private const val CHATGPT_BASE_URL = "https://api.openai.com/"
+        val CHATGPT_DEAFULT_PROXY_URL = "https://api.openai-proxy.com/"
         private const val TIME_OUT_SECOND = 100L
         private const val MAX_LIST_SIZE = 100
     }
@@ -34,14 +36,23 @@ class ChatGPTNetService(val context: Context) {
     private var systemRole: RequestMessageBean? = null
     private val sendMessageAssistantList: LinkedList<RequestMessageBean> = LinkedList()
 
-    private val chatAPI: GhatGPTAPI by lazy {
-        val retrofit = Retrofit.Builder().run {
+    private lateinit var retrofit: Retrofit
+
+    private lateinit var chatAPI: GhatGPTAPI
+
+    fun updateRetrofit(baseUrl: String?) {
+        val usedUrl = if (baseUrl.isNullOrBlank()) {
+            CHATGPT_BASE_URL
+        } else baseUrl
+
+        Log.d(TAG, "update retrofit $usedUrl")
+        retrofit = Retrofit.Builder().run {
             addConverterFactory(GsonConverterFactory.create())
-            baseUrl(CHATGPT_BASE_URL)
+            baseUrl(usedUrl)
             client(createClient())
             build()
         }
-        retrofit.create(GhatGPTAPI::class.java)
+        chatAPI = retrofit.create(GhatGPTAPI::class.java)
     }
 
     fun setPrivateKey(key: String): Boolean {
@@ -86,9 +97,21 @@ class ChatGPTNetService(val context: Context) {
                 call: Call<ChatGPTResponseData>,
                 response: Response<ChatGPTResponseData>
             ) {
-                Log.d(TAG, "send $call, receive ${response.body()} ${response.errorBody()?.string()}")
-                if (!response.isSuccessful) {
-                    callback.invoke(ChatGPTResponseData(errorMsg = response.errorBody()?.string()))
+                Log.d(TAG, "send $call, receive ${response.body()}")
+                if (!response.isSuccessful || response.body() == null) {
+                    val errorJson = response.errorBody()?.string()
+                    Log.d(TAG, "error msg is $errorJson")
+                    val errorMsg = try {
+                        Gson().fromJson(errorJson, ErrorBody::class.java).error?.message
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        null
+                    }
+                    callback.invoke(
+                        ChatGPTResponseData(
+                            errorMsg = errorMsg ?: errorJson
+                        )
+                    )
                     return
                 }
                 response.body()?.choices?.firstOrNull()?.message?.content?.let {

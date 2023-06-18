@@ -66,6 +66,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import com.chatwaifu.chatgpt.ChatGPTNetService
 import com.chatwaifu.mobile.R
 
 /**
@@ -211,6 +212,26 @@ fun SettingContent(
         ) {
             settingUIState.darkModeSwitch = it
         }
+        DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
+        SettingSwitch(
+            switchName = stringResource(id = R.string.setting_title_use_gpt_proxy),
+            checked = settingUIState.gptProxySwitch
+        ) {
+            settingUIState.gptProxySwitch = it
+        }
+        AnimatedVisibility(visible = settingUIState.gptProxySwitch) {
+            SettingEditText(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                initValue = settingUIState.gptProxyUrl.toString(),
+                hint = stringResource(id = R.string.setting_gpt_proxy_hint),
+                singleLine = true
+            ) {
+                settingUIState.gptProxyUrl = it.trim()
+            }
+        }
+
     }
 }
 
@@ -412,6 +433,8 @@ class SettingUIState(data: SettingUIData) {
     var externalSetting by mutableStateOf(data.externalSetting)
     var darkModeSwitch by mutableStateOf(data.darkModeSwitch)
     var externalModelSpeakerId by mutableStateOf(data.externalModelSpeakerId)
+    var gptProxyUrl by mutableStateOf(data.gptProxyUrl)
+    var gptProxySwitch by mutableStateOf(data.gptProxySwitch)
 
     fun convertState2Data(): SettingUIData {
         return SettingUIData(
@@ -424,7 +447,9 @@ class SettingUIState(data: SettingUIData) {
             atriSetting = atriSetting,
             externalSetting = externalSetting,
             darkModeSwitch = darkModeSwitch,
-            externalModelSpeakerId = externalModelSpeakerId
+            externalModelSpeakerId = externalModelSpeakerId,
+            gptProxyUrl = gptProxyUrl,
+            gptProxySwitch = gptProxySwitch
         )
     }
 }
@@ -443,7 +468,9 @@ data class SettingUIData(
     var atriSetting: String = "",
     var externalSetting: String = "",
     var darkModeSwitch: Boolean = false,
-    var externalModelSpeakerId: Int = 0
+    var externalModelSpeakerId: Int = 0,
+    var gptProxySwitch: Boolean = false,
+    var gptProxyUrl: String? = ChatGPTNetService.CHATGPT_DEAFULT_PROXY_URL
 )
 
 val exampleSettingUi = SettingUIData(

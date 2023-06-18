@@ -72,3 +72,16 @@ data class ResponseInnerMessageBean(
     var role: String?,
     var content: String?
 )
+
+@Keep
+data class ErrorBody(
+    val error: ErrorInnerBody? = null
+)
+
+@Keep
+data class ErrorInnerBody(
+    var message: String? = null,
+    var type: String? = null,
+    var param: String? = null,
+    var code: String? = null
+)

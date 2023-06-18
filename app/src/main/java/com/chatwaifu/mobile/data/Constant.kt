@@ -20,6 +20,8 @@ object Constant {
     const val SAVED_USE_TRANSLATE = "saved_use_translate"
     const val SAVED_USE_DARKMODE = "saved_use_darkmode"
     const val SAVED_EXTERNAL_MODEL_SPEAKER_ID = "saved_model_speaker_id"
+    val SAVED_USE_CHATGPT_PROXY = "saved_use_chatgpt_proxy"
+    val SAVED_USE_CHATGPT_PROXY_URL = "saved_use_chatgpt_proxy_url"
 
     const val LIVE2D_BASE_PATH = "Live2DModels"
     const val VITS_BASE_PATH = "VITSModels"

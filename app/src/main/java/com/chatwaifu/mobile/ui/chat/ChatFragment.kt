@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -83,9 +84,11 @@ class ChatFragment : Fragment() {
                     activityViewModel.chatContentUIFlow.collectAsStateWithLifecycle(initialValue = ChatDialogContentUIState(isInitState = true))
                 val contentDialogUIState = chatContentUIStateFlow.value
                 if (!contentDialogUIState.errorMsg.isNullOrEmpty()) {
-                    showToast("GPT Error: ${contentDialogUIState.errorMsg}")
-                }
-                if (contentDialogUIState.chatContent.isEmpty() && !contentDialogUIState.isInitState) {
+                    showToast(
+                        "GPT Error: ${contentDialogUIState.errorMsg}",
+                        type = Toast.LENGTH_LONG
+                    )
+                } else if (contentDialogUIState.chatContent.isEmpty() && !contentDialogUIState.isInitState) {
                     showToast("Error occur...ChatGPT response empty")
                 } else {
                     Log.d("ChatContentScaffold", "set response $contentDialogUIState")

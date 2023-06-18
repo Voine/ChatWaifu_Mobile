@@ -4,8 +4,8 @@ import android.content.Context
 import android.widget.Toast
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 
-fun showToast(text: String, context: Context = ChatWaifuApplication.context) {
-    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+fun showToast(text: String, context: Context = ChatWaifuApplication.context, type: Int = Toast.LENGTH_SHORT) {
+    Toast.makeText(context, text, type).show()
 }
 
 val Int.dp : Int
