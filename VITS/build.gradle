@@ -50,4 +50,5 @@ dependencies {
     implementation 'androidx.navigation:navigation-fragment:2.5.3'
     implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
     implementation 'com.belerweb:pinyin4j:2.5.0'
+    implementation "com.github.houbb:pinyin:0.4.0"
 }
