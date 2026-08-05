@@ -95,12 +95,12 @@ class ChatFragment : Fragment() {
                     sendMessageContent = contentDialogUIState.chatContent
                 }
                 sendMessageTitle =
-                    if (contentDialogUIState?.isFromMe == true) resources.getString(R.string.chat_dialog_sender_me) else activityViewModel.currentLive2DModelName
+                    if (contentDialogUIState?.isFromMe == true) resources.getString(R.string.chat_dialog_sender_me) else activityViewModel.currentCharacterName
                 ChatWaifu_MobileTheme {
                     ChatContentScaffold(
                         originAndroidView = { live2DView!! },
                         onNavIconPressed = { activityViewModel.openDrawer() },
-                        chatTitle = activityViewModel.currentLive2DModelName,
+                        chatTitle = activityViewModel.currentCharacterName,
                         sendMessageTitle = sendMessageTitle,
                         sendMessageContent = sendMessageContent,
                         onSendMsgButtonClick = {
@@ -116,7 +116,7 @@ class ChatFragment : Fragment() {
                         },
                         onTouchEnd = {
                             enableTouch = false
-                            fragmentViewModel.saveTouch(activityViewModel.currentLive2DModelName)
+                            fragmentViewModel.saveTouch(activityViewModel.currentCharacterName)
                         },
                         onResetModel = {
                             fragmentViewModel.resetModel()
@@ -145,7 +145,7 @@ class ChatFragment : Fragment() {
 
     private fun onLoadModelDone() {
         CoroutineScope(Dispatchers.Main).launch{
-            fragmentViewModel.initTouch(activityViewModel.currentLive2DModelName)
+            fragmentViewModel.initTouch(activityViewModel.currentCharacterName)
             activityViewModel.lipsValueHandler.createContext()
         }
     }
@@ -173,20 +173,22 @@ class ChatFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         JniBridgeJava.nativeOnStart()
-        val jsonFileName = "${activityViewModel.currentLive2DModelName}.model3.json"
-        if (!File(
-                activityViewModel.currentLive2DModelPath + File.separator,
-                jsonFileName
-            ).exists()
-        ) {
-            showToast("cant find model3.json...")
+        val character = activityViewModel.currentCharacter
+        if (character == null) {
+            showToast("no character selected...")
+            return
+        }
+        // 入口文件名来自导入时写下的 meta.json，不再假设它和角色名同名
+        val jsonFileName = character.live2dEntryFileName
+        if (!File(character.live2dDir, jsonFileName).exists()) {
+            showToast("cant find $jsonFileName...")
             return
         }
         JniBridgeJava.nativeProjectChangeTo(
-            activityViewModel.currentLive2DModelPath + File.separator,
+            character.live2dDir + File.separator,
             jsonFileName
         )
-        if (activityViewModel.currentLive2DModelName == Constant.LOCAL_MODEL_AMADEUS) {
+        if (character.name == Constant.LOCAL_MODEL_AMADEUS) {
             //fix kurisu live2d bug..
             JniBridgeJava.needRenderBack(false)
             JniBridgeJava.nativeApplyExpression("fix")

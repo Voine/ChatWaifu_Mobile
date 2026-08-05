@@ -12,12 +12,10 @@ import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
-import com.chatwaifu.mobile.utils.LocalModelManager
 
 class ChatLogFragment : Fragment() {
     private val activityViewModel: ChatActivityViewModel by activityViewModels()
     private val fragmentViewModel: ChatLogViewModel by viewModels()
-    private val localModelManager: LocalModelManager by lazy { LocalModelManager() }
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -33,7 +31,9 @@ class ChatLogFragment : Fragment() {
                         onNavIconPressed = {
                             activityViewModel.openDrawer()
                         },
-                        externalModelList = localModelManager.getChatLogExternalItemList()
+                        externalModelList = activityViewModel.initModelResultLiveData.value
+                            ?.map { it.name }
+                            .orEmpty()
                     )
                 }
             }

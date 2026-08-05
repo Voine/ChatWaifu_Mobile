@@ -1,15 +1,15 @@
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
-    id 'kotlin-kapt'
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
+    alias libs.plugins.kotlin.kapt
 }
 
 android {
     namespace 'com.chatwaifu.log'
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk rootProject.ext.minSdkVersion
+        minSdk libs.versions.minSdk.get().toInteger()
         consumerProguardFiles "consumer-rules.pro"
         javaCompileOptions{
             annotationProcessorOptions {
@@ -25,19 +25,26 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+    }
+    kotlinOptions {
+        jvmTarget = libs.versions.jvmTarget.get()
+    }
     lint {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
     testOptions {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
 }
 
 dependencies {
-    implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
-    implementation 'androidx.appcompat:appcompat:1.4.1'
-    implementation 'com.google.android.material:material:1.5.0'
-    implementation 'androidx.room:room-runtime:2.5.0'
-    implementation "androidx.room:room-ktx:2.5.0"
-    kapt "androidx.room:room-compiler:2.5.0"
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.appcompat
+    implementation libs.material
+    implementation libs.androidx.room.runtime
+    implementation libs.androidx.room.ktx
+    kapt libs.androidx.room.compiler
 }

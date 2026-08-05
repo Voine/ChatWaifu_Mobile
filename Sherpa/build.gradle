@@ -1,14 +1,14 @@
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
 }
 
 android {
     namespace 'com.k2fsa.sherpa.ncnn'
-    compileSdk  rootProject.ext.compileSdkVersion
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk rootProject.ext.minSdkVersion
+        minSdk libs.versions.minSdk.get().toInteger()
         consumerProguardFiles "consumer-rules.pro"
         ndk {
             abiFilters "armeabi-v7a","arm64-v8a"
@@ -22,11 +22,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = libs.versions.jvmTarget.get()
     }
     buildFeatures {
         aidl true
@@ -37,15 +37,15 @@ android {
         }
     }
     lint {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
     testOptions {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
 }
 
 dependencies {
-    implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
-    implementation "androidx.lifecycle:lifecycle-livedata-ktx:${rootProject.ext.lifecycle_livedata_ktx}"
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:${rootProject.ext.lifecycle_livedata_ktx}"
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.lifecycle.livedata.ktx
+    implementation libs.androidx.lifecycle.viewmodel.ktx
 }

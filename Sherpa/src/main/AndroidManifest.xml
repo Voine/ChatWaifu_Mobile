@@ -2,11 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
+        <!--
+          跑在独立进程是因为多个 ncnn 库像是进程独享资源。
+          只由本应用通过显式 Intent bindService，不需要导出给其他应用。
+        -->
         <service
             android:name=".SherpaService"
             android:enabled="true"
             android:process=":sherpa"
-            android:exported="true" />
+            android:exported="false" />
     </application>
 
 </manifest>

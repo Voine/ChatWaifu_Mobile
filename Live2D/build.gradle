@@ -1,14 +1,14 @@
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
 }
 
 android {
     namespace 'com.chatwaifu.live2d'
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk rootProject.ext.minSdkVersion
+        minSdk libs.versions.minSdk.get().toInteger()
 
         consumerProguardFiles "consumer-rules.pro"
         ndk{
@@ -33,14 +33,21 @@ android {
             version '3.18.1'
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+    }
+    kotlinOptions {
+        jvmTarget = libs.versions.jvmTarget.get()
+    }
     lint {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
     testOptions {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
 }
 
 dependencies {
-    implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
+    implementation libs.androidx.core.ktx
 }

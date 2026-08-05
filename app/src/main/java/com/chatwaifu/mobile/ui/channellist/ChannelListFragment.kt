@@ -38,10 +38,10 @@ class ChannelListFragment : Fragment() {
         setContent {
             ChatWaifu_MobileTheme {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    val resultLists = activityViewModel.initModelResultLiveData.observeAsState()
+                    val characters = activityViewModel.initModelResultLiveData.observeAsState()
                     ChannelListContent(
                         channelListUiState = ChannelListUiState(
-                            messages = resultLists.value ?: emptyList()
+                            messages = characters.value?.map { it.toChannelListBean() }.orEmpty()
                         ),
                         onNavIconPressed = {
                             activityViewModel.openDrawer()
@@ -77,13 +77,14 @@ class ChannelListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         checkPermission()
-        activityViewModel.initModel(requireContext())
+        activityViewModel.initModel()
     }
 
+    /**
+     * 存储权限已经不需要了：模型统一放在应用专属目录，导入走 SAF 单次授权。
+     * 剩下的只有录音和网络。
+     */
     private fun checkPermission() {
-        if (!PermissionUtils.checkStoragePermission(requireActivity())) {
-            PermissionUtils.requestStoragePermission(requireActivity())
-        }
         if (!PermissionUtils.checkNetPermission(requireActivity())) {
             PermissionUtils.requestNetPermission(requireActivity())
         }
@@ -93,12 +94,7 @@ class ChannelListFragment : Fragment() {
     }
 
     private fun onClick(item: ChannelListBean) {
-        activityViewModel.currentLive2DModelPath = item.characterPath
-        activityViewModel.currentLive2DModelName = item.characterName
-        activityViewModel.loadModelSystemSetting(item.characterName)
-        activityViewModel.currentVITSModelName = item.characterName
-        activityViewModel.loadChatListCache(item.characterName)
-        activityViewModel.loadVitsModel(item.characterVitsPath)
+        activityViewModel.selectCharacter(item.character ?: return)
     }
 
     companion object {

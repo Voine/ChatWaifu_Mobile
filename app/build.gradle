@@ -1,7 +1,7 @@
 plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-    id 'org.jetbrains.kotlin.plugin.compose'
+    alias libs.plugins.android.application
+    alias libs.plugins.kotlin.android
+    alias libs.plugins.kotlin.compose
 }
 
 static def getDate(){
@@ -11,11 +11,11 @@ static def getDate(){
 }
 
 android {
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
+        minSdk libs.versions.minSdk.get().toInteger()
+        targetSdk libs.versions.targetSdk.get().toInteger()
         vectorDrawables {
             useSupportLibrary true
         }
@@ -41,18 +41,18 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = libs.versions.jvmTarget.get()
     }
 
     buildFeatures {
         viewBinding true
-    }
-    buildFeatures {
         compose true
+        // AGP 8+ 起 buildConfig 默认关闭，下面 buildConfigField 依赖它
+        buildConfig true
     }
 
     packagingOptions {
@@ -61,6 +61,13 @@ android {
         }
     }
     namespace 'com.chatwaifu.mobile'
+
+    lint {
+        // compose-bom 2023.04.01 带的 compose lint 检测器和 AGP 9 的 lint API 不兼容，
+        // 这个检测器会直接让 lintAnalyzeDebug 崩掉（KotlinUastResolveProviderService is null），
+        // 导致整个 lint 任务不可用。升级 compose-bom 后应该删掉这一行。
+        disable 'MutableCollectionMutableState'
+    }
 }
 
 dependencies {
@@ -71,38 +78,38 @@ dependencies {
     implementation project(":Log")
     implementation project(":Lipsync")
     implementation project(':Sherpa')
-    implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
-    implementation "androidx.appcompat:appcompat:${rootProject.ext.android_appcompat}"
-    implementation "com.google.android.material:material:${rootProject.ext.android_material}"
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'androidx.navigation:navigation-fragment:2.5.3'
-    implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
-    implementation "androidx.lifecycle:lifecycle-livedata-ktx:${rootProject.ext.lifecycle_livedata_ktx}"
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:${rootProject.ext.lifecycle_livedata_ktx}"
-    implementation 'androidx.navigation:navigation-fragment-ktx:2.5.3'
-    implementation 'com.belerweb:pinyin4j:2.5.0'
-    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
-    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.6.1'
-    implementation "androidx.activity:activity-ktx:1.7.1"
-    implementation 'androidx.annotation:annotation:1.5.0'
-    implementation 'com.kunminx.archi:unpeek-livedata:4.4.1-beta1'
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.appcompat
+    implementation libs.material
+    implementation libs.androidx.constraintlayout
+    implementation libs.gson
+    implementation libs.androidx.navigation.fragment
+    implementation libs.androidx.navigation.ui.ktx
+    implementation libs.androidx.navigation.fragment.ktx
+    implementation libs.androidx.lifecycle.livedata.ktx
+    implementation libs.androidx.lifecycle.viewmodel.ktx
+    implementation libs.androidx.lifecycle.runtime.ktx
+    implementation libs.androidx.lifecycle.runtime.compose
+    implementation libs.pinyin4j
+    implementation libs.androidx.activity.ktx
+    implementation libs.androidx.annotation
+    implementation libs.unpeek.livedata
 
-    // compose lib
-    implementation platform("androidx.compose:compose-bom:${rootProject.ext.compose_bom_version}")
-    implementation 'androidx.compose.ui:ui'
-    implementation 'androidx.compose.ui:ui-viewbinding'
-    implementation 'androidx.compose.material:material'
-    implementation 'androidx.compose.material:material-icons-extended'
-    implementation 'androidx.compose.material3:material3'
-    implementation 'androidx.compose.material3:material3-window-size-class'
-    implementation 'androidx.compose.ui:ui-tooling-preview'
-    implementation 'androidx.compose.runtime:runtime'
-    implementation 'androidx.activity:activity-compose'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose'
-    implementation 'androidx.compose.runtime:runtime-livedata'
-    debugImplementation 'androidx.compose.ui:ui-test-manifest'
-    debugImplementation 'androidx.compose.ui:ui-tooling'
+    // compose lib，版本统一由 compose-bom 管理
+    implementation platform(libs.androidx.compose.bom)
+    implementation libs.compose.ui
+    implementation libs.compose.ui.viewbinding
+    implementation libs.compose.material
+    implementation libs.compose.material.icons.extended
+    implementation libs.compose.material3
+    implementation libs.compose.material3.window.size
+    implementation libs.compose.ui.tooling.preview
+    implementation libs.compose.runtime
+    implementation libs.compose.runtime.livedata
+    implementation libs.androidx.activity.compose
+    implementation libs.androidx.lifecycle.viewmodel.compose
+    debugImplementation libs.compose.ui.test.manifest
+    debugImplementation libs.compose.ui.tooling
 }
 
 def readLocalProperties(String key) {

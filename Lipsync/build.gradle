@@ -1,14 +1,14 @@
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
 }
 
 android {
     namespace 'com.chatwaifu.lipsync'
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk rootProject.ext.minSdkVersion
+        minSdk libs.versions.minSdk.get().toInteger()
 
         consumerProguardFiles "consumer-rules.pro"
         ndk{
@@ -35,20 +35,20 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = libs.versions.jvmTarget.get()
     }
     lint {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
     testOptions {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
 }
 
 dependencies {
-    implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
+    implementation libs.androidx.core.ktx
 }

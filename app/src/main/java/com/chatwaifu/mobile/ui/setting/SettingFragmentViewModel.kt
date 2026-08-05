@@ -39,10 +39,6 @@ class SettingFragmentViewModel: ViewModel() {
             ?: context.resources.getString(R.string.default_system_atri)
 
 
-        sp.getString(Constant.SAVED_EXTERNAL_SETTING, null)?.let {
-            data.externalSetting = it
-        }
-
         sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true).let {
             data.translateSwitch = it
         }
@@ -80,13 +76,8 @@ class SettingFragmentViewModel: ViewModel() {
                 putString(Constant.SAVED_ATRI_SETTING, saved.atriSetting)
             }
 
-            if (saved.externalSetting.isNotBlank()) {
-                putString(Constant.SAVED_EXTERNAL_SETTING, saved.externalSetting)
-            }
-
             putBoolean(Constant.SAVED_USE_TRANSLATE, saved.translateSwitch)
             putBoolean(Constant.SAVED_USE_DARKMODE, saved.darkModeSwitch)
-            putInt(Constant.SAVED_EXTERNAL_MODEL_SPEAKER_ID, saved.externalModelSpeakerId)
             putBoolean(Constant.SAVED_USE_CHATGPT_PROXY, saved.gptProxySwitch)
             if (!saved.gptProxyUrl.isNullOrBlank()) {
                 putString(Constant.SAVED_USE_CHATGPT_PROXY_URL, saved.gptProxyUrl)

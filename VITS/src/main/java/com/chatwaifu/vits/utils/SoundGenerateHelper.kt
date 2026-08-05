@@ -6,6 +6,7 @@ import android.util.Log
 import com.chatwaifu.vits.SoundPlayHandler
 import com.chatwaifu.vits.Vits
 import com.chatwaifu.vits.data.Config
+import com.chatwaifu.vits.utils.file.ConfigParseResult
 import com.chatwaifu.vits.utils.file.FileUtils
 import com.chatwaifu.vits.utils.text.ChineseTextUtils
 import com.chatwaifu.vits.utils.text.JapaneseTextUtils
@@ -44,7 +45,14 @@ class SoundGenerateHelper(val context: Context) {
     // load config file
     fun loadConfigs(path: String?, callback: (isSuccess: Boolean) -> Unit) {
         path ?: return callback.invoke(false)
-        config = FileUtils.parseConfig(context, path)
+        config = when (val parsed = FileUtils.parseConfig(path)) {
+            is ConfigParseResult.Success -> parsed.config
+            is ConfigParseResult.Failure -> {
+                // 失败原因已在 parseConfig 里打过日志，上层会走 VITSLoadStatus.STATE_FAILED 提示
+                Log.e(TAG, "load config failed: ${parsed.reason}")
+                return callback.invoke(false)
+            }
+        }
         var type = "single"
         if (config != null && config!!.speakers != null) {
             type = "multi"

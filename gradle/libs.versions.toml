@@ -1,0 +1,93 @@
+[versions]
+# --- SDK / toolchain ---
+# compileSdk 34 是 AGP 9 的下限（androidx.databinding:viewbinding 要求 >= 34）。
+#
+# targetSdk 34：分区存储问题已随模型迁到应用专属目录 + SAF 导入解决。
+# 再往上到 35/36 会触发强制 edge-to-edge（系统不再自动加 status/navigation bar inset），
+# 需要逐屏处理 WindowInsets，是一次独立的 UI 改造，见 CLAUDE.md「已知技术债」。
+compileSdk = "34"
+minSdk = "24"
+targetSdk = "34"
+# Java / Kotlin 字节码目标，所有模块必须一致，否则 AGP 9 会报
+# "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks"
+jvmTarget = "11"
+
+# --- build plugins ---
+agp = "9.3.1"
+kotlin = "2.2.10"
+
+# --- androidx ---
+androidx-activity = "1.7.1"
+androidx-annotation = "1.5.0"
+androidx-appcompat = "1.6.1"
+androidx-constraintlayout = "2.1.4"
+androidx-core-ktx = "1.9.0"
+androidx-lifecycle = "2.6.1"
+androidx-navigation = "2.5.3"
+androidx-room = "2.5.0"
+compose-bom = "2023.04.01"
+
+# --- third party ---
+gson = "2.10.1"
+material = "1.9.0-beta01"
+pinyin-houbb = "0.4.0"
+pinyin4j = "2.5.0"
+retrofit = "2.9.0"
+unpeek-livedata = "4.4.1-beta1"
+
+[libraries]
+# --- androidx ---
+androidx-activity-compose = { module = "androidx.activity:activity-compose" }
+androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "androidx-activity" }
+androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
+androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintlayout" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core-ktx" }
+
+# lifecycle
+androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose" }
+androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "androidx-lifecycle" }
+
+# navigation
+androidx-navigation-fragment = { module = "androidx.navigation:navigation-fragment", version.ref = "androidx-navigation" }
+androidx-navigation-fragment-ktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "androidx-navigation" }
+androidx-navigation-ui-ktx = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "androidx-navigation" }
+
+# room
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "androidx-room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "androidx-room" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "androidx-room" }
+
+# --- compose (versions come from compose-bom) ---
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-material = { module = "androidx.compose.material:material" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+# 别名末段不能是 class，Groovy DSL 下 `.class` 会被当成 getClass()
+compose-material3-window-size = { module = "androidx.compose.material3:material3-window-size-class" }
+compose-runtime = { module = "androidx.compose.runtime:runtime" }
+compose-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-viewbinding = { module = "androidx.compose.ui:ui-viewbinding" }
+
+# --- third party ---
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
+pinyin-houbb = { module = "com.github.houbb:pinyin", version.ref = "pinyin-houbb" }
+pinyin4j = { module = "com.belerweb:pinyin4j", version.ref = "pinyin4j" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
+unpeek-livedata = { module = "com.kunminx.archi:unpeek-livedata", version.ref = "unpeek-livedata" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }

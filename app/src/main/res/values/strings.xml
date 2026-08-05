@@ -71,8 +71,6 @@
     <string name="setting_yuuka_hint">Input your Yuuka setting here</string>
     <string name="setting_atri_hint">Input your ATRI setting here....</string>
     <string name="setting_amadeus_hint">Input your Amadeus setting here.....</string>
-    <string name="setting_external_model_hint">Input your external model setting here....</string>
-    <string name="setting_external_model_speaker_id">input your external model speaker id....</string>
     <string name="setting_title_chatgpt">ChatGPT Key:</string>
     <string name="setting_title_translate_switch">Translate Switch</string>
     <string name="setting_title_translate_app_id">Translate App Id:</string>
@@ -80,13 +78,41 @@
     <string name="setting_title_yuuka_setting">Yuuka Setting:</string>
     <string name="setting_title_atri_setting">ATRI Setting:</string>
     <string name="setting_title_amadeus_setting">Amadeus Setting:</string>
-    <string name="setting_title_external_model_setting">External Model Setting:</string>
-    <string name="setting_title_external_model_speakerid">External Model Speaker Id:</string>
     <string name="setting_title_darkmode_switch">DarkMode Switch</string>
     <string name="setting_title_use_gpt_proxy">GPT Proxy Switch:</string>
     <string name="setting_gpt_proxy_hint">Input your gpt proxy Url…</string>
 
     <string name="drawer_function_list">Function List</string>
+    <string name="drawer_item_model_manager">ModelManager</string>
+
+    <!-- 模型管理 -->
+    <string name="model_manager_title">Model Manager</string>
+    <string name="model_manager_import">Import model zip</string>
+    <string name="model_manager_empty">No imported model yet. Tap the import button to add one.</string>
+    <string name="model_manager_built_in">Built-in</string>
+    <string name="model_manager_imported">Imported</string>
+    <string name="model_manager_no_voice">No voice (Live2D only)</string>
+    <string name="model_manager_delete">Delete</string>
+    <string name="model_manager_delete_confirm">Delete %1$s and all its files?</string>
+    <string name="model_manager_delete_done">%1$s deleted</string>
+    <string name="model_manager_speaker_id_title">Speaker Id (multi-speaker model):</string>
+    <string name="model_manager_prompt_title">Character setting:</string>
+    <string name="model_manager_prompt_hint">Input this character\'s setting here…</string>
+    <string name="model_manager_save">Save</string>
+    <string name="model_manager_saved">Saved</string>
+    <string name="model_manager_importing">Importing… %1$d%%</string>
+    <string name="model_manager_validating">Validating archive…</string>
+    <string name="model_manager_import_done">%1$s imported</string>
+    <string name="model_manager_hint_layout">Pack the model as a zip containing a live2d folder (with *.model3.json) and a vits folder (with config.json and *.bin).</string>
+
+    <!-- 导入失败原因 -->
+    <string name="import_error_not_zip">The selected file is not a valid zip.</string>
+    <string name="import_error_no_live2d">No *.model3.json found in the archive.</string>
+    <string name="import_error_multiple_live2d">Found more than one *.model3.json: %1$s</string>
+    <string name="import_error_invalid_vits">Invalid VITS config.json: %1$s</string>
+    <string name="import_error_name_conflict">A character named %1$s already exists.</string>
+    <string name="import_error_unsafe">Archive rejected for safety: %1$s</string>
+    <string name="import_error_io">Import failed: %1$s</string>
 
     <string name="chat_dialog_sender_me">Me</string>
     <string name="chat_status_hint_send_request">send request…</string>

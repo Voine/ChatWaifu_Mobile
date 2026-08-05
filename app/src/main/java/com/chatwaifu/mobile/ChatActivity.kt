@@ -33,6 +33,9 @@ class ChatActivity : AppCompatActivity() {
                             },
                             onSettingClick = {
                                 findNavController().navigate(R.id.nav_setting)
+                            },
+                            onModelManagerClick = {
+                                findNavController().navigate(R.id.nav_model_manager)
                             }
                         )
                     }

@@ -8,6 +8,7 @@ import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import com.chatwaifu.live2d.JniBridgeJava
+import com.chatwaifu.mobile.data.Constant
 
 /**
  * Description: Live2DTouchManager
@@ -132,5 +133,17 @@ class Live2DTouchManager(context: Context){
 
     companion object {
         private const val TAG = "Live2DTouchManager"
+
+        /**
+         * 内置模型的默认位置和缩放（translateX, translateY, scale）。
+         * 这三个值是逐个模型手调出来的渲染参数，所以放在 touch manager 而不是数据层。
+         * 导入的模型没法预知合适取值，给个中性默认，用户可以自己拖完保存。
+         */
+        fun getDefaultModelPosition(modelName: String): List<Float> = when (modelName) {
+            Constant.LOCAL_MODEL_YUUKA -> listOf(0f, -0.6f, 4f)
+            Constant.LOCAL_MODEL_ATRI -> listOf(0f, -0.6f, 3f)
+            Constant.LOCAL_MODEL_AMADEUS -> listOf(0f, 0f, 2f)
+            else -> listOf(0f, 0f, 1f)
+        }
     }
 }

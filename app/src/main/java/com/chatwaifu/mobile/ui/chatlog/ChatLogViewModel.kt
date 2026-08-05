@@ -6,8 +6,8 @@ import com.chatwaifu.log.IChatLogDbApi
 import com.chatwaifu.log.room.ChatLogDbManager
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.application.ChatWaifuApplication
-import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.common.Message
+import com.chatwaifu.mobile.ui.common.avatarResOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,23 +48,10 @@ class ChatLogViewModel : ViewModel() {
                         timestamp = SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.ENGLISH).format(
                             Date(it.timeline)
                         ).toString(),
-                        authorImage = if (it.sendFromMe) R.drawable.chat_log_person else {
-                            when (it.characterName) {
-                                Constant.LOCAL_MODEL_YUUKA -> {
-                                    R.drawable.yuuka_head
-                                }
-
-                                Constant.LOCAL_MODEL_ATRI -> {
-                                    R.drawable.atri_head
-                                }
-
-                                Constant.LOCAL_MODEL_AMADEUS -> {
-                                    R.drawable.kurisu_head
-                                }
-                                else -> {
-                                    R.drawable.external_default_icon
-                                }
-                            }
+                        authorImage = if (it.sendFromMe) {
+                            R.drawable.chat_log_person
+                        } else {
+                            avatarResOf(it.characterName)
                         }
                     )
                 })

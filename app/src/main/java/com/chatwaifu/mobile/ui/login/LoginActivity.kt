@@ -11,7 +11,6 @@ import com.chatwaifu.mobile.ChatActivity
 import com.chatwaifu.mobile.databinding.ActivityLoginBinding
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.showToast
-import com.chatwaifu.vits.utils.permission.PermissionUtils
 
 /**
  * 不要问为甚么登陆页面不用 compose 画，问就是懒
@@ -42,10 +41,6 @@ class LoginActivity : AppCompatActivity() {
             val chatKey = binding.chatGptText.text.toString().trim()
             if (chatKey.isEmpty()) {
                 showToast("need chat gpt key..")
-                return@setOnClickListener
-            }
-            if (!PermissionUtils.checkStoragePermission(this)) {
-                PermissionUtils.requestStoragePermission(this)
                 return@setOnClickListener
             }
             val translateKey = binding.translateKey?.text.toString().trim()

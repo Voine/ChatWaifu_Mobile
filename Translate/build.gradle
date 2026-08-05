@@ -1,14 +1,14 @@
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
 }
 
 android {
     namespace 'com.chatwaifu.translate'
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk rootProject.ext.minSdkVersion
+        minSdk libs.versions.minSdk.get().toInteger()
         consumerProguardFiles "consumer-rules.pro"
     }
 
@@ -18,18 +18,25 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+    }
+    kotlinOptions {
+        jvmTarget = libs.versions.jvmTarget.get()
+    }
     lint {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
     testOptions {
-        targetSdk 33
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
 }
 
 dependencies {
-    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
-    implementation "androidx.core:core-ktx:${rootProject.ext.kotlin_ktx}"
-    implementation 'androidx.appcompat:appcompat:1.4.1'
-    implementation 'com.google.android.material:material:1.5.0'
+    implementation libs.retrofit
+    implementation libs.retrofit.converter.gson
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.appcompat
+    implementation libs.material
 }

@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      存储权限已全部移除：模型统一放在应用专属目录（getExternalFilesDir("models")），
+      用户导入走 SAF 单次授权。targetSdk >= 33 之后 .bin/.moc3/.model3.json 这类非媒体文件
+      本来也没有任何运行时权限能授予访问，READ_EXTERNAL_STORAGE 和 READ_MEDIA_* 都不适用。
+    -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission
-        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
 
     <uses-feature
         android:glEsVersion="0x00020000"
@@ -21,7 +20,6 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Design.NoActionBar">
@@ -34,9 +32,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- 只由 LoginActivity 用显式 Intent 拉起，不需要对外导出 -->
         <activity
             android:name=".ChatActivity"
-            android:exported="true"
+            android:exported="false"
             android:screenOrientation="portrait" />
     </application>
 

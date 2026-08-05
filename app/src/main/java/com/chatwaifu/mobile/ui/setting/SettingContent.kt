@@ -185,27 +185,6 @@ fun SettingContent(
             settingUIState.amaduesSetting = it
         }
         DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
-        ItemTitle(stringResource(id = R.string.setting_title_external_model_setting))
-        SettingEditText(
-            initValue = settingUIState.externalSetting,
-            hint = stringResource(id = R.string.setting_external_model_hint)
-        ) {
-            settingUIState.externalSetting = it
-        }
-        DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
-        ItemTitle(stringResource(id = R.string.setting_title_external_model_speakerid))
-        SettingEditText(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            initValue = settingUIState.externalModelSpeakerId.toString(),
-            hint = stringResource(id = R.string.setting_external_model_speaker_id),
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
-            singleLine = true
-        ) {
-            settingUIState.externalModelSpeakerId = try { it.toInt() } catch (e:Exception){0}
-        }
-        DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
         SettingSwitch(
             stringResource(id = R.string.setting_title_darkmode_switch),
             settingUIState.darkModeSwitch
@@ -430,9 +409,7 @@ class SettingUIState(data: SettingUIData) {
     var yuukaSetting by mutableStateOf(data.yuukaSetting)
     var amaduesSetting by mutableStateOf(data.amaduesSetting)
     var atriSetting by mutableStateOf(data.atriSetting)
-    var externalSetting by mutableStateOf(data.externalSetting)
     var darkModeSwitch by mutableStateOf(data.darkModeSwitch)
-    var externalModelSpeakerId by mutableStateOf(data.externalModelSpeakerId)
     var gptProxyUrl by mutableStateOf(data.gptProxyUrl)
     var gptProxySwitch by mutableStateOf(data.gptProxySwitch)
 
@@ -445,9 +422,7 @@ class SettingUIState(data: SettingUIData) {
             yuukaSetting = yuukaSetting,
             amaduesSetting = amaduesSetting,
             atriSetting = atriSetting,
-            externalSetting = externalSetting,
             darkModeSwitch = darkModeSwitch,
-            externalModelSpeakerId = externalModelSpeakerId,
             gptProxyUrl = gptProxyUrl,
             gptProxySwitch = gptProxySwitch
         )
@@ -466,9 +441,7 @@ data class SettingUIData(
     var yuukaSetting: String = "",
     var amaduesSetting: String = "",
     var atriSetting: String = "",
-    var externalSetting: String = "",
     var darkModeSwitch: Boolean = false,
-    var externalModelSpeakerId: Int = 0,
     var gptProxySwitch: Boolean = false,
     var gptProxyUrl: String? = ChatGPTNetService.CHATGPT_DEAFULT_PROXY_URL
 )
@@ -481,7 +454,5 @@ val exampleSettingUi = SettingUIData(
     yuukaSetting = "example yuuka setting",
     amaduesSetting = "example amadeus setting",
     atriSetting = "example atri setting...",
-    externalSetting = "example external setting....",
     darkModeSwitch = false,
-    externalModelSpeakerId = 123456
 )
