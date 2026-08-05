@@ -9,9 +9,6 @@ android {
 
     defaultConfig {
         minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.2.1"
 
         externalNativeBuild {
             cmake {
@@ -32,12 +29,13 @@ android {
     buildFeatures {
         viewBinding true
     }
-
-    sourceSets {
-        main {
-            jni.srcDirs = ["src/main/cpp"]
-        }
+    lint {
+        targetSdk 33
     }
+    testOptions {
+        targetSdk 33
+    }
+
 }
 
 dependencies {

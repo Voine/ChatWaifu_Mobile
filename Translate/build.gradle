@@ -9,7 +9,6 @@ android {
 
     defaultConfig {
         minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
         consumerProguardFiles "consumer-rules.pro"
     }
 
@@ -18,6 +17,12 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+    lint {
+        targetSdk 33
+    }
+    testOptions {
+        targetSdk 33
     }
 }
 

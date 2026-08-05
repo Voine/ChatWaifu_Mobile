@@ -9,7 +9,6 @@ android {
 
     defaultConfig {
         minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
 
         consumerProguardFiles "consumer-rules.pro"
         ndk{
@@ -33,6 +32,12 @@ android {
             path "CMakeLists.txt"
             version '3.18.1'
         }
+    }
+    lint {
+        targetSdk 33
+    }
+    testOptions {
+        targetSdk 33
     }
 }
 

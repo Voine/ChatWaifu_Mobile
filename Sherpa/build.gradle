@@ -9,7 +9,6 @@ android {
 
     defaultConfig {
         minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
         consumerProguardFiles "consumer-rules.pro"
         ndk {
             abiFilters "armeabi-v7a","arm64-v8a"
@@ -36,6 +35,12 @@ android {
         main {
             jniLibs.srcDirs=['src/main/jniLibs']
         }
+    }
+    lint {
+        targetSdk 33
+    }
+    testOptions {
+        targetSdk 33
     }
 }
 

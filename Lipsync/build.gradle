@@ -9,7 +9,6 @@ android {
 
     defaultConfig {
         minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
 
         consumerProguardFiles "consumer-rules.pro"
         ndk{
@@ -41,6 +40,12 @@ android {
     }
     kotlinOptions {
         jvmTarget = '11'
+    }
+    lint {
+        targetSdk 33
+    }
+    testOptions {
+        targetSdk 33
     }
 }
 
