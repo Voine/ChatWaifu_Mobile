@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,7 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,10 +102,9 @@ fun ModelManagerContent(
                 },
             )
         },
-        contentWindowInsets = ScaffoldDefaults
-            .contentWindowInsets
-            .exclude(WindowInsets.navigationBars)
-            .exclude(WindowInsets.ime),
+        // 同 ChannelListContent：底部没有输入框，导航栏 inset 交给 Scaffold 补，
+        // 否则 LazyColumn 最后一项会压在导航栏下面
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.ime),
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { paddingValues ->
         Column(
@@ -126,7 +124,7 @@ fun ModelManagerContent(
                     )
                 }
                 items(uiState.characters, key = { it.name }) { character ->
-                    Divider(
+                    HorizontalDivider(
                         modifier = Modifier.height(1.dp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                     )
@@ -194,7 +192,7 @@ private fun ImportingBanner(state: ImportingState) {
         Spacer(modifier = Modifier.height(6.dp))
         when (state) {
             is ImportingState.Extracting -> LinearProgressIndicator(
-                progress = state.percent / 100f,
+                progress = { state.percent / 100f },
                 modifier = Modifier.fillMaxWidth(),
             )
 

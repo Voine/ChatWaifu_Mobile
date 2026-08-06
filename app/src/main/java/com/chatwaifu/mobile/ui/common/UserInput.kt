@@ -238,8 +238,9 @@ private fun SelectorExpanded(
 ) {
     if (currentSelector == InputSelector.NONE) return
 
-    // Request focus to force the TextField to lose it
-    val focusRequester = FocusRequester()
+    // Request focus to force the TextField to lose it.
+    // 必须 remember：不然每次重组都是新实例，SideEffect 里 requestFocus 的是个没挂到布局上的对象
+    val focusRequester = remember { FocusRequester() }
     // If the selector is shown, always request focus to trigger a TextField.onFocusChange.
     SideEffect {
         if (currentSelector == InputSelector.EMOJI) {

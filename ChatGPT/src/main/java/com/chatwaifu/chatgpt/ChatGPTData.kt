@@ -3,8 +3,9 @@ package com.chatwaifu.chatgpt
 import androidx.annotation.Keep
 import com.chatwaifu.chatgpt.ChatGPTData.MAX_GENERATE_LIMIT
 import com.google.gson.Gson
-import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 
@@ -25,13 +26,14 @@ data class ChatGPTRequestData(
     companion object {
         private const val DEFAULT_MODEL = "gpt-3.5-turbo"
         private const val DEFAULT_TEMPERATURE = 1
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 
     fun toRequestBody(): RequestBody {
-        return RequestBody.create(
-            MediaType.parse("application/json; charset=utf-8"),
-            JSONObject(Gson().toJson(this)).toString()
-        )
+        // okhttp 4+ 把 MediaType.parse / RequestBody.create 的静态形式标成 DeprecationLevel.ERROR，
+        // 必须走 Kotlin 扩展函数
+        return JSONObject(Gson().toJson(this)).toString()
+            .toRequestBody(JSON_MEDIA_TYPE)
     }
 }
 @Keep

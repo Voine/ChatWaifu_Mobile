@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,7 +23,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -75,11 +74,10 @@ fun ChannelListContent(
                 scrollBehavior = scrollBehavior,
             )
         },
-        // Exclude ime and navigation bar padding so this can be added by the UserInput composable
-        contentWindowInsets = ScaffoldDefaults
-            .contentWindowInsets
-            .exclude(WindowInsets.navigationBars)
-            .exclude(WindowInsets.ime),
+        // 这一屏底部没有 UserInput，导航栏 inset 必须由 Scaffold 直接补在内容上。
+        // 原先照搬了聊天页的 .exclude(navigationBars)，但没人把它接回来，
+        // edge-to-edge 生效后最后一个角色条目会被导航栏盖住。
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.ime),
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
     ) { paddingValues ->
         Column(
@@ -88,7 +86,7 @@ fun ChannelListContent(
                 .padding(paddingValues)
         ) {
             channelListUiState.messages.forEachIndexed { i, it ->
-                Divider(
+                HorizontalDivider(
                     modifier = Modifier
                         .height(1.dp)
                         .align(Alignment.CenterHorizontally),
@@ -100,7 +98,7 @@ fun ChannelListContent(
                     modifier = modifier.clickable { onChannelItemClick.invoke(it) }
                 )
             }
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier
                     .height(1.dp)
                     .align(Alignment.CenterHorizontally),

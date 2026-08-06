@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +35,12 @@ import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
  * Description:
  * Author: Voine
  * Date: 2023/4/29
+ *
+ * 注：原先这个文件用的是 material（M2）的 MaterialTheme / Surface / Text，
+ * 而工程其余部分全是 material3，混用会触发 UsingMaterialAndMaterial3Libraries。
+ * 已统一到 M3。映射关系：`colors.*` → `colorScheme.*`（M3 没有 secondaryVariant，
+ * 取语义最近的 secondary）、`typography.subtitle2/body2` → `titleSmall/bodyMedium`、
+ * Surface 的 `elevation` 拆成了 `shadowElevation` / `tonalElevation`，这里取前者。
  */
 
 
@@ -49,7 +55,7 @@ fun MessageCard(msg: SimpleMessage) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .border(1.5.dp, MaterialTheme.colors.secondaryVariant, CircleShape)
+                .border(1.5.dp, MaterialTheme.colorScheme.secondary, CircleShape)
         )
         Spacer(modifier = Modifier.width(8.dp))
 
@@ -58,22 +64,22 @@ fun MessageCard(msg: SimpleMessage) {
         var isExpanded by remember { mutableStateOf(false) }
         // surfaceColor will be updated gradually from one color to the other
         val surfaceColor by animateColorAsState(
-            if (isExpanded) MaterialTheme.colors.primary else MaterialTheme.colors.surface,
+            if (isExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         )
 
         // We toggle the isExpanded variable when we click on this Column
         Column(modifier = Modifier.clickable { isExpanded = !isExpanded }) {
             Text(
                 text = msg.author,
-                color = MaterialTheme.colors.secondaryVariant,
-                style = MaterialTheme.typography.subtitle2
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.titleSmall
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Surface(
                 shape = MaterialTheme.shapes.medium,
-                elevation = 1.dp,
+                shadowElevation = 1.dp,
                 // surfaceColor color will be changing gradually from primary to surface
                 color = surfaceColor,
                 // animateContentSize will change the Surface size gradually
@@ -85,7 +91,7 @@ fun MessageCard(msg: SimpleMessage) {
                     // If the message is expanded, we display all its content
                     // otherwise we only display the first line
                     maxLines = if (isExpanded) Int.MAX_VALUE else 1,
-                    style = MaterialTheme.typography.body2
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }

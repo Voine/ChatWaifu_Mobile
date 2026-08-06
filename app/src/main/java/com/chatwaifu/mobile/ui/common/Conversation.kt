@@ -43,8 +43,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -70,7 +69,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -81,7 +79,6 @@ import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.ui.base.ChatWaifuAppBar
 import com.chatwaifu.mobile.ui.common.JumpToBottom
 import com.chatwaifu.mobile.ui.common.Message
-import com.chatwaifu.mobile.ui.common.SymbolAnnotationType
 import com.chatwaifu.mobile.ui.common.exampleUiState
 import com.chatwaifu.mobile.ui.common.messageFormatter
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
@@ -381,7 +378,7 @@ fun DayHeader(dayString: String) {
 
 @Composable
 private fun RowScope.DayHeaderLine() {
-    Divider(
+    HorizontalDivider(
         modifier = Modifier
             .weight(1f)
             .align(Alignment.CenterVertically),
@@ -437,29 +434,19 @@ fun ClickableMessage(
     isUserMe: Boolean,
     authorClicked: (String) -> Unit
 ) {
-    val uriHandler = LocalUriHandler.current
-
+    // messageFormatter 现在把链接和 @提及 以 LinkAnnotation 内嵌在 AnnotatedString 里，
+    // 点击由 Text 自己分发（Url 走 LocalUriHandler，Clickable 走 authorClicked），
+    // 不再需要 ClickableText（已废弃）+ getStringAnnotations 那一套手工命中测试。
     val styledMessage = messageFormatter(
         text = message.content,
-        primary = isUserMe
+        primary = isUserMe,
+        authorClicked = authorClicked
     )
 
-    ClickableText(
+    Text(
         text = styledMessage,
         style = MaterialTheme.typography.bodyLarge.copy(color = LocalContentColor.current),
-        modifier = Modifier.padding(16.dp),
-        onClick = {
-            styledMessage
-                .getStringAnnotations(start = it, end = it)
-                .firstOrNull()
-                ?.let { annotation ->
-                    when (annotation.tag) {
-                        SymbolAnnotationType.LINK.name -> uriHandler.openUri(annotation.item)
-                        SymbolAnnotationType.PERSON.name -> authorClicked(annotation.item)
-                        else -> Unit
-                    }
-                }
-        }
+        modifier = Modifier.padding(16.dp)
     )
 }
 

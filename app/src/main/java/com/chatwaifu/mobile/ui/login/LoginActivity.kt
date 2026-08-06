@@ -5,7 +5,11 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.chatwaifu.mobile.BuildConfig
 import com.chatwaifu.mobile.ChatActivity
 import com.chatwaifu.mobile.databinding.ActivityLoginBinding
@@ -23,10 +27,12 @@ class LoginActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyWindowInsets(binding.root)
 
         if (jumpToNextInBuildIfNeed()) {
             return
@@ -43,7 +49,7 @@ class LoginActivity : AppCompatActivity() {
                 showToast("need chat gpt key..")
                 return@setOnClickListener
             }
-            val translateKey = binding.translateKey?.text.toString().trim()
+            val translateKey = binding.translateKey.text.toString().trim()
             val translateAppId = binding.translateAppId.text.toString().trim()
             sp.edit().apply {
                 putString(Constant.SAVED_CHAT_KEY, chatKey)
@@ -52,6 +58,34 @@ class LoginActivity : AppCompatActivity() {
                 apply()
             }
             jumpToChat()
+        }
+    }
+
+    /**
+     * 这一屏是 View 布局，edge-to-edge 下系统不会再自动补 status/navigation bar 的 inset，
+     * 得自己监听。注意是**叠加**到布局原有 padding 上而不是覆盖，否则
+     * activity_login.xml 里的 activity_horizontal_margin 会被冲掉。
+     * ime 也一起吃掉：decorFitsSystemWindows=false 之后窗口不再自动 resize，
+     * 键盘弹出时只会来 inset，不加的话三个输入框会被挡住。
+     */
+    private fun applyWindowInsets(root: View) {
+        val baseLeft = root.paddingLeft
+        val baseTop = root.paddingTop
+        val baseRight = root.paddingRight
+        val baseBottom = root.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, windowInsets ->
+            val insets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout() or
+                    WindowInsetsCompat.Type.ime()
+            )
+            view.setPadding(
+                baseLeft + insets.left,
+                baseTop + insets.top,
+                baseRight + insets.right,
+                baseBottom + insets.bottom,
+            )
+            WindowInsetsCompat.CONSUMED
         }
     }
 

@@ -95,7 +95,7 @@ class ChatFragment : Fragment() {
                     sendMessageContent = contentDialogUIState.chatContent
                 }
                 sendMessageTitle =
-                    if (contentDialogUIState?.isFromMe == true) resources.getString(R.string.chat_dialog_sender_me) else activityViewModel.currentCharacterName
+                    if (contentDialogUIState.isFromMe) resources.getString(R.string.chat_dialog_sender_me) else activityViewModel.currentCharacterName
                 ChatWaifu_MobileTheme {
                     ChatContentScaffold(
                         originAndroidView = { live2DView!! },

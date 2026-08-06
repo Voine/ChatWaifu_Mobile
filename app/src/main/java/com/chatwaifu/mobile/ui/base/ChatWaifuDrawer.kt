@@ -36,7 +36,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -227,7 +227,7 @@ private fun DrawerItemHeader(text: String) {
 
 @Composable
 fun DividerItem(modifier: Modifier = Modifier) {
-    Divider(
+    HorizontalDivider(
         modifier = modifier,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     )

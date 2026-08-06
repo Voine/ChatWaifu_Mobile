@@ -1,22 +1,15 @@
 plugins {
     alias libs.plugins.android.library
-    alias libs.plugins.kotlin.android
-    alias libs.plugins.kotlin.kapt
+    alias libs.plugins.ksp
 }
 
 android {
-    namespace 'com.chatwaifu.log'
+    namespace = 'com.chatwaifu.log'
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
         minSdk libs.versions.minSdk.get().toInteger()
         consumerProguardFiles "consumer-rules.pro"
-        javaCompileOptions{
-            annotationProcessorOptions {
-                arguments = ["room.schemaLocation":
-                                     "$projectDir/schemas".toString()]
-            }
-        }
     }
 
     buildTypes {
@@ -29,9 +22,6 @@ android {
         sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
         targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
-    kotlinOptions {
-        jvmTarget = libs.versions.jvmTarget.get()
-    }
     lint {
         targetSdk libs.versions.targetSdk.get().toInteger()
     }
@@ -40,11 +30,16 @@ android {
     }
 }
 
+// Room 的 schema 导出目录，KSP 下通过 ksp {} 传参（原先是 annotationProcessorOptions.arguments）
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas".toString())
+}
+
 dependencies {
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material
     implementation libs.androidx.room.runtime
     implementation libs.androidx.room.ktx
-    kapt libs.androidx.room.compiler
+    ksp libs.androidx.room.compiler
 }

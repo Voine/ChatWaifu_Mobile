@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.sp
 
 // Regex containing the syntax tokens
@@ -35,13 +37,11 @@ val symbolPattern by lazy {
     Regex("""(https?://[^\s\t\n]+)|(`[^`]+`)|(@\w+)|(\*[\w]+\*)|(_[\w]+_)|(~[\w]+~)""")
 }
 
-// Accepted annotations for the ClickableTextWrapper
-enum class SymbolAnnotationType {
-    PERSON, LINK
-}
-typealias StringAnnotation = AnnotatedString.Range<String>
-// Pair returning styled content and annotation for ClickableText when matching syntax token
-typealias SymbolAnnotation = Pair<AnnotatedString, StringAnnotation?>
+// 原先是 Pair<AnnotatedString, StringAnnotation?>，配 ClickableText 的 getStringAnnotations 用。
+// ClickableText 已废弃，改成直接携带 LinkAnnotation，由 Text 自己处理点击。
+// 随之删掉的 SymbolAnnotationType 枚举（PERSON / LINK）也不再需要 —— 类型信息现在体现在
+// LinkAnnotation 的子类上：Url 交给 UriHandler，Clickable 走自定义回调。
+typealias SymbolAnnotation = Pair<AnnotatedString, LinkAnnotation?>
 
 /**
  * Format a message following Markdown-lite syntax
@@ -53,12 +53,14 @@ typealias SymbolAnnotation = Pair<AnnotatedString, StringAnnotation?>
  * | `MyClass.myMethod` -> inline code styling
  *
  * @param text contains message to be parsed
- * @return AnnotatedString with annotations used inside the ClickableText wrapper
+ * @param authorClicked 点到 @username 时回调，用户名不含 @
+ * @return AnnotatedString，链接与 @提及 以 LinkAnnotation 内嵌，可直接交给 Text 渲染
  */
 @Composable
 fun messageFormatter(
     text: String,
-    primary: Boolean
+    primary: Boolean,
+    authorClicked: (String) -> Unit
 ): AnnotatedString {
     val tokens = symbolPattern.findAll(text)
 
@@ -76,17 +78,22 @@ fun messageFormatter(
         for (token in tokens) {
             append(text.slice(cursorPosition until token.range.first))
 
-            val (annotatedString, stringAnnotation) = getSymbolAnnotation(
+            val (annotatedString, link) = getSymbolAnnotation(
                 matchResult = token,
                 colorScheme = MaterialTheme.colorScheme,
                 primary = primary,
-                codeSnippetBackground = codeSnippetBackground
+                codeSnippetBackground = codeSnippetBackground,
+                authorClicked = authorClicked
             )
-            append(annotatedString)
-
-            if (stringAnnotation != null) {
-                val (item, start, end, tag) = stringAnnotation
-                addStringAnnotation(tag = tag, start = start, end = end, annotation = item)
+            // withLink 把 link 的范围锚在**实际 append 进去的内容**上。
+            // 老写法是 addStringAnnotation(start = matchResult.range.first, ...)，
+            // 用的是原始文本下标 —— 但 *bold* / `code` 这类 token 在构建时被 trim 掉了包裹符，
+            // 前面只要出现过一个这种 token，后面链接的标注范围就会整体错位。
+            // 换成 withLink 之后这个存量 bug 顺带没了。
+            if (link != null) {
+                withLink(link) { append(annotatedString) }
+            } else {
+                append(annotatedString)
             }
 
             cursorPosition = token.range.last + 1
@@ -104,30 +111,33 @@ fun messageFormatter(
  * Map regex matches found in a message with supported syntax symbols
  *
  * @param matchResult is a regex result matching our syntax symbols
- * @return pair of AnnotatedString with annotation (optional) used inside the ClickableText wrapper
+ * @return pair of AnnotatedString with an optional LinkAnnotation to wrap it in
  */
 private fun getSymbolAnnotation(
     matchResult: MatchResult,
     colorScheme: ColorScheme,
     primary: Boolean,
-    codeSnippetBackground: Color
+    codeSnippetBackground: Color,
+    authorClicked: (String) -> Unit
 ): SymbolAnnotation {
     return when (matchResult.value.first()) {
-        '@' -> SymbolAnnotation(
-            AnnotatedString(
-                text = matchResult.value,
-                spanStyle = SpanStyle(
-                    color = if (primary) colorScheme.inversePrimary else colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+        '@' -> {
+            val author = matchResult.value.substring(1)
+            SymbolAnnotation(
+                AnnotatedString(
+                    text = matchResult.value,
+                    spanStyle = SpanStyle(
+                        color = if (primary) colorScheme.inversePrimary else colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                ),
+                // 非 URL 的可点击区域用 Clickable，tag 只是标识，实际动作在 listener 里
+                LinkAnnotation.Clickable(
+                    tag = author,
+                    linkInteractionListener = { authorClicked(author) }
                 )
-            ),
-            StringAnnotation(
-                item = matchResult.value.substring(1),
-                start = matchResult.range.first,
-                end = matchResult.range.last,
-                tag = SymbolAnnotationType.PERSON.name
             )
-        )
+        }
         '*' -> SymbolAnnotation(
             AnnotatedString(
                 text = matchResult.value.trim('*'),
@@ -168,12 +178,8 @@ private fun getSymbolAnnotation(
                     color = if (primary) colorScheme.inversePrimary else colorScheme.primary
                 )
             ),
-            StringAnnotation(
-                item = matchResult.value,
-                start = matchResult.range.first,
-                end = matchResult.range.last,
-                tag = SymbolAnnotationType.LINK.name
-            )
+            // Url 不需要自己接 UriHandler，Text 会用 LocalUriHandler 打开
+            LinkAnnotation.Url(url = matchResult.value)
         )
         else -> SymbolAnnotation(AnnotatedString(matchResult.value), null)
     }

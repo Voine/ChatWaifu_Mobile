@@ -13,13 +13,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.paddingFrom
 import androidx.compose.foundation.layout.size
@@ -30,10 +26,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,7 +37,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -64,7 +58,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -76,7 +69,6 @@ import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.common.JumpToBottom
 import com.chatwaifu.mobile.ui.common.Message
-import com.chatwaifu.mobile.ui.common.SymbolAnnotationType
 import com.chatwaifu.mobile.ui.common.ChannelNameBar
 import com.chatwaifu.mobile.ui.channellist.LoadingIndicator
 import com.chatwaifu.mobile.ui.common.ConversationContent
@@ -459,7 +451,7 @@ fun DayHeader(dayString: String) {
 
 @Composable
 private fun RowScope.DayHeaderLine() {
-    Divider(
+    HorizontalDivider(
         modifier = Modifier
             .weight(1f)
             .align(Alignment.CenterVertically),
@@ -515,29 +507,18 @@ fun ClickableMessage(
     isUserMe: Boolean,
     authorClicked: (String) -> Unit
 ) {
-    val uriHandler = LocalUriHandler.current
-
+    // 同 Conversation.kt：ClickableText 已废弃，改由 messageFormatter 内嵌 LinkAnnotation，
+    // 点击分发交给 Text
     val styledMessage = messageFormatter(
         text = message.content,
-        primary = isUserMe
+        primary = isUserMe,
+        authorClicked = authorClicked
     )
 
-    ClickableText(
+    Text(
         text = styledMessage,
         style = MaterialTheme.typography.bodyLarge.copy(color = LocalContentColor.current),
-        modifier = Modifier.padding(16.dp),
-        onClick = {
-            styledMessage
-                .getStringAnnotations(start = it, end = it)
-                .firstOrNull()
-                ?.let { annotation ->
-                    when (annotation.tag) {
-                        SymbolAnnotationType.LINK.name -> uriHandler.openUri(annotation.item)
-                        SymbolAnnotationType.PERSON.name -> authorClicked(annotation.item)
-                        else -> Unit
-                    }
-                }
-        }
+        modifier = Modifier.padding(16.dp)
     )
 }
 

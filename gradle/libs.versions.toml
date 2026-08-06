@@ -1,38 +1,49 @@
 [versions]
 # --- SDK / toolchain ---
-# compileSdk 34 是 AGP 9 的下限（androidx.databinding:viewbinding 要求 >= 34）。
-#
-# targetSdk 34：分区存储问题已随模型迁到应用专属目录 + SAF 导入解决。
-# 再往上到 35/36 会触发强制 edge-to-edge（系统不再自动加 status/navigation bar inset），
-# 需要逐屏处理 WindowInsets，是一次独立的 UI 改造，见 CLAUDE.md「已知技术债」。
-compileSdk = "34"
+# targetSdk >= 35 会触发**强制 edge-to-edge**：系统不再自动加 status/navigation bar inset。
+# 已知代价是各屏幕的 WindowInsets 还没逐个处理过，观感上会有内容顶到状态栏/导航栏的问题，
+# 属于「先把基座拉齐、样式后续再调」的取舍。要临时退回旧行为把这两个值改成 34 即可。
+# compileSdk 37：core-ktx 1.19 / lifecycle 2.11 的 AAR metadata 硬性要求 >= 37。
+# targetSdk 36 是当前已发布的最新正式版本；compileSdk 可以比 targetSdk 高，这是常规做法。
+compileSdk = "37"
 minSdk = "24"
-targetSdk = "34"
+targetSdk = "36"
 # Java / Kotlin 字节码目标，所有模块必须一致，否则 AGP 9 会报
 # "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks"
 jvmTarget = "11"
 
 # --- build plugins ---
-agp = "9.3.1"
-kotlin = "2.2.10"
+agp = "9.3.1"                # 最新稳定版（9.4.0 还在 alpha）
+# Kotlin 停在 2.3.21 而不是最新的 2.4.10：KSP 至今没有 2.4.x 版本（最新 2.3.11），
+# 而 Room 的注解处理器必须靠 KSP/kapt。Kotlin 2.4 编译出的 metadata 版本是 2.4.0，
+# Room 2.8.4 内置的 kotlin-metadata-jvm 最高只认 2.3.0，kapt 会直接崩。
+# 这是当前生态能凑出的最新可用组合，等 KSP 出 2.4.x 再往上抬。
+kotlin = "2.3.21"
+ksp = "2.3.11"
 
 # --- androidx ---
-androidx-activity = "1.7.1"
-androidx-annotation = "1.5.0"
-androidx-appcompat = "1.6.1"
-androidx-constraintlayout = "2.1.4"
-androidx-core-ktx = "1.9.0"
-androidx-lifecycle = "2.6.1"
-androidx-navigation = "2.5.3"
-androidx-room = "2.5.0"
-compose-bom = "2023.04.01"
+androidx-activity = "1.13.0"
+androidx-annotation = "1.10.0"
+androidx-appcompat = "1.7.1"
+androidx-constraintlayout = "2.2.2"
+androidx-core-ktx = "1.19.0"
+androidx-lifecycle = "2.11.0"
+androidx-navigation = "2.9.8"
+androidx-room = "2.8.4"
+compose-bom = "2026.06.01"
 
 # --- third party ---
-gson = "2.10.1"
-material = "1.9.0-beta01"
+gson = "2.14.0"
+# 跟 lifecycle 2.11 传递进来的版本对齐。之前没在 catalog 里声明，全靠传递依赖，
+# 谁升 lifecycle 就跟着漂。显式钉住的同时保持和原解析结果一致，不引入行为变化。
+kotlinx-coroutines = "1.9.0"
+material = "1.14.0"          # 终于从 1.9.0-beta01 挪到正式版
+# okhttp 停在 4.12.0：这是 retrofit 3.0.0 自己依赖的版本。okhttp 5.x 已发布，但它把
+# MediaType / RequestBody 等一批 API 做了 Kotlin 化重构，属于独立的迁移动作，不在基座这轮。
+okhttp = "4.12.0"
 pinyin-houbb = "0.4.0"
-pinyin4j = "2.5.0"
-retrofit = "2.9.0"
+pinyin4j = "2.5.1"
+retrofit = "3.0.0"
 unpeek-livedata = "4.4.1-beta1"
 
 [libraries]
@@ -78,7 +89,10 @@ compose-ui-viewbinding = { module = "androidx.compose.ui:ui-viewbinding" }
 
 # --- third party ---
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+# coroutines-android 而不是 -core：前者额外带 Dispatchers.Main 的 Android 实现
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 pinyin-houbb = { module = "com.github.houbb:pinyin", version.ref = "pinyin-houbb" }
 pinyin4j = { module = "com.belerweb:pinyin4j", version.ref = "pinyin4j" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
@@ -88,6 +102,7 @@ unpeek-livedata = { module = "com.kunminx.archi:unpeek-livedata", version.ref = 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# 没有 kotlin-android：AGP 9 起 Kotlin 支持内置，模块不再 apply org.jetbrains.kotlin.android。
+# kotlin 这个 version 现在只被 compose 编译器插件用；它会把 AGP 自带的 KGP 2.2.10 顶到 2.3.21。
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

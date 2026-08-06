@@ -1,6 +1,5 @@
 plugins {
     alias libs.plugins.android.application
-    alias libs.plugins.kotlin.android
     alias libs.plugins.kotlin.compose
 }
 
@@ -17,7 +16,7 @@ android {
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
         vectorDrawables {
-            useSupportLibrary true
+            useSupportLibrary = true
         }
     }
 
@@ -25,11 +24,6 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            android.applicationVariants.all { variant ->
-                variant.outputs.all {
-                    outputFileName = "ChatWaifu"+"_"+getDate()+".apk"
-                }
-            }
             buildConfigField "String","CHAT_CHPT_KEY","\"\""
             buildConfigField "String","TRANSLATE_APP_ID","\"\""
             buildConfigField "String","TRANSLATE_KEY","\"\""
@@ -44,29 +38,33 @@ android {
         sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
         targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
-    kotlinOptions {
-        jvmTarget = libs.versions.jvmTarget.get()
-    }
 
     buildFeatures {
-        viewBinding true
-        compose true
+        viewBinding = true
+        compose = true
         // AGP 8+ 起 buildConfig 默认关闭，下面 buildConfigField 依赖它
-        buildConfig true
+        buildConfig = true
     }
 
-    packagingOptions {
+    packaging {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
-    namespace 'com.chatwaifu.mobile'
+    namespace = 'com.chatwaifu.mobile'
+}
 
-    lint {
-        // compose-bom 2023.04.01 带的 compose lint 检测器和 AGP 9 的 lint API 不兼容，
-        // 这个检测器会直接让 lintAnalyzeDebug 崩掉（KotlinUastResolveProviderService is null），
-        // 导致整个 lint 任务不可用。升级 compose-bom 后应该删掉这一行。
-        disable 'MutableCollectionMutableState'
+// release 包重命名成 ChatWaifu_<yyyyMMddHHmm>.apk。
+// 原先用的是 `android.applicationVariants.all {}`（旧 variant API，AGP 10 移除，
+// 且和 android.newDsl=true 不兼容），换成 androidComponents.onVariants。
+// 顺带修了个老 bug：那段代码虽然写在 buildTypes.release {} 里，但 applicationVariants
+// 是全局的，实际对 debug 也生效，debug 包也被改名。现在用 selector 真正只作用于 release。
+androidComponents {
+    onVariants(selector().withBuildType('release')) { variant ->
+        variant.outputs.each { output ->
+            // 新 variant API 里 outputFileName 是 Property<String>，只能 set 不能直接赋值
+            output.outputFileName.set("ChatWaifu_${getDate()}.apk")
+        }
     }
 }
 
@@ -78,6 +76,8 @@ dependencies {
     implementation project(":Log")
     implementation project(":Lipsync")
     implementation project(':Sherpa')
+    // 12 个文件直接 import kotlinx.coroutines，原先靠 lifecycle 的传递依赖
+    implementation libs.kotlinx.coroutines.android
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material

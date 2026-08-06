@@ -1,5 +1,6 @@
 package com.chatwaifu.mobile.ui.modelmanager
 
+import android.content.res.Resources
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,7 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -35,7 +36,9 @@ class ModelManagerFragment : Fragment() {
             ViewGroup.LayoutParams.MATCH_PARENT
         )
         setContent {
-            val context = LocalContext.current
+            // 用 LocalResources 而不是 LocalContext.current.getString：
+            // 后者在配置变更（切语言/深色模式）时不会让 composition 重新读资源
+            val resources = LocalResources.current
             val uiState by fragmentViewModel.uiState.collectAsStateWithLifecycle()
 
             // 只读一个 zip，不需要持久化授权：内容当场解压落地到应用专属目录，
@@ -49,21 +52,21 @@ class ModelManagerFragment : Fragment() {
                     when (event) {
                         is ModelManagerEvent.ImportSucceeded -> {
                             showToast(
-                                context.getString(R.string.model_manager_import_done, event.name)
+                                resources.getString(R.string.model_manager_import_done, event.name)
                             )
                         }
 
                         is ModelManagerEvent.ImportFailed ->
-                            showToast(event.error.toMessage(context))
+                            showToast(event.error.toMessage(resources))
 
                         is ModelManagerEvent.Deleted -> {
                             showToast(
-                                context.getString(R.string.model_manager_delete_done, event.name)
+                                resources.getString(R.string.model_manager_delete_done, event.name)
                             )
                         }
 
                         ModelManagerEvent.ConfigSaved ->
-                            showToast(context.getString(R.string.model_manager_saved))
+                            showToast(resources.getString(R.string.model_manager_saved))
                     }
                 }
             }
@@ -91,16 +94,16 @@ class ModelManagerFragment : Fragment() {
     }
 }
 
-private fun ImportError.toMessage(context: android.content.Context): String = when (this) {
-    ImportError.NotAZip -> context.getString(R.string.import_error_not_zip)
-    ImportError.NoLive2DEntry -> context.getString(R.string.import_error_no_live2d)
+private fun ImportError.toMessage(resources: Resources): String = when (this) {
+    ImportError.NotAZip -> resources.getString(R.string.import_error_not_zip)
+    ImportError.NoLive2DEntry -> resources.getString(R.string.import_error_no_live2d)
     is ImportError.MultipleLive2DEntries ->
-        context.getString(R.string.import_error_multiple_live2d, candidates.joinToString())
+        resources.getString(R.string.import_error_multiple_live2d, candidates.joinToString())
 
     is ImportError.InvalidVitsConfig ->
-        context.getString(R.string.import_error_invalid_vits, reason)
+        resources.getString(R.string.import_error_invalid_vits, reason)
 
-    is ImportError.NameConflict -> context.getString(R.string.import_error_name_conflict, name)
-    is ImportError.Unsafe -> context.getString(R.string.import_error_unsafe, detail)
-    is ImportError.Io -> context.getString(R.string.import_error_io, message)
+    is ImportError.NameConflict -> resources.getString(R.string.import_error_name_conflict, name)
+    is ImportError.Unsafe -> resources.getString(R.string.import_error_unsafe, detail)
+    is ImportError.Io -> resources.getString(R.string.import_error_io, message)
 }

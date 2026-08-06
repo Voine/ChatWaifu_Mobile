@@ -263,7 +263,8 @@ class ChatActivityViewModel : ViewModel() {
     private fun constructUIStateFromResponse(response: ChatGPTResponseData?): ChatDialogContentUIState {
 
         if (!response?.errorMsg.isNullOrEmpty()) {
-            return ChatDialogContentUIState(isFromMe = false, errorMsg = response?.errorMsg)
+            // isNullOrEmpty() 为 false 说明 response?.errorMsg 非空，response 已被智能转换成非空
+            return ChatDialogContentUIState(isFromMe = false, errorMsg = response.errorMsg)
         }
 
         return ChatDialogContentUIState(
@@ -286,7 +287,7 @@ class ChatActivityViewModel : ViewModel() {
     override fun onCleared() {
         vitsHelper.clear()
         lipsValueHandler.shutDown()
-        super.onCleared()
+        // 不调 super.onCleared()：ViewModel.onCleared() 的实现是空的，调了触发 EmptySuperCall
     }
 
     fun openDrawer() {

@@ -1,10 +1,9 @@
 plugins {
     alias libs.plugins.android.library
-    alias libs.plugins.kotlin.android
 }
 
 android {
-    namespace 'com.chatwaifu.translate'
+    namespace = 'com.chatwaifu.translate'
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
@@ -22,9 +21,6 @@ android {
         sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
         targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
     }
-    kotlinOptions {
-        jvmTarget = libs.versions.jvmTarget.get()
-    }
     lint {
         targetSdk libs.versions.targetSdk.get().toInteger()
     }
@@ -36,6 +32,9 @@ android {
 dependencies {
     implementation libs.retrofit
     implementation libs.retrofit.converter.gson
+    // 直接 import okhttp3.OkHttpClient / kotlinx.coroutines，不再靠传递依赖
+    implementation libs.okhttp
+    implementation libs.kotlinx.coroutines.android
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material

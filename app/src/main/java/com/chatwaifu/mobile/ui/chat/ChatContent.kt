@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,6 +51,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.R
@@ -249,7 +252,13 @@ fun ChatContent(
                     onRecordEnd = onRecordEnd,
                     selectChangeFunc = {
                         currentInputSelector = it
-                    }
+                    },
+                    // Scaffold 把 navigationBars / ime 两个 inset exclude 掉了，
+                    // 由这里补回来：padding 加在 UserInput 内层，Surface 的
+                    // tonalElevation 才能铺到导航栏后面（和 Conversation.kt 同一套做法）
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .imePadding(),
                 )
             }
         }
@@ -331,7 +340,10 @@ fun ChatContentPreview() {
         val context = LocalContext.current
         ChatContent(originAndroidView = {
             View(context).apply {
-                setBackgroundColor(resources.getColor(androidx.appcompat.R.color.material_blue_grey_800))
+                setBackgroundColor(
+                    // Resources.getColor(int) 从 API 23 起废弃（不带 Theme），改走 ContextCompat
+                    ContextCompat.getColor(context, androidx.appcompat.R.color.material_blue_grey_800)
+                )
             }
         })
     }
@@ -346,7 +358,10 @@ fun ChatContentScaffoldPreview() {
         ChatContentScaffold(
             originAndroidView = {
                 View(context).apply {
-                    setBackgroundColor(resources.getColor(androidx.appcompat.R.color.material_blue_grey_800))
+                    setBackgroundColor(
+                    // Resources.getColor(int) 从 API 23 起废弃（不带 Theme），改走 ContextCompat
+                    ContextCompat.getColor(context, androidx.appcompat.R.color.material_blue_grey_800)
+                )
                 }
             },
             chatActivityViewModel = viewModel()
@@ -362,7 +377,10 @@ fun ChatContentScaffoldPreviewDark() {
         ChatContentScaffold(
             originAndroidView = {
                 View(context).apply {
-                    setBackgroundColor(resources.getColor(androidx.appcompat.R.color.material_blue_grey_800))
+                    setBackgroundColor(
+                    // Resources.getColor(int) 从 API 23 起废弃（不带 Theme），改走 ContextCompat
+                    ContextCompat.getColor(context, androidx.appcompat.R.color.material_blue_grey_800)
+                )
                 }
             },
             chatActivityViewModel = viewModel()

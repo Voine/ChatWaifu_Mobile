@@ -42,23 +42,20 @@ class RecordingUtils {
                 audioFormat,
                 minBufferSize
             )
+            // 原先这里是两级 fallback：CHANNEL_CONFIGURATION_MONO → CHANNEL_CONFIGURATION_DEFAULT。
+            // 两个常量都已废弃，而且第一级其实是个 bug —— CHANNEL_CONFIGURATION_MONO 的值是 2，
+            // 等于 CHANNEL_OUT_MONO，是**输出**声道掩码，喂给 AudioRecord 没有意义
+            // （录音侧的单声道是 CHANNEL_IN_MONO = 16，也就是上面 channelConfig 已经在用的值）。
+            // 换成输入侧常量之后第一级和主路径完全重合，所以塌成一级 fallback：
+            // CHANNEL_IN_DEFAULT（值 1，和废弃的 CHANNEL_CONFIGURATION_DEFAULT 同值，行为不变）。
             if (recorder?.state == AudioRecord.STATE_UNINITIALIZED) {
                 recorder = AudioRecord(
                     audioSource,
                     sampleRate,
-                    AudioFormat.CHANNEL_CONFIGURATION_MONO,
+                    AudioFormat.CHANNEL_IN_DEFAULT,
                     audioFormat,
                     minBufferSize
                 )
-                if (recorder?.state == AudioRecord.STATE_UNINITIALIZED){
-                    recorder = AudioRecord(
-                        audioSource,
-                        sampleRate,
-                        AudioFormat.CHANNEL_CONFIGURATION_DEFAULT,
-                        audioFormat,
-                        minBufferSize
-                    )
-                }
             }
             if (recorder?.state == AudioRecord.STATE_UNINITIALIZED){
                 initialized = false

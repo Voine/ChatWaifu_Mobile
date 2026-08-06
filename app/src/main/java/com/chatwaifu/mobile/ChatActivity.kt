@@ -2,6 +2,7 @@ package com.chatwaifu.mobile
 
 import android.content.pm.PackageManager
 import android.os.Bundle
+import androidx.activity.enableEdgeToEdge
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.appcompat.app.AppCompatActivity
@@ -18,6 +19,10 @@ class ChatActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // targetSdk >= 35 系统已经强制 edge-to-edge，这里显式调用有两个作用：
+        // 让 minSdk 24~34 上行为一致，以及把系统栏图标的明暗对比交给 androidx 处理。
+        // 各屏幕的 inset 由 Compose 侧的 Scaffold contentWindowInsets 消费。
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(
             ComposeView(this).apply {

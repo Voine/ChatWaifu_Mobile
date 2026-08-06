@@ -1,10 +1,9 @@
 plugins {
     alias libs.plugins.android.library
-    alias libs.plugins.kotlin.android
 }
 
 android {
-    namespace 'com.chatwaifu.vits'
+    namespace = 'com.chatwaifu.vits'
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
@@ -23,18 +22,15 @@ android {
     externalNativeBuild {
         cmake {
             path file('src/main/cpp/CMakeLists.txt')
-            version '3.18.1'
+            version = '3.18.1'
         }
     }
     buildFeatures {
-        viewBinding true
+        viewBinding = true
     }
     compileOptions {
         sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
         targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
-    }
-    kotlinOptions {
-        jvmTarget = libs.versions.jvmTarget.get()
     }
     lint {
         targetSdk libs.versions.targetSdk.get().toInteger()

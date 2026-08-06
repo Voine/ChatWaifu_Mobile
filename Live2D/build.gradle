@@ -1,10 +1,9 @@
 plugins {
     alias libs.plugins.android.library
-    alias libs.plugins.kotlin.android
 }
 
 android {
-    namespace 'com.chatwaifu.live2d'
+    namespace = 'com.chatwaifu.live2d'
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
@@ -30,15 +29,12 @@ android {
     externalNativeBuild {
         cmake {
             path "CMakeLists.txt"
-            version '3.18.1'
+            version = '3.18.1'
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
         targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
-    }
-    kotlinOptions {
-        jvmTarget = libs.versions.jvmTarget.get()
     }
     lint {
         targetSdk libs.versions.targetSdk.get().toInteger()

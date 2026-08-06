@@ -137,7 +137,9 @@ data class Message(
 @Immutable
 data class ProfileScreenState(
     val userId: String,
-    @DrawableRes val photo: Int?,
+    // 显式写 @param: —— Kotlin 2.x 起未加限定符的注解将来会同时落到 field 上，
+    // 这里只想标注构造参数
+    @param:DrawableRes val photo: Int?,
     val name: String,
     val status: String,
     val displayName: String,
