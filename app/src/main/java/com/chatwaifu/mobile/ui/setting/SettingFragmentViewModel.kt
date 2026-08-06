@@ -3,9 +3,11 @@ package com.chatwaifu.mobile.ui.setting
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
+import com.chatwaifu.chat.core.ProviderId
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.data.chat.ChatProviderSettings
 
 /**
  * Description: SettingFragmentViewModel
@@ -17,11 +19,14 @@ class SettingFragmentViewModel: ViewModel() {
         ChatWaifuApplication.context.getSharedPreferences(Constant.SAVED_STORE, Context.MODE_PRIVATE)
     }
 
+    private val providerSettings: ChatProviderSettings by lazy {
+        ChatProviderSettings(ChatWaifuApplication.context)
+    }
+
     fun loadInitData(context: Context): SettingUIData {
         val data = SettingUIData()
-        sp.getString(Constant.SAVED_CHAT_KEY, null)?.let {
-            data.chatGPTAppId = it
-        }
+        data.activeProvider = providerSettings.activeProviderId.key
+        data.providerForms = ProviderId.entries.associate { it.key to providerSettings.form(it) }
         sp.getString(Constant.SAVED_TRANSLATE_APP_ID, null)?.let {
             data.translateAppId = it
         }
@@ -46,21 +51,19 @@ class SettingFragmentViewModel: ViewModel() {
         sp.getBoolean(Constant.SAVED_USE_DARKMODE, false).let {
             data.darkModeSwitch = it
         }
-        sp.getBoolean(Constant.SAVED_USE_CHATGPT_PROXY, false).let {
-            data.gptProxySwitch = it
-        }
-        sp.getString(Constant.SAVED_USE_CHATGPT_PROXY_URL, null)?.let {
-            data.gptProxyUrl = it
-        }
         return data
     }
 
     fun saveData(saved: SettingUIData?) {
         saved ?: return
+
+        // 基座配置走 ChatProviderSettings，不和其他设置混在一个 edit() 里
+        ProviderId.fromKey(saved.activeProvider)?.let { providerSettings.activeProviderId = it }
+        saved.providerForms.forEach { (key, form) ->
+            ProviderId.fromKey(key)?.let { providerSettings.save(it, form) }
+        }
+
         sp.edit().apply {
-            if (saved.chatGPTAppId.isNotBlank()) {
-                putString(Constant.SAVED_CHAT_KEY, saved.chatGPTAppId)
-            }
             if (saved.translateAppId.isNotBlank() && saved.translateAppKey.isNotBlank()) {
                 putString(Constant.SAVED_TRANSLATE_APP_ID, saved.translateAppId)
                 putString(Constant.SAVED_TRANSLATE_KEY, saved.translateAppKey)
@@ -78,10 +81,6 @@ class SettingFragmentViewModel: ViewModel() {
 
             putBoolean(Constant.SAVED_USE_TRANSLATE, saved.translateSwitch)
             putBoolean(Constant.SAVED_USE_DARKMODE, saved.darkModeSwitch)
-            putBoolean(Constant.SAVED_USE_CHATGPT_PROXY, saved.gptProxySwitch)
-            if (!saved.gptProxyUrl.isNullOrBlank()) {
-                putString(Constant.SAVED_USE_CHATGPT_PROXY_URL, saved.gptProxyUrl)
-            }
             if (!commit()) apply()
         }
     }

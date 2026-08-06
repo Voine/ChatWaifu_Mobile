@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = 'com.chatwaifu.chatgpt'
+    namespace = 'com.chatwaifu.chat'
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
@@ -32,11 +32,11 @@ android {
 dependencies {
     implementation libs.retrofit
     implementation libs.retrofit.converter.gson
-    // 这个模块直接 import okhttp3（OkHttpClient / Interceptor / RequestBody / MediaType），
-    // 原先只靠 retrofit 的传递依赖，属于 undeclared dependency，显式声明出来
+    // 直接 import okhttp3（OkHttpClient / Interceptor / RequestBody / ResponseBody），
+    // 不靠 retrofit 的传递依赖
     implementation libs.okhttp
+    // gson 直接用来手写 DTO 序列化（sealed 内容块没法靠反射直接映射）
+    implementation libs.gson
     implementation libs.kotlinx.coroutines.android
-    implementation libs.androidx.core.ktx
-    implementation libs.androidx.lifecycle.livedata.ktx
-    implementation libs.androidx.lifecycle.viewmodel.ktx
+    implementation libs.androidx.annotation
 }

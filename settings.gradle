@@ -30,7 +30,7 @@ dependencyResolutionManagement {
 rootProject.name = "ChatWaifu_Mobile"
 include ':app'
 include ':VITS'
-include ':ChatGPT'
+include ':ChatCore'
 include ':Live2D'
 include ':Translate'
 include ':Log'

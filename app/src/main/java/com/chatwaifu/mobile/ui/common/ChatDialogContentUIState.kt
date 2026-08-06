@@ -11,5 +11,12 @@ class ChatDialogContentUIState (
     var isInitState: Boolean = false,
     var isFromMe: Boolean = false,
     var chatContent: String = "",
-    val errorMsg: String? = null
+    val errorMsg: String? = null,
+    /**
+     * 流式输出的中间态。
+     *
+     * 存在的理由：气泡现在是逐字刷新的，首帧的 [chatContent] 可能还是空串，
+     * 而渲染侧「内容为空就弹 response empty」的兜底逻辑会误判。
+     */
+    val isStreaming: Boolean = false,
 )

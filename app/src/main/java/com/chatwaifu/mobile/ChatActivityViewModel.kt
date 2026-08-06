@@ -6,16 +6,22 @@ import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chatwaifu.chatgpt.ChatGPTNetService
-import com.chatwaifu.chatgpt.ChatGPTResponseData
+import com.chatwaifu.chat.ChatProviderFactory
+import com.chatwaifu.chat.core.ChatDelta
+import com.chatwaifu.chat.core.ChatOptions
+import com.chatwaifu.chat.core.ChatProvider
+import com.chatwaifu.chat.core.ChatResult
+import com.chatwaifu.chat.core.ChatSession
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.data.VITSLoadStatus
+import com.chatwaifu.mobile.data.chat.ChatProviderSettings
 import com.chatwaifu.mobile.data.model.CharacterModel
 import com.chatwaifu.mobile.data.model.CharacterRepository
 import com.chatwaifu.mobile.data.model.ModelProvider
 import com.chatwaifu.mobile.ui.common.ChatDialogContentUIState
-import com.chatwaifu.mobile.utils.AssistantMessageManager
+import com.chatwaifu.mobile.utils.ChatErrorMessages
+import com.chatwaifu.mobile.utils.ChatHistoryStore
 import com.chatwaifu.mobile.utils.LipsValueHandler
 import com.chatwaifu.translate.ITranslate
 import com.chatwaifu.translate.baidu.BaiduTranslateService
@@ -72,12 +78,20 @@ class ChatActivityViewModel : ViewModel() {
     val currentCharacterName: String get() = currentCharacter?.name.orEmpty()
 
     var needTranslate: Boolean = true
-    var needChatGPTProxy: Boolean = false
 
     private var inputFunc: ((input: String) -> Unit)? = null
-    private val chatGPTNetService: ChatGPTNetService? by lazy {
-        ChatGPTNetService(ChatWaifuApplication.context)
+
+    private val providerSettings: ChatProviderSettings by lazy {
+        ChatProviderSettings(ChatWaifuApplication.context)
     }
+
+    /**
+     * 当前基座和会话。会话持有客户端历史，所以切基座时**只重建 provider，历史照旧**
+     * （见 [rebuildChatSession]）—— 这是「历史放客户端」带来的直接好处。
+     */
+    private var chatProvider: ChatProvider? = null
+    private var chatSession: ChatSession? = null
+
     private val vitsHelper: SoundGenerateHelper by lazy {
         SoundGenerateHelper(ChatWaifuApplication.context)
     }
@@ -93,39 +107,58 @@ class ChatActivityViewModel : ViewModel() {
             Context.MODE_PRIVATE
         )
     }
-    private val assistantMsgManager: AssistantMessageManager by lazy {
-        AssistantMessageManager(ChatWaifuApplication.context)
+    private val historyStore: ChatHistoryStore by lazy {
+        ChatHistoryStore(ChatWaifuApplication.context)
     }
     private var translate: ITranslate? = null
 
     fun refreshAllKeys() {
-        sp.getString(Constant.SAVED_CHAT_KEY, null)?.let {
-            chatGPTNetService?.setPrivateKey(it)
-        }
+        rebuildChatSession()
         val translateAppId = sp.getString(Constant.SAVED_TRANSLATE_APP_ID, null)
         val translateKey = sp.getString(Constant.SAVED_TRANSLATE_KEY, null)
-        setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
         needTranslate = sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true)
-        needChatGPTProxy = sp.getBoolean(Constant.SAVED_USE_CHATGPT_PROXY, false)
-        val proxyUrl = if(needChatGPTProxy) sp.getString(Constant.SAVED_USE_CHATGPT_PROXY_URL, null) else null
-        chatGPTNetService?.updateRetrofit(proxyUrl)
+        setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
     }
+
+    /**
+     * 按当前设置重建 provider。历史会从旧会话里搬过去，切基座不断上下文。
+     */
+    private fun rebuildChatSession() {
+        val id = providerSettings.activeProviderId
+        val config = providerSettings.config(id)
+        val previous = chatSession
+
+        chatProvider?.close()
+        val provider = ChatProviderFactory.create(id, config)
+        chatProvider = provider
+        chatSession = ChatSession(
+            provider = provider,
+            systemPrompt = previous?.systemPrompt
+                ?: currentCharacter?.let { characterRepository.getSystemPrompt(it.name) },
+            options = ChatOptions(model = config.model),
+        ).apply {
+            previous?.let { restore(it.snapshot()) }
+        }
+        Log.d(TAG, "chat provider rebuilt: ${provider.displayName} / ${config.model ?: provider.defaultModel}")
+    }
+
+    private fun requireSession(): ChatSession =
+        chatSession ?: run { rebuildChatSession(); chatSession!! }
 
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
-                assistantMsgManager.insertUserMessage(input)
+                historyStore.appendUser(input)
 
                 chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
-                val response = sendChatGPTRequest(input, assistantMsgManager.getSendAssistantList())
-                assistantMsgManager.insertGPTMessage(response)
-                Log.d(TAG, "get response $response")
-                _chatContentUIFlow.emit(constructUIStateFromResponse(response))
+                val result = streamChatRequest(input) ?: continue
 
-                val responseText = response?.choices?.firstOrNull()?.message?.content
-                val translateText = fetchTranslateIfNeed(responseText)
+                historyStore.appendAssistant(result.text, result.usage)
+                Log.d(TAG, "get response ${result.text}")
+
+                val translateText = fetchTranslateIfNeed(result.text)
                 Log.d(TAG, "translate result: $translateText")
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
                 generateAndPlaySound(translateText)
@@ -169,12 +202,13 @@ class ChatActivityViewModel : ViewModel() {
      */
     fun selectCharacter(character: CharacterModel) {
         currentCharacter = character
-        // 设定为空时不覆盖已有的 system role，保持原来的行为
+        val session = requireSession()
+        // 设定为空时不覆盖已有的 system prompt，保持原来的行为
         characterRepository.getSystemPrompt(character.name)?.let {
-            chatGPTNetService?.setSystemRole(it)
+            session.systemPrompt = it
         }
         CoroutineScope(Dispatchers.IO).launch {
-            assistantMsgManager.loadChatListCache(character.name)
+            session.restore(historyStore.load(character.name))
         }
         loadVitsModel(character)
     }
@@ -215,16 +249,59 @@ class ChatActivityViewModel : ViewModel() {
         }
     }
 
-    private suspend fun sendChatGPTRequest(
-        msg: String,
-        assistantList: List<String>
-    ): ChatGPTResponseData? {
-        return suspendCancellableCoroutine {
-            chatGPTNetService?.setAssistantList(assistantList)
-            chatGPTNetService?.sendChatMessage(msg) { response ->
-                it.safeResume(response)
+    /**
+     * 发一轮请求，**边收边渲染**。
+     *
+     * 改造前是一次性拿到完整回复才上屏；现在每个增量都会 emit 一次累积后的文本，
+     * 气泡逐字出现。VITS 仍然吃完整文本 —— 按句切分提前合成属于后续优化。
+     *
+     * @return null 表示这一轮失败了（错误已经 emit 给 UI），调用方应该跳过后面的翻译和合成。
+     */
+    private suspend fun streamChatRequest(input: String): ChatResult? {
+        val session = requireSession()
+        val buffer = StringBuilder()
+        var result: ChatResult? = null
+
+        try {
+            session.send(input).collect { delta ->
+                when (delta) {
+                    is ChatDelta.TextDelta -> {
+                        buffer.append(delta.text)
+                        _chatContentUIFlow.emit(
+                            ChatDialogContentUIState(
+                                isFromMe = false,
+                                chatContent = buffer.toString(),
+                                isStreaming = true,
+                            )
+                        )
+                    }
+
+                    is ChatDelta.Completed -> {
+                        result = ChatResult(delta.message, delta.usage, delta.finishReason)
+                        _chatContentUIFlow.emit(
+                            ChatDialogContentUIState(
+                                isFromMe = false,
+                                chatContent = delta.message.text.trim(),
+                            )
+                        )
+                    }
+
+                    // 思考过程和工具调用当前不上屏
+                    else -> Unit
+                }
             }
+        } catch (e: Throwable) {
+            Log.e(TAG, "chat request failed", e)
+            _chatContentUIFlow.emit(
+                ChatDialogContentUIState(
+                    isFromMe = false,
+                    errorMsg = ChatErrorMessages.describe(ChatWaifuApplication.context, e),
+                )
+            )
+            chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+            return null
         }
+        return result
     }
 
     private suspend fun fetchTranslateIfNeed(responseText: String?): String? {
@@ -260,19 +337,6 @@ class ChatActivityViewModel : ViewModel() {
         )
     }
 
-    private fun constructUIStateFromResponse(response: ChatGPTResponseData?): ChatDialogContentUIState {
-
-        if (!response?.errorMsg.isNullOrEmpty()) {
-            // isNullOrEmpty() 为 false 说明 response?.errorMsg 非空，response 已被智能转换成非空
-            return ChatDialogContentUIState(isFromMe = false, errorMsg = response.errorMsg)
-        }
-
-        return ChatDialogContentUIState(
-            isFromMe = false,
-            chatContent = response?.choices?.firstOrNull()?.message?.content?.trim() ?: ""
-        )
-    }
-
     fun sendMineMsgUIState(content: String) {
         CoroutineScope(Dispatchers.Main).launch {
             _chatContentUIFlow.emit(
@@ -287,6 +351,7 @@ class ChatActivityViewModel : ViewModel() {
     override fun onCleared() {
         vitsHelper.clear()
         lipsValueHandler.shutDown()
+        chatProvider?.close()
         // 不调 super.onCleared()：ViewModel.onCleared() 的实现是空的，调了触发 EmptySuperCall
     }
 

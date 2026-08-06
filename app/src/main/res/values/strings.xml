@@ -82,6 +82,29 @@
     <string name="setting_title_use_gpt_proxy">GPT Proxy Switch:</string>
     <string name="setting_gpt_proxy_hint">Input your gpt proxy Url…</string>
 
+    <!-- 聊天基座（ChatCore） -->
+    <string name="setting_title_chat_provider">Chat Provider:</string>
+    <string name="setting_title_provider_key">API Key:</string>
+    <string name="setting_provider_key_hint">Input your API key here…</string>
+    <string name="setting_title_provider_base_url">Base Url:</string>
+    <string name="setting_title_provider_model">Model:</string>
+    <string name="setting_provider_not_implemented">Not implemented yet</string>
+
+    <!-- 聊天错误提示 -->
+    <string name="chat_error_auth">API key is missing or invalid, check it in Setting.</string>
+    <string name="chat_error_rate_limited">Rate limited, try again later.</string>
+    <string name="chat_error_rate_limited_retry">Rate limited, try again in %1$ds.</string>
+    <string name="chat_error_network">Network unreachable.</string>
+    <string name="chat_error_timeout">Request timed out.</string>
+    <string name="chat_error_context_overflow">Conversation too long for this model.</string>
+    <string name="chat_error_content_filtered">Blocked by the content policy.</string>
+    <string name="chat_error_refused">The model declined to answer.</string>
+    <string name="chat_error_model_not_found">Model not found, check the model name in Setting.</string>
+    <string name="chat_error_capability">Current provider does not support %1$s.</string>
+    <string name="chat_error_server">Server error (%1$d), try again later.</string>
+    <string name="chat_error_not_implemented">This provider is not implemented yet.</string>
+    <string name="chat_error_unknown">Something went wrong.</string>
+
     <string name="drawer_function_list">Function List</string>
     <string name="drawer_item_model_manager">ModelManager</string>
 

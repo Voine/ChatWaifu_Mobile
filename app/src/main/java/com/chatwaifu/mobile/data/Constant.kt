@@ -21,6 +21,26 @@ object Constant {
     const val SAVED_USE_CHATGPT_PROXY_URL = "saved_use_chatgpt_proxy_url"
 
     /**
+     * 当前选中的聊天基座，存 [com.chatwaifu.chat.core.ProviderId.key]。
+     */
+    const val SAVED_ACTIVE_CHAT_PROVIDER = "saved_active_chat_provider"
+
+    /**
+     * 每个基座的配置按 provider 分开存：`saved_provider_<id>_key` / `_base_url` / `_model`。
+     * 以前只有一个 [SAVED_CHAT_KEY]，换基座就要重填。
+     */
+    const val SAVED_PROVIDER_PREFIX = "saved_provider_"
+    const val SAVED_PROVIDER_SUFFIX_KEY = "_key"
+    const val SAVED_PROVIDER_SUFFIX_BASE_URL = "_base_url"
+    const val SAVED_PROVIDER_SUFFIX_MODEL = "_model"
+
+    /**
+     * 老配置（[SAVED_CHAT_KEY] + [SAVED_USE_CHATGPT_PROXY_URL]）是否已经搬到新结构。
+     * 只搬一次，搬完老 key 保留不删 —— 万一要回滚版本还能用。
+     */
+    const val SAVED_PROVIDER_MIGRATED = "saved_provider_migrated"
+
+    /**
      * 导入模型的人物设定按角色名分开存，key 是 [SAVED_SYSTEM_PROMPT_PREFIX] + 角色名。
      * 以前所有外部模型共用一个 saved_external_setting，多个模型只能有一份设定。
      */

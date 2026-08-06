@@ -84,11 +84,16 @@ class ChatFragment : Fragment() {
                     activityViewModel.chatContentUIFlow.collectAsStateWithLifecycle(initialValue = ChatDialogContentUIState(isInitState = true))
                 val contentDialogUIState = chatContentUIStateFlow.value
                 if (!contentDialogUIState.errorMsg.isNullOrEmpty()) {
+                    // 错误文案已经在 ChatErrorMessages 里翻译过了，不用再拼 "GPT Error"
                     showToast(
-                        "GPT Error: ${contentDialogUIState.errorMsg}",
+                        contentDialogUIState.errorMsg,
                         type = Toast.LENGTH_LONG
                     )
-                } else if (contentDialogUIState.chatContent.isEmpty() && !contentDialogUIState.isInitState) {
+                } else if (contentDialogUIState.chatContent.isEmpty() &&
+                    !contentDialogUIState.isInitState &&
+                    // 流式的首帧内容可能是空的，不能当成「回复为空」
+                    !contentDialogUIState.isStreaming
+                ) {
                     showToast("Error occur...ChatGPT response empty")
                 } else {
                     Log.d("ChatContentScaffold", "set response $contentDialogUIState")

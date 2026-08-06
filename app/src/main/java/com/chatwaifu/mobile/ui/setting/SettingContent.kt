@@ -61,8 +61,13 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import com.chatwaifu.chatgpt.ChatGPTNetService
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
+import com.chatwaifu.chat.ChatProviderFactory
+import com.chatwaifu.chat.core.ProviderId
 import com.chatwaifu.mobile.R
+import com.chatwaifu.mobile.data.chat.ChatProviderSettings
+import com.chatwaifu.mobile.data.chat.ProviderForm
 
 /**
  * Description: Setting Page
@@ -125,13 +130,7 @@ fun SettingContent(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ItemTitle(stringResource(id = R.string.setting_title_chatgpt))
-        SettingEditText(
-            initValue = settingUIState.chatGPTAppId,
-            hint = stringResource(id = R.string.setting_chatgpt_appid_hint)
-        ) {
-            settingUIState.chatGPTAppId = it
-        }
+        ChatProviderSection(settingUIState)
         DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
         SettingSwitch(
             switchName = stringResource(id = R.string.setting_title_translate_switch),
@@ -186,26 +185,98 @@ fun SettingContent(
         ) {
             settingUIState.darkModeSwitch = it
         }
-        DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
-        SettingSwitch(
-            switchName = stringResource(id = R.string.setting_title_use_gpt_proxy),
-            checked = settingUIState.gptProxySwitch
+    }
+}
+
+/**
+ * 聊天基座配置：选一个 provider，再填它自己的 key / 地址 / 模型。
+ *
+ * 每个基座的配置是**分开存**的（[ChatProviderSettings]），切回来不用重填。
+ * 代理地址不再是一个独立开关 —— 它就是 OpenAI 兼容基座的 Base Url。
+ */
+@Composable
+private fun ChatProviderSection(settingUIState: SettingUIState) {
+    val descriptors = ChatProviderFactory.descriptors()
+    val selectedId = ProviderId.fromKey(settingUIState.activeProvider)
+        ?: ChatProviderSettings.DEFAULT_PROVIDER
+    val selected = descriptors.first { it.id == selectedId }
+
+    ItemTitle(stringResource(id = R.string.setting_title_chat_provider))
+    descriptors.forEach { descriptor ->
+        val isSelected = descriptor.id == selectedId
+        OutlinedButton(
+            onClick = { settingUIState.activeProvider = descriptor.id.key },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                contentColor = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            ),
         ) {
-            settingUIState.gptProxySwitch = it
-        }
-        AnimatedVisibility(visible = settingUIState.gptProxySwitch) {
-            SettingEditText(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
-                initValue = settingUIState.gptProxyUrl.toString(),
-                hint = stringResource(id = R.string.setting_gpt_proxy_hint),
-                singleLine = true
-            ) {
-                settingUIState.gptProxyUrl = it.trim()
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(text = descriptor.displayName, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = if (descriptor.implemented) {
+                        descriptor.summary
+                    } else {
+                        stringResource(id = R.string.setting_provider_not_implemented)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
+    }
 
+    // key(): SettingEditText 内部用 rememberSaveable 存草稿，不加 key 换了基座还显示上一个的值
+    key(selectedId) {
+        val form = settingUIState.formOf(selectedId)
+
+        ItemTitle(stringResource(id = R.string.setting_title_provider_key))
+        SettingEditText(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            initValue = form.apiKey,
+            hint = stringResource(id = R.string.setting_provider_key_hint),
+            singleLine = true,
+        ) {
+            settingUIState.updateForm(selectedId) { current -> current.copy(apiKey = it.trim()) }
+        }
+
+        ItemTitle(stringResource(id = R.string.setting_title_provider_base_url))
+        SettingEditText(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            initValue = form.baseUrl,
+            hint = selected.defaultBaseUrl.orEmpty(),
+            singleLine = true,
+        ) {
+            settingUIState.updateForm(selectedId) { current -> current.copy(baseUrl = it.trim()) }
+        }
+
+        ItemTitle(stringResource(id = R.string.setting_title_provider_model))
+        SettingEditText(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            initValue = form.model,
+            // 提示里给默认模型，同时暗示可以手填清单外的模型名（本地模型必须手填）
+            hint = selected.models.firstOrNull()?.id.orEmpty(),
+            singleLine = true,
+        ) {
+            settingUIState.updateForm(selectedId) { current -> current.copy(model = it.trim()) }
+        }
     }
 }
 
@@ -397,7 +468,13 @@ fun SettingContentScaffoldPreviewDark() {
  * Setting UI Render State
  */
 class SettingUIState(data: SettingUIData) {
-    var chatGPTAppId by mutableStateOf(data.chatGPTAppId)
+    var activeProvider by mutableStateOf(data.activeProvider)
+
+    /** 每个基座一份表单，切换基座不会互相覆盖。 */
+    private val providerForms = mutableStateMapOf<String, ProviderForm>().apply {
+        putAll(data.providerForms)
+    }
+
     var translateSwitch by mutableStateOf(data.translateSwitch)
     var translateAppId by mutableStateOf(data.translateAppId)
     var translateAppKey by mutableStateOf(data.translateAppKey)
@@ -405,12 +482,17 @@ class SettingUIState(data: SettingUIData) {
     var amaduesSetting by mutableStateOf(data.amaduesSetting)
     var atriSetting by mutableStateOf(data.atriSetting)
     var darkModeSwitch by mutableStateOf(data.darkModeSwitch)
-    var gptProxyUrl by mutableStateOf(data.gptProxyUrl)
-    var gptProxySwitch by mutableStateOf(data.gptProxySwitch)
+
+    fun formOf(id: ProviderId): ProviderForm = providerForms[id.key] ?: ProviderForm()
+
+    fun updateForm(id: ProviderId, transform: (ProviderForm) -> ProviderForm) {
+        providerForms[id.key] = transform(formOf(id))
+    }
 
     fun convertState2Data(): SettingUIData {
         return SettingUIData(
-            chatGPTAppId = chatGPTAppId,
+            activeProvider = activeProvider,
+            providerForms = providerForms.toMap(),
             translateSwitch = translateSwitch,
             translateAppId = translateAppId,
             translateAppKey = translateAppKey,
@@ -418,8 +500,6 @@ class SettingUIState(data: SettingUIData) {
             amaduesSetting = amaduesSetting,
             atriSetting = atriSetting,
             darkModeSwitch = darkModeSwitch,
-            gptProxyUrl = gptProxyUrl,
-            gptProxySwitch = gptProxySwitch
         )
     }
 }
@@ -429,7 +509,8 @@ class SettingUIState(data: SettingUIData) {
  */
 @Immutable
 data class SettingUIData(
-    var chatGPTAppId: String = "",
+    var activeProvider: String = ChatProviderSettings.DEFAULT_PROVIDER.key,
+    var providerForms: Map<String, ProviderForm> = emptyMap(),
     var translateSwitch: Boolean = true,
     var translateAppId: String = "",
     var translateAppKey: String = "",
@@ -437,12 +518,9 @@ data class SettingUIData(
     var amaduesSetting: String = "",
     var atriSetting: String = "",
     var darkModeSwitch: Boolean = false,
-    var gptProxySwitch: Boolean = false,
-    var gptProxyUrl: String? = ChatGPTNetService.CHATGPT_DEAFULT_PROXY_URL
 )
 
 val exampleSettingUi = SettingUIData(
-    chatGPTAppId = "",
     translateSwitch = true,
     translateAppId = "example translate app id .....",
     translateAppKey = "example translate app key.....",

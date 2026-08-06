@@ -71,7 +71,7 @@ androidComponents {
 dependencies {
     implementation project(":VITS")
     implementation project(":Live2D")
-    implementation project(":ChatGPT")
+    implementation project(":ChatCore")
     implementation project(":Translate")
     implementation project(":Log")
     implementation project(":Lipsync")

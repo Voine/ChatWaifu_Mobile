@@ -23,7 +23,7 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 | 模块 | namespace | 职责 |
 |---|---|---|
 | `app` | `com.chatwaifu.mobile` | 唯一 application 模块，UI + 编排全流程 |
-| `ChatGPT` | `com.chatwaifu.chatgpt` | OpenAI Chat Completions 封装（Retrofit） |
+| `ChatCore` | `com.chatwaifu.chat` | 聊天基座抽象层，多 provider（见 `docs/chat-core.md`） |
 | `Translate` | `com.chatwaifu.translate` | 翻译抽象 `ITranslate` + 百度翻译实现 |
 | `VITS` | `com.chatwaifu.vits` | VITS-ncnn 语音合成 + 文本清洗 + 音频播放/录制（含 CMake） |
 | `Live2D` | `com.chatwaifu.live2d` | Live2D Cubism SDK Native 封装（含 CMake + SDKRoot） |
@@ -39,13 +39,23 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 `ChatActivity` 启动后调用 `ChatActivityViewModel.mainLoop()`（`app/src/main/java/com/chatwaifu/mobile/ChatActivityViewModel.kt`），是一个跑在 `Dispatchers.IO` 上的 `while(true)`，每轮：
 
 1. `fetchInput()` — 用 `suspendCancellableCoroutine` 挂起，等 UI 层调 `sendMessage()` 唤醒（`inputFunc` 回调持有 continuation）
-2. `AssistantMessageManager` 写入用户消息、拼装上下文
-3. `sendChatGPTRequest()` → `ChatGPTNetService.sendChatMessage()`
-4. 结果 emit 到 `_chatContentUIFlow` 渲染气泡
+2. `ChatHistoryStore.appendUser()` 写入用户消息（Room）
+3. `streamChatRequest()` → `ChatSession.send()`，collect `Flow<ChatDelta>`
+4. `TextDelta` 逐字累积后 emit 到 `_chatContentUIFlow` 渲染气泡（`isStreaming = true`），`Completed` 时 emit 最终文本并落库
 5. `fetchTranslateIfNeed()` — 默认把回复翻成日文（内置模型都是日语声库）
 6. `generateAndPlaySound()` → `SoundGenerateHelper.generateAndPlay()`，VITS 推理出的 `FloatArray` 一路给 `SoundPlayHandler` 播放、一路 `forwardResult` 给 `LipsValueHandler` 驱动口型
 
 `ChatStatus` 枚举（`DEFAULT/FETCH_INPUT/SEND_REQUEST/TRANSLATE/GENERATE_SOUND`）通过 `chatStatusLiveData` 给 UI 显示当前阶段。
+
+### 聊天基座（ChatCore）
+业务只认 `ChatMessage` / `ChatDelta`，不认某一家的 `choices[0]`。核心是一个抽象方法
+`ChatProvider.chatStream(request): Flow<ChatDelta>`；历史**统一由客户端的 `ChatSession` 持有**
+（因为 Anthropic 没有服务端会话，必须重发全量）。已落地 `OpenAICompatProvider`（覆盖代理 /
+DeepSeek / Ollama / llama.cpp / vLLM）和 `OpenAIResponsesProvider`；Anthropic / Gemini / 端内
+三个是 stub，`chatStream` 抛 `NotImplementedError`，**映射方案写在各自类 KDoc 里**。
+
+设计意图、三家 API 映射表、扩展新 provider 的步骤、进度与待办全在 **`docs/chat-core.md`**，
+动这一层之前先看它。
 
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。
@@ -90,6 +100,8 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 ## 配置与密钥
 
 - 运行时密钥存 `SharedPreferences`（`Constant.SAVED_STORE`），key 名都在 `app/.../data/Constant.kt`
+- 聊天基座的 key / base_url / model 是**按 provider 分开存**的（`saved_provider_<id>_*`），
+  统一走 `ChatProviderSettings`，它的 `init` 里带一次性迁移（老的 `saved_chat_key` + proxy url → OpenAI 兼容基座）
 - debug 构建从 `local.properties` 读 `CHAT_CPT_KEY` / `TRANSLATE_APP_ID` / `TRANSLATE_KEY` 注入 `BuildConfig`（见 `app/build.gradle` 的 `readLocalProperties`）；release 构建注空串
 - `local.properties` 不入库
 
@@ -133,7 +145,7 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 
 - `compileSdk` 必须 >= 37：`core-ktx` 1.19 / `lifecycle` 2.11 的 AAR metadata 硬性要求。本地缺 platform 37 时 AGP 会自动下载
 - `material-icons-extended` 被 compose-bom 钉在 **1.7.8**（这个 artifact 已废弃、停止发版），和 compose 1.11.4 混用。工程里用到了十几个只存在于 extended 里的图标（`AlternateEmail` / `Pinch` / `SettingsVoice` 等），所以暂时不能去掉；将来要么换 core 图标要么内联成 vector drawable
-- okhttp 4+ 把 `MediaType.parse` / `RequestBody.create` 的静态形式标成 `DeprecationLevel.ERROR`，必须用 Kotlin 扩展（见 `ChatGPTData.toRequestBody()`）
+- okhttp 4+ 把 `MediaType.parse` / `RequestBody.create` 的静态形式标成 `DeprecationLevel.ERROR`，必须用 Kotlin 扩展（`toRequestBody()` / `toMediaType()`）
 - okhttp 钉在 **4.12.0**（retrofit 3.0.0 自己依赖的版本）。okhttp 5.x 已发布，但它把 `MediaType` / `RequestBody` 一批 API 做了 Kotlin 化重构，是一次独立迁移
 - kotlinx-coroutines 钉在 **1.9.0**，和 lifecycle 2.11 传递进来的版本对齐。用 `kotlinx-coroutines-android`（比 `-core` 多带 `Dispatchers.Main` 的 Android 实现）
 
@@ -158,7 +170,7 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 ## 已知技术债 / 坑
 
 - `ChatWaifuApplication.context` 是静态 Context，多处直接引用而非注入
-- `ChatGPTNetService` 的模型名/参数写死在 `ChatGPTData.kt` 里，还是 2023 年的 `gpt-3.5` 时代形态
+- `ChatCore` 只联调过编译，**实机端到端还没验证**；Anthropic / Gemini / 端内三个 provider 是 stub
 - `mainLoop()` 的 `while(true)` + continuation 唤醒设计，异常和取消路径比较脆
 - lint 还有 **177 条 warning / 0 error** 的历史存量：`UnusedResources` 62（含
   `activity_chat.xml` + `app_bar_chat.xml` 两个 Navigation 模板留下的死布局，从来没被 inflate，
