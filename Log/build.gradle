@@ -41,5 +41,7 @@ dependencies {
     implementation libs.material
     implementation libs.androidx.room.runtime
     implementation libs.androidx.room.ktx
+    // Flow / suspend DAO：room-ktx 会传递进来，但源码直接 import 了就得显式声明
+    implementation libs.kotlinx.coroutines.android
     ksp libs.androidx.room.compiler
 }

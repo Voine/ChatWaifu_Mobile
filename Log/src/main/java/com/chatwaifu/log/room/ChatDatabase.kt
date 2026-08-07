@@ -7,29 +7,46 @@ import androidx.room.RoomDatabase
 
 /**
  * Description: ChatDataBase
+ *
+ * 版本历史：
+ * - v1（2023）：单表 `ChatMessage`，无索引、无迁移通道
+ * - v2（2026）：改名 `chat_message`，`characterId` / `role` / provider / status / thinking，
+ *   加复合索引。见 [Migrations.MIGRATION_1_2]
+ * - v3（2026）：新增 `chat_attachment` 子表。见 [Migrations.MIGRATION_2_3]
+ *
+ * **刻意不加 `fallbackToDestructiveMigration()`**：聊天记录是用户资产，
+ * 宁可升级时抛一个能被发现的异常，也不要静默清空。
+ *
  * Author: Voine
  * Date: 2023/3/13
  */
-@Database(version = 1, entities = [ChatMessage::class])
-abstract class ChatDatabase : RoomDatabase() {
+@Database(
+    version = 3,
+    entities = [ChatMessageEntity::class, AttachmentEntity::class],
+    exportSchema = true,
+)
+internal abstract class ChatDatabase : RoomDatabase() {
 
     abstract fun chatMessageDao(): ChatMessageDao
 
     companion object {
+        private const val DB_NAME = "chat_log"
+
+        @Volatile
         private var instance: ChatDatabase? = null
 
-        @Synchronized
-        fun getDataBase(context: Context): ChatDatabase {
-            instance?.let {
-                return it
+        fun getDataBase(context: Context): ChatDatabase =
+            instance ?: synchronized(this) {
+                instance ?: build(context).also { instance = it }
             }
-            return Room.databaseBuilder(
+
+        private fun build(context: Context): ChatDatabase =
+            Room.databaseBuilder(
                 context.applicationContext,
                 ChatDatabase::class.java,
-                "chat_log"
-            ).build().apply {
-                instance = this
-            }
-        }
+                DB_NAME,
+            )
+                .addMigrations(*Migrations.ALL)
+                .build()
     }
 }

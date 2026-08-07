@@ -79,6 +79,7 @@ dependencies {
     // 12 个文件直接 import kotlinx.coroutines，原先靠 lifecycle 的传递依赖
     implementation libs.kotlinx.coroutines.android
     implementation libs.androidx.core.ktx
+    implementation libs.androidx.exifinterface
     implementation libs.androidx.appcompat
     implementation libs.material
     implementation libs.androidx.constraintlayout

@@ -56,8 +56,13 @@ object HttpSupport {
         private val extraHeaders: Map<String, String>,
     ) : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {
-            val builder = chain.request().newBuilder()
-            builder.header("Content-Type", "application/json")
+            val request = chain.request()
+            val builder = request.newBuilder()
+            // 只在请求体自己没声明类型时补 json。以前是无条件覆盖，
+            // 文件上传的 multipart 会被改成 application/json，boundary 一起丢掉，服务端解不出来
+            if (request.body?.contentType() == null) {
+                builder.header("Content-Type", "application/json")
+            }
             authHeaders().forEach { (k, v) -> builder.header(k, v) }
             extraHeaders.forEach { (k, v) -> builder.header(k, v) }
             return chain.proceed(builder.build())

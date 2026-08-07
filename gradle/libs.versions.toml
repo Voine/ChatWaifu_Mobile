@@ -27,6 +27,9 @@ androidx-annotation = "1.10.0"
 androidx-appcompat = "1.7.1"
 androidx-constraintlayout = "2.2.2"
 androidx-core-ktx = "1.19.0"
+# 附件导入要读 EXIF 方向：相机 JPEG 的朝向在 EXIF 里，重编码会丢，
+# 不处理就会把躺着的图喂给视觉模型。ImageDecoder 会自动应用方向但要 API 28，minSdk 是 24。
+androidx-exifinterface = "1.4.1"
 androidx-lifecycle = "2.11.0"
 androidx-navigation = "2.9.8"
 androidx-room = "2.8.4"
@@ -54,6 +57,7 @@ androidx-annotation = { module = "androidx.annotation:annotation", version.ref =
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintlayout" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core-ktx" }
+androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "androidx-exifinterface" }
 
 # lifecycle
 androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "androidx-lifecycle" }

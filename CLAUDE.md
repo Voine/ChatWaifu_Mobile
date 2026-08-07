@@ -29,7 +29,7 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 | `Live2D` | `com.chatwaifu.live2d` | Live2D Cubism SDK Native 封装（含 CMake + SDKRoot） |
 | `Lipsync` | `com.chatwaifu.lipsync` | meta-lipSync Native 封装（含 CMake） |
 | `Sherpa` | `com.k2fsa.sherpa.ncnn` | Sherpa-ncnn ASR，跑在 `:sherpa` 进程，AIDL 暴露 |
-| `Log` | `com.chatwaifu.log` | Room 数据库，聊天记录读写 |
+| `Log` | `com.chatwaifu.log` | Room 数据库，聊天记录 + 附件引用读写（见 `docs/chat-storage.md`） |
 
 依赖方向：`app` → 其余 7 个模块，模块之间**无横向依赖**。
 
@@ -40,8 +40,8 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 
 1. `fetchInput()` — 用 `suspendCancellableCoroutine` 挂起，等 UI 层调 `sendMessage()` 唤醒（`inputFunc` 回调持有 continuation）
 2. `ChatHistoryStore.appendUser()` 写入用户消息（Room）
-3. `streamChatRequest()` → `ChatSession.send()`，collect `Flow<ChatDelta>`
-4. `TextDelta` 逐字累积后 emit 到 `_chatContentUIFlow` 渲染气泡（`isStreaming = true`），`Completed` 时 emit 最终文本并落库
+3. `beginAssistant()` 先插一行 `STREAMING` 占位，拿到 messageId
+4. `streamChatRequest()` → `ChatSession.send()`，collect `Flow<ChatDelta>`；`TextDelta` 逐字累积后 emit 到 `_chatContentUIFlow` 渲染气泡（`isStreaming = true`）。结束时 `finishAssistant()` 把占位行补成最终文本 + usage + thinking + `OK`；失败或断流走 `failAssistant()` 标 `FAILED` 并保留片段
 5. `fetchTranslateIfNeed()` — 默认把回复翻成日文（内置模型都是日语声库）
 6. `generateAndPlaySound()` → `SoundGenerateHelper.generateAndPlay()`，VITS 推理出的 `FloatArray` 一路给 `SoundPlayHandler` 播放、一路 `forwardResult` 给 `LipsValueHandler` 驱动口型
 
@@ -56,6 +56,29 @@ DeepSeek / Ollama / llama.cpp / vLLM）和 `OpenAIResponsesProvider`；Anthropic
 
 设计意图、三家 API 映射表、扩展新 provider 的步骤、进度与待办全在 **`docs/chat-core.md`**，
 动这一层之前先看它。
+
+### 聊天存储（Log + 附件）
+`Log` 模块只暴露三个 public 类型：`ChatLogEntry`（领域类型）、`AttachmentRef`、
+`ChatLogRepository`（接口，suspend + Flow，**无默认实现**）。`room/` 那一包全部 `internal` ——
+Room 实体不跨模块边界；`ChatLogEntry` 也刻意不是 `ChatCore` 的 `ChatMessage`
+（`Log` 不依赖 `ChatCore`），映射由 app 侧的 `ChatHistoryStore` 做。
+
+数据库 `version = 3`，两张表 `chat_message` / `chat_attachment`（FK CASCADE），
+`exportSchema = true`，迁移**手写**在 `room/Migrations.kt`，
+**刻意没有 `fallbackToDestructiveMigration()`**（聊天记录是用户资产，迁移错了应该崩）。
+枚举列存 `name` 不存 ordinal。
+
+附件的**字节**不在 `Log` 里，在 app 的 `data/attachment/AttachmentStore.kt`：
+落 `<getExternalFilesDir("attachments")>/<characterId>/<uuid>.<ext>`，
+DB 里只存**相对路径**。图片入库时就按最严 provider 重编码（长边 1568 / 4MB / 烧进 EXIF 旋转）——
+落盘这份就是模型看到的东西，历史重放要用它。文件回收是独立的（CASCADE 只清行）：
+删角色先取路径再删记录再删文件，启动时另跑一次全库孤儿 GC。
+
+`characterId` 目前传的是**角色名**（角色层还没有稳定 uuid），存储层只当它是不透明键——
+这是一道有文档的缝，见 `docs/chat-storage.md` 第六节。
+
+设计取舍（为什么继续用 Room、改造前发现的三个 bug、附件合规化的参数依据、
+按模型算的能力 gate、`upload()` 预上传）全在 **`docs/chat-storage.md`**。
 
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。
@@ -171,6 +194,9 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 
 - `ChatWaifuApplication.context` 是静态 Context，多处直接引用而非注入
 - `ChatCore` 只联调过编译，**实机端到端还没验证**；Anthropic / Gemini / 端内三个 provider 是 stub
+- 存储层同样只过了编译：**Room 1→2 的数据迁移还没在真机老库上跑过**
+- 多模态**只有存储和映射通了，UI 没有附件入口**：`ChatSession.send()` 还只收 `String`，
+  聊天页也没有「加图片」按钮。`AttachmentKind.VIDEO` 明确拒绝（要转码 + 时间轴）
 - `mainLoop()` 的 `while(true)` + continuation 唤醒设计，异常和取消路径比较脆
 - lint 还有 **177 条 warning / 0 error** 的历史存量：`UnusedResources` 62（含
   `activity_chat.xml` + `app_bar_chat.xml` 两个 Navigation 模板留下的死布局，从来没被 inflate，

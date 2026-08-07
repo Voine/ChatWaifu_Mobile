@@ -17,6 +17,7 @@ import com.chatwaifu.chat.core.ProviderConfig
 import com.chatwaifu.chat.core.ProviderId
 import com.chatwaifu.chat.core.ReasoningLevel
 import com.chatwaifu.chat.core.TokenUsage
+import com.chatwaifu.chat.core.capabilitiesFor
 import com.chatwaifu.chat.net.HttpSupport
 import com.chatwaifu.chat.net.MediaEncoding
 import com.chatwaifu.chat.net.StreamingHttpClient
@@ -33,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 
 /**
  * Description: OpenAI Responses API（`POST {base}/v1/responses`）。
@@ -74,6 +76,37 @@ class OpenAIResponsesProvider(
             baseUrl = config.baseUrl?.takeIf { it.isNotBlank() } ?: DEFAULT_BASE_URL,
             path = "v1/responses",
         )
+
+    private val filesEndpoint: String
+        get() = HttpSupport.resolveEndpoint(
+            baseUrl = config.baseUrl?.takeIf { it.isNotBlank() } ?: DEFAULT_BASE_URL,
+            path = "v1/files",
+        )
+
+    /**
+     * `POST /v1/files` with `purpose=user_data`，返回的 `id`（`file-...`）
+     * 可以直接填进 `input_image.file_id` / `input_file.file_id`。
+     *
+     * 注意这里**不做重试也不做本地缓存**：缓存 file id 是调用方的事
+     * （附件记录里有 remoteFileId / remoteProvider / remoteExpiresAt 三个字段），
+     * provider 这一层只负责发一次请求。
+     */
+    override suspend fun upload(
+        bytes: ByteArray,
+        mimeType: String,
+        fileName: String,
+    ): MediaSource.RemoteFileId? = withContext(Dispatchers.IO) {
+        val body = http.postMultipart(
+            url = filesEndpoint,
+            fileName = fileName,
+            mimeType = mimeType,
+            bytes = bytes,
+            fields = mapOf("purpose" to "user_data"),
+        )
+        val id = runCatching { JsonParser.parseString(body).asJsonObject.optString("id") }.getOrNull()
+            ?: throw ChatError.Unknown("upload succeeded but response has no file id")
+        MediaSource.RemoteFileId(id)
+    }
 
     override fun chatStream(request: ChatRequest): Flow<ChatDelta> = flow {
         val accumulator = MessageAccumulator()
@@ -174,7 +207,7 @@ class OpenAIResponsesProvider(
         request.systemPrompt?.takeIf { it.isNotBlank() }?.let {
             root.addProperty("instructions", it)
         }
-        root.add("input", buildInputItems(request.messages))
+        root.add("input", buildInputItems(request.messages, capabilitiesFor(request.model)))
         root.addProperty("stream", true)
         // 历史我们自己管，不让 OpenAI 存
         root.addProperty("store", false)
@@ -207,7 +240,10 @@ class OpenAIResponsesProvider(
         return root.toString()
     }
 
-    private fun buildInputItems(messages: List<ChatMessage>): JsonArray = JsonArray().apply {
+    private fun buildInputItems(
+        messages: List<ChatMessage>,
+        caps: ProviderCapabilities,
+    ): JsonArray = JsonArray().apply {
         messages.forEach { message ->
             // 工具调用和工具结果在 Responses API 里是独立的 item，不是消息的一部分
             message.contents.filterIsInstance<ChatContent.ToolCall>().forEach { call ->
@@ -226,7 +262,7 @@ class OpenAIResponsesProvider(
                 })
             }
 
-            val content = buildContentParts(message)
+            val content = buildContentParts(message, caps)
             if (content.size() > 0) {
                 add(JsonObject().apply {
                     addProperty("type", "message")
@@ -237,7 +273,14 @@ class OpenAIResponsesProvider(
         }
     }
 
-    private fun buildContentParts(message: ChatMessage): JsonArray = JsonArray().apply {
+    /**
+     * @param caps 按本次请求的模型算过的能力。选了 `o3-mini` 之类的非视觉模型时，
+     *   在这里就明确报错，而不是把 base64 发出去换一个语义不明的 400。
+     */
+    private fun buildContentParts(
+        message: ChatMessage,
+        caps: ProviderCapabilities,
+    ): JsonArray = JsonArray().apply {
         // 输出侧和输入侧的文本块类型名不同：assistant 历史必须回传 output_text
         val textType = if (message.role == ChatRole.ASSISTANT) "output_text" else "input_text"
 
@@ -249,6 +292,7 @@ class OpenAIResponsesProvider(
                 })
 
                 is ChatContent.Image -> add(JsonObject().apply {
+                    if (!caps.imageInput) throw ChatError.CapabilityUnsupported("image input")
                     addProperty("type", "input_image")
                     when (val source = content.source) {
                         is MediaSource.RemoteFileId -> addProperty("file_id", source.id)
@@ -263,6 +307,7 @@ class OpenAIResponsesProvider(
                 })
 
                 is ChatContent.Doc -> add(JsonObject().apply {
+                    if (!caps.fileInput) throw ChatError.CapabilityUnsupported("file input")
                     addProperty("type", "input_file")
                     when (val source = content.source) {
                         is MediaSource.RemoteFileId -> addProperty("file_id", source.id)

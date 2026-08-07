@@ -71,9 +71,17 @@ sealed interface ChatContent {
 
     data class Text(val text: String) : ChatContent
 
+    /**
+     * @param width / @param height 像素尺寸，可空。
+     *   填了 [ContextBudget] 就能按各家的真实计费公式估 token，而不是套一个平坦常量——
+     *   图片 token 数是分辨率的函数，一张大截图和一张缩略图能差一个数量级，
+     *   而裁剪正是靠这个数决定丢谁。调用方（`AttachmentStore` 落盘时）本来就知道尺寸。
+     */
     data class Image(
         val source: MediaSource,
         val detail: ImageDetail = ImageDetail.AUTO,
+        val width: Int? = null,
+        val height: Int? = null,
     ) : ChatContent
 
     /**
@@ -81,8 +89,16 @@ sealed interface ChatContent {
      * 将来这条路能直接替掉「翻译 → VITS」中的一环。
      *
      * @param format 形如 `wav` / `mp3` / `pcm16`，各家的枚举名不同，provider 自己映射。
+     *   注意这个字段偏松：它把容器/编码和 raw PCM 参数混在一起了，
+     *   `pcm16` 其实还隐含采样率和声道数——回合制下够用，realtime 要另立结构。
+     * @param durationMs 时长，可空。音频的 token 成本基本是时长的线性函数，
+     *   填了 [ContextBudget] 就不用套平坦常量。
      */
-    data class Audio(val source: MediaSource, val format: String) : ChatContent
+    data class Audio(
+        val source: MediaSource,
+        val format: String,
+        val durationMs: Long? = null,
+    ) : ChatContent
 
     /** PDF 之类的文档输入。 */
     data class Doc(

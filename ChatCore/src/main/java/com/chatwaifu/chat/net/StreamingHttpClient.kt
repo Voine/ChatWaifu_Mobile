@@ -4,6 +4,8 @@ import com.chatwaifu.chat.core.ChatError
 import com.chatwaifu.chat.core.ProviderConfig
 import kotlinx.coroutines.CancellationException
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
@@ -88,6 +90,48 @@ class StreamingHttpClient(
         if (!response.isSuccessful) {
             val body = runCatching { response.errorBody()?.string() }.getOrNull()
             throw HttpSupport.toChatError(response.code(), body, response.headers()["retry-after"])
+        }
+        return response.body()?.use { it.string() }
+            ?: throw ChatError.Unknown("empty response body")
+    }
+
+    /**
+     * 发一次 multipart 上传，返回响应体字符串。给各家的 Files API 用
+     * （[com.chatwaifu.chat.core.ChatProvider.upload]）。
+     *
+     * @param fields 除文件之外的表单字段，比如 OpenAI 的 `purpose=user_data`。
+     */
+    suspend fun postMultipart(
+        url: String,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+        fields: Map<String, String> = emptyMap(),
+        filePartName: String = "file",
+    ): String {
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .also { builder ->
+                fields.forEach { (k, v) -> builder.addFormDataPart(k, v) }
+                builder.addFormDataPart(
+                    filePartName,
+                    fileName,
+                    bytes.toRequestBody(mimeType.toMediaTypeOrNull()),
+                )
+            }
+            .build()
+
+        val response = try {
+            api.postStream(url, body)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            throw HttpSupport.toChatError(e)
+        }
+
+        if (!response.isSuccessful) {
+            val errorBody = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw HttpSupport.toChatError(response.code(), errorBody, response.headers()["retry-after"])
         }
         return response.body()?.use { it.string() }
             ?: throw ChatError.Unknown("empty response body")

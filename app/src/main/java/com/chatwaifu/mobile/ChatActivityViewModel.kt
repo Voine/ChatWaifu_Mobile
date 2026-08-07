@@ -145,17 +145,38 @@ class ChatActivityViewModel : ViewModel() {
     private fun requireSession(): ChatSession =
         chatSession ?: run { rebuildChatSession(); chatSession!! }
 
+    /** 落库时记的基座标识。thinking 签名跨基座不能重放，恢复历史时要靠它对齐。 */
+    private val activeProviderKey: String get() = providerSettings.activeProviderId.key
+
+    private val activeModel: String?
+        get() = providerSettings.config().model?.ifBlank { null }
+            ?: chatProvider?.defaultModel
+
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
+            // 上次进程被杀时留下的半截流式记录，收尾成 FAILED，
+            // 否则它们会永远停在 STREAMING、既不上屏也不参与上下文
+            historyStore.failDanglingStreams()
+            historyStore.gcAttachments()
+
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
                 historyStore.appendUser(input)
 
                 chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
-                val result = streamChatRequest(input) ?: continue
+                // 先占一行 STREAMING 再发请求：流中途挂掉时历史里留下的是一条
+                // 标记为失败的半截回复，而不是凭空少一轮对话
+                val messageId = historyStore.beginAssistant(activeProviderKey, activeModel)
+                val result = streamChatRequest(input, messageId) ?: continue
 
-                historyStore.appendAssistant(result.text, result.usage)
+                historyStore.finishAssistant(
+                    messageId = messageId,
+                    message = result.message,
+                    usage = result.usage,
+                    providerId = activeProviderKey,
+                    model = activeModel,
+                )
                 Log.d(TAG, "get response ${result.text}")
 
                 val translateText = fetchTranslateIfNeed(result.text)
@@ -208,7 +229,7 @@ class ChatActivityViewModel : ViewModel() {
             session.systemPrompt = it
         }
         CoroutineScope(Dispatchers.IO).launch {
-            session.restore(historyStore.load(character.name))
+            session.restore(historyStore.load(character.name, activeProviderKey))
         }
         loadVitsModel(character)
     }
@@ -255,9 +276,11 @@ class ChatActivityViewModel : ViewModel() {
      * 改造前是一次性拿到完整回复才上屏；现在每个增量都会 emit 一次累积后的文本，
      * 气泡逐字出现。VITS 仍然吃完整文本 —— 按句切分提前合成属于后续优化。
      *
+     * @param messageId [ChatHistoryStore.beginAssistant] 占好的那一行。失败时用它标 FAILED，
+     *   已经收到的片段一并留下 —— 用户能看出「答到一半断了」，而不是这轮凭空消失。
      * @return null 表示这一轮失败了（错误已经 emit 给 UI），调用方应该跳过后面的翻译和合成。
      */
-    private suspend fun streamChatRequest(input: String): ChatResult? {
+    private suspend fun streamChatRequest(input: String, messageId: Long): ChatResult? {
         val session = requireSession()
         val buffer = StringBuilder()
         var result: ChatResult? = null
@@ -292,6 +315,7 @@ class ChatActivityViewModel : ViewModel() {
             }
         } catch (e: Throwable) {
             Log.e(TAG, "chat request failed", e)
+            historyStore.failAssistant(messageId, buffer.toString())
             _chatContentUIFlow.emit(
                 ChatDialogContentUIState(
                     isFromMe = false,
@@ -300,6 +324,12 @@ class ChatActivityViewModel : ViewModel() {
             )
             chatStatusLiveData.postValue(ChatStatus.DEFAULT)
             return null
+        }
+        if (result == null) {
+            // 流正常结束但没有 Completed（provider 只发了 text 就断流）。
+            // 不收尾的话这行会永远停在 STREAMING。
+            Log.w(TAG, "stream ended without Completed delta")
+            historyStore.failAssistant(messageId, buffer.toString())
         }
         return result
     }

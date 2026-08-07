@@ -16,6 +16,7 @@ import com.chatwaifu.chat.core.ProviderCapabilities
 import com.chatwaifu.chat.core.ProviderConfig
 import com.chatwaifu.chat.core.ProviderId
 import com.chatwaifu.chat.core.TokenUsage
+import com.chatwaifu.chat.core.capabilitiesFor
 import com.chatwaifu.chat.net.HttpSupport
 import com.chatwaifu.chat.net.MediaEncoding
 import com.chatwaifu.chat.net.SSE_DONE
@@ -169,6 +170,8 @@ class OpenAICompatProvider(
 
     private fun buildMessages(request: ChatRequest): JsonArray {
         val array = JsonArray()
+        // 按本次请求实际用的模型算一次能力，别在每条消息里重复算
+        val caps = capabilitiesFor(request.model)
 
         // system 是这个协议里的一条普通消息（和 Responses / Messages API 不同）
         request.systemPrompt?.takeIf { it.isNotBlank() }?.let {
@@ -191,13 +194,13 @@ class OpenAICompatProvider(
                         })
                     }
 
-                else -> array.add(buildMessage(message))
+                else -> array.add(buildMessage(message, caps))
             }
         }
         return array
     }
 
-    private fun buildMessage(message: ChatMessage): JsonObject = JsonObject().apply {
+    private fun buildMessage(message: ChatMessage, caps: ProviderCapabilities): JsonObject = JsonObject().apply {
         addProperty(
             "role",
             when (message.role) {
@@ -215,7 +218,7 @@ class OpenAICompatProvider(
             // 纯文本用字符串形式，兼容性最好 —— 一些本地实现不认数组形式的 content
             addProperty("content", message.text)
         } else {
-            add("content", buildMultimodalContent(message))
+            add("content", buildMultimodalContent(message, caps))
         }
 
         val toolCalls = message.toolCalls
@@ -236,7 +239,15 @@ class OpenAICompatProvider(
         }
     }
 
-    private fun buildMultimodalContent(message: ChatMessage): JsonArray = JsonArray().apply {
+    /**
+     * @param caps **按模型算过**的能力（见 [capabilitiesFor]）。不能直接读 [capabilities] ——
+     *   那是 provider 级的，对 OpenAI 兼容基座来说等于「协议支持」，
+     *   和用户当前选的模型支持什么是两件事。
+     */
+    private fun buildMultimodalContent(
+        message: ChatMessage,
+        caps: ProviderCapabilities,
+    ): JsonArray = JsonArray().apply {
         message.contents.forEach { content ->
             when (content) {
                 is ChatContent.Text -> add(JsonObject().apply {
@@ -245,7 +256,7 @@ class OpenAICompatProvider(
                 })
 
                 is ChatContent.Image -> {
-                    if (!capabilities.imageInput) throw ChatError.CapabilityUnsupported("image input")
+                    if (!caps.imageInput) throw ChatError.CapabilityUnsupported("image input")
                     add(JsonObject().apply {
                         addProperty("type", "image_url")
                         add("image_url", JsonObject().apply {
@@ -258,7 +269,7 @@ class OpenAICompatProvider(
                 }
 
                 is ChatContent.Audio -> {
-                    if (!capabilities.audioInput) throw ChatError.CapabilityUnsupported("audio input")
+                    if (!caps.audioInput) throw ChatError.CapabilityUnsupported("audio input")
                     val inline = MediaEncoding.inline(content.source)
                         ?: throw ChatError.CapabilityUnsupported("audio input by url")
                     add(JsonObject().apply {
@@ -271,7 +282,7 @@ class OpenAICompatProvider(
                 }
 
                 is ChatContent.Doc -> {
-                    if (!capabilities.fileInput) throw ChatError.CapabilityUnsupported("file input")
+                    if (!caps.fileInput) throw ChatError.CapabilityUnsupported("file input")
                     add(JsonObject().apply {
                         addProperty("type", "file")
                         add("file", JsonObject().apply {

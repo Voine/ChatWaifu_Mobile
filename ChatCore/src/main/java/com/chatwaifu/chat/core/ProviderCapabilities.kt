@@ -49,6 +49,34 @@ data class ModelInfo(
     val contextTokens: Int? = null,
     val supportsImageInput: Boolean = false,
     val supportsAudioInput: Boolean = false,
+    /**
+     * 文档（PDF）输入。默认跟随 [supportsImageInput] —— 各家的 PDF 支持实际上都是
+     * 「把页面栅格化后当图看」，所以视觉模型基本都能收 PDF，反之则一定不能。
+     */
+    val supportsFileInput: Boolean = supportsImageInput,
     /** 供 UI 打标，比如「便宜」「最强」。 */
     val note: String? = null,
 )
+
+/**
+ * 把 provider 级能力和**具体模型**的能力取交集。
+ *
+ * 为什么必须按模型算：`imageInput` 之类声明在 provider 上，粒度太粗。
+ * 最典型的是 [ProviderId.OPENAI_COMPAT] —— 它的 `imageInput = true`（协议层面支持），
+ * 但用户在设置页选了 `deepseek-chat`，附一张图就会一路发到对端换回一个 400。
+ * [ModelInfo] 里本来就记着每个模型支持什么，之前只是没人读。
+ *
+ * **模型不在 [ChatProvider.availableModels] 里时回落到 provider 级能力**：
+ * 清单只是下拉框候选而不是白名单（用户可以手填 `qwen3:8b`），
+ * 认不出来的模型只能按「协议允许」放行，由对端去拒绝。
+ */
+fun ChatProvider.capabilitiesFor(model: String?): ProviderCapabilities {
+    val info = availableModels.firstOrNull { it.id == (model ?: defaultModel) }
+        ?: return capabilities
+    return capabilities.copy(
+        imageInput = capabilities.imageInput && info.supportsImageInput,
+        audioInput = capabilities.audioInput && info.supportsAudioInput,
+        fileInput = capabilities.fileInput && info.supportsFileInput,
+        maxContextTokens = info.contextTokens ?: capabilities.maxContextTokens,
+    )
+}

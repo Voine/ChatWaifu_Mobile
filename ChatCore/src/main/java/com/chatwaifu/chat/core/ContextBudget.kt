@@ -37,14 +37,42 @@ object TokenEstimator {
                 is ChatContent.Thinking -> estimate(content.text)
                 is ChatContent.ToolCall -> estimate(content.name) + estimate(content.argumentsJson)
                 is ChatContent.ToolResult -> estimate(content.output)
-                // 图片/音频/文档的 token 数由基座侧的切片规则决定，客户端算不准。
-                // 给一个偏大的固定值，保证「带附件的历史」不会把窗口撑爆。
-                is ChatContent.Image -> IMAGE_TOKENS_GUESS
-                is ChatContent.Audio -> AUDIO_TOKENS_GUESS
+                is ChatContent.Image -> estimateImage(content)
+                is ChatContent.Audio -> estimateAudio(content)
+                // 文档没有可用的维度信息（页数要解析 PDF 才知道），只能给固定值
                 is ChatContent.Doc -> DOC_TOKENS_GUESS
             }
         }
         return sum
+    }
+
+    /**
+     * 图片 token 估算。
+     *
+     * 各家公式不同但同数量级：OpenAI 按 512px 切片计价（`ceil(w/512)*ceil(h/512)*每片 + 基数`），
+     * Anthropic 约 `w*h/750`，Gemini 按 768px 分块。这里取 `w*h/750`——
+     * 在常见尺寸上它是三者里偏大的那个，**宁可高估**：低估会让裁剪以为还塞得下，
+     * 结果换来基座一个 `ContextOverflow`。
+     *
+     * `detail = LOW` 时各家都只发一张缩略图，成本是个小常量。
+     *
+     * 尺寸未知（调用方没填）时回落到 [IMAGE_TOKENS_GUESS]。
+     */
+    private fun estimateImage(image: ChatContent.Image): Int {
+        if (image.detail == ImageDetail.LOW) return IMAGE_LOW_DETAIL_TOKENS
+        val w = image.width ?: return IMAGE_TOKENS_GUESS
+        val h = image.height ?: return IMAGE_TOKENS_GUESS
+        if (w <= 0 || h <= 0) return IMAGE_TOKENS_GUESS
+        return (w.toLong() * h / IMAGE_PIXELS_PER_TOKEN)
+            .coerceAtLeast(IMAGE_LOW_DETAIL_TOKENS.toLong())
+            .toInt()
+    }
+
+    /** 音频成本基本是时长的线性函数。时长未知时回落到固定值。 */
+    private fun estimateAudio(audio: ChatContent.Audio): Int {
+        val ms = audio.durationMs ?: return AUDIO_TOKENS_GUESS
+        if (ms <= 0) return AUDIO_TOKENS_GUESS
+        return (ms * AUDIO_TOKENS_PER_SECOND / 1000).toInt().coerceAtLeast(1)
     }
 
     private fun isCjk(ch: Char): Boolean {
@@ -58,9 +86,15 @@ object TokenEstimator {
 
     /** 每条消息的角色、分隔符等固定开销。 */
     private const val MESSAGE_OVERHEAD_TOKENS = 4
+
+    /** 尺寸/时长未知时的回落值。 */
     private const val IMAGE_TOKENS_GUESS = 1_600
     private const val AUDIO_TOKENS_GUESS = 1_000
     private const val DOC_TOKENS_GUESS = 3_000
+
+    private const val IMAGE_PIXELS_PER_TOKEN = 750
+    private const val IMAGE_LOW_DETAIL_TOKENS = 85
+    private const val AUDIO_TOKENS_PER_SECOND = 32
 }
 
 /**

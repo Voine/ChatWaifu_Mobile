@@ -1,0 +1,120 @@
+package com.chatwaifu.log.room
+
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+/**
+ * Description: Room 手写迁移。
+ *
+ * 为什么不用 auto-migration：1→2 里有一步是 `sendFromMe: Boolean` → `role: String` 的
+ * **值变换**，auto-migration 只能加删改列、搬不了值。既然已经要手写，
+ * 顺便把表名和列名一起改干净。
+ *
+ * **注意**：老库（v1）压根没有 migration 也没有 `fallbackToDestructiveMigration`，
+ * 所以在这之前加任何一列都会让老用户升级即崩。这个文件就是那条通道。
+ *
+ * Author: Voine
+ * Date: 2026/8/7
+ */
+internal object Migrations {
+
+    /**
+     * v1 → v2。
+     *
+     * - 表 `ChatMessage` → `chat_message`
+     * - `characterName` → `characterId`（值原样搬：角色层现在还没有真 uuid，
+     *   名字就是当时的身份。见 docs/chat-storage.md「characterId 这道缝」）
+     * - `chatMessage` → `text`
+     * - `sendFromMe` → `role`：1 → `USER`，0 → `ASSISTANT`
+     * - 新增 provider / model / source / status / thinking 五组字段，历史行填默认值
+     * - 新增 `(characterId, timeline)` 复合索引
+     *
+     * `id` 一并搬过去，保持消息 id 稳定——将来 `chat_attachment` 要按它做外键。
+     */
+    val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `chat_message` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `characterId` TEXT NOT NULL,
+                    `role` TEXT NOT NULL,
+                    `text` TEXT NOT NULL,
+                    `timeline` INTEGER NOT NULL,
+                    `promptTokens` INTEGER NOT NULL,
+                    `completionTokens` INTEGER NOT NULL,
+                    `providerId` TEXT,
+                    `model` TEXT,
+                    `source` TEXT NOT NULL,
+                    `status` TEXT NOT NULL,
+                    `thinkingText` TEXT,
+                    `thinkingOpaque` TEXT
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO `chat_message` (
+                    `id`, `characterId`, `role`, `text`, `timeline`,
+                    `promptTokens`, `completionTokens`,
+                    `providerId`, `model`, `source`, `status`,
+                    `thinkingText`, `thinkingOpaque`
+                )
+                SELECT
+                    `id`,
+                    `characterName`,
+                    CASE WHEN `sendFromMe` != 0 THEN 'USER' ELSE 'ASSISTANT' END,
+                    `chatMessage`,
+                    `timeline`,
+                    `promptTokens`,
+                    `completionTokens`,
+                    NULL, NULL, 'TYPED', 'OK', NULL, NULL
+                FROM `ChatMessage`
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE `ChatMessage`")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_chat_message_characterId_timeline` " +
+                    "ON `chat_message` (`characterId`, `timeline`)"
+            )
+        }
+    }
+
+    /**
+     * v2 → v3：新增 `chat_attachment` 子表。纯建表，没有数据搬迁。
+     *
+     * `ON DELETE CASCADE` 要真的生效还得**运行时打开外键约束**——
+     * SQLite 默认是关的，Room 在 `openHelper` 里会开，但迁移过程中不保证，
+     * 所以这里只负责建表，约束靠 Room 打开后的连接生效。
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `chat_attachment` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `messageId` INTEGER NOT NULL,
+                    `kind` TEXT NOT NULL,
+                    `relPath` TEXT NOT NULL,
+                    `mime` TEXT NOT NULL,
+                    `byteSize` INTEGER NOT NULL,
+                    `width` INTEGER,
+                    `height` INTEGER,
+                    `durationMs` INTEGER,
+                    `remoteFileId` TEXT,
+                    `remoteProvider` TEXT,
+                    `remoteExpiresAt` INTEGER NOT NULL,
+                    FOREIGN KEY(`messageId`) REFERENCES `chat_message`(`id`)
+                        ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_chat_attachment_messageId` " +
+                    "ON `chat_attachment` (`messageId`)"
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+}

@@ -34,8 +34,43 @@ interface ChatProvider {
 
     fun chatStream(request: ChatRequest): Flow<ChatDelta>
 
+    /**
+     * 把附件预上传到基座侧，换回一个可以在请求里引用的 file id。
+     *
+     * **默认返回 null**，意思是「这个基座没有 Files API」，调用方继续走 base64 内联。
+     * 不抛异常是刻意的：内联本来就是所有基座都支持的那条路，
+     * 上传只是省流量/绕体积上限的优化，不该因为某个基座不支持就让整轮对话失败。
+     *
+     * 为什么需要它：内联会把附件塞进**每一轮**请求体（历史要重发全量），
+     * 一张 3MB 的图 base64 后是 4MB，聊十轮就传了 40MB。换成 file id 只传一次。
+     * 判断阈值见 [MediaUploadPolicy.shouldUpload]。
+     *
+     * 调用方（app 侧）负责把返回的 id 连同 provider 和过期时间一起存进附件记录，
+     * 下一轮直接复用 —— 每轮都重新上传比内联还差。
+     *
+     * @param fileName 基座侧显示用的文件名，PDF 一类会被当成元信息读。
+     */
+    suspend fun upload(
+        bytes: ByteArray,
+        mimeType: String,
+        fileName: String,
+    ): MediaSource.RemoteFileId? = null
+
     /** 释放连接池等资源。 */
     fun close() {}
+}
+
+/**
+ * 内联还是预上传的判断依据。
+ *
+ * 阈值取 1MB：再小的图 base64 之后也就一百多 KB，上传要多一次 RTT，不值；
+ * 再大就开始明显撑请求体，而历史是每轮重发的，成本会随轮数累积。
+ */
+object MediaUploadPolicy {
+
+    const val INLINE_MAX_BYTES = 1L * 1024 * 1024
+
+    fun shouldUpload(byteSize: Long): Boolean = byteSize > INLINE_MAX_BYTES
 }
 
 /**

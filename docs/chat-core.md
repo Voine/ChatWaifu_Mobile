@@ -220,7 +220,8 @@ saved_provider_migrated                          // 一次性迁移标记
 | `ui/setting/SettingContent.kt` | 新增 `ChatProviderSection`：列 `ChatProviderFactory.descriptors()` 供选择，未实现的标注出来；key / baseUrl / model 三个输入包在 `key(selectedId)` 里（`SettingEditText` 内部是 `rememberSaveable`，不加 key 换基座会显示上一个的值） |
 | `settings.gradle` / `app/build.gradle` | `:ChatGPT` → `:ChatCore` |
 
-`Log` 模块（Room 实体）**没动**——它存的是纯文本 + token 数，和 provider 无关。
+`Log` 模块（Room 实体）**当轮没动**——它存的是纯文本 + token 数，和 provider 无关。
+（后续为了接多模态做了一次地基重构，见 [chat-storage.md](chat-storage.md)。）
 
 **顺手修掉的一个现存 bug**：老 `AssistantMessageManager.getSendAssistantList()` 过滤的是
 `!it.sendFromMe`，也就是只把**模型自己说过的话**回传给模型，用户说的全丢了——
@@ -251,7 +252,9 @@ saved_provider_migrated                          // 一次性迁移标记
    Live2D 口型；连问三轮带指代的问题（验证 user 消息不再被丢弃）；填错 key 应弹 `Auth`
    而不是原始 JSON；切 provider 后历史不断
 2. **补 `AnthropicMessagesProvider`**。三个 stub 里它最值得先做（KDoc 里映射已经写全了）
-3. **`ChatSession` 的多模态实际接入**。定义层已经留好，UI 侧还没有附件入口
+3. **`ChatSession.send()` 收附件**。存储层这一半已经做完（见
+   [chat-storage.md](chat-storage.md)：附件表、`AttachmentStore`、按模型算的能力 gate、
+   `upload()`），缺的是 `send()` 的签名还只收 `String`，以及聊天页的附件入口
 4. **流式分句提前合成**。现在 VITS 要等完整文本，`Completed` 之后才出声；
    按句切分可以让首句提前几秒
 5. **`reasoning` 档位进设置页**。`capabilities.reasoningLevels` 已经能 gate，UI 还没有
