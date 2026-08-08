@@ -12,6 +12,13 @@ targetSdk = "36"
 # "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks"
 jvmTarget = "11"
 
+# --- native toolchain ---
+# externalNativeBuild 用的 CMake 版本，三个 Native 模块（VITS / Live2D / Lipsync）必须写同一个值，
+# 否则 AGP 会为同一份工程拉起两套 CMake（且 SDK 里可能只装了其中一个）。
+# 4.x 起 cmake_minimum_required(VERSION < 3.5) 从 deprecation warning 变成硬报错，
+# 所以各 CMakeLists 的下限都已抬到 3.10。
+cmake = "4.1.2"
+
 # --- build plugins ---
 agp = "9.3.1"                # 最新稳定版（9.4.0 还在 alpha）
 # Kotlin 停在 2.3.21 而不是最新的 2.4.10：KSP 至今没有 2.4.x 版本（最新 2.3.11），
