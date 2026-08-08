@@ -13,6 +13,9 @@ import androidx.room.RoomDatabase
  * - v2（2026）：改名 `chat_message`，`characterId` / `role` / provider / status / thinking，
  *   加复合索引。见 [Migrations.MIGRATION_1_2]
  * - v3（2026）：新增 `chat_attachment` 子表。见 [Migrations.MIGRATION_2_3]
+ * - v4（2026）：`chat_attachment` 加 `sampleRate` / `channels`（音频参数）、
+ *   `sourceRelPath` / `posMs`（派生关系，视频抽帧）、`origMime` / `origByteSize`（原始形态）。
+ *   见 [Migrations.MIGRATION_3_4] 和 docs/media-pipeline.md
  *
  * **刻意不加 `fallbackToDestructiveMigration()`**：聊天记录是用户资产，
  * 宁可升级时抛一个能被发现的异常，也不要静默清空。
@@ -21,7 +24,7 @@ import androidx.room.RoomDatabase
  * Date: 2023/3/13
  */
 @Database(
-    version = 3,
+    version = 4,
     entities = [ChatMessageEntity::class, AttachmentEntity::class],
     exportSchema = true,
 )

@@ -6,7 +6,13 @@
 # compileSdk 37：core-ktx 1.19 / lifecycle 2.11 的 AAR metadata 硬性要求 >= 37。
 # targetSdk 36 是当前已发布的最新正式版本；compileSdk 可以比 targetSdk 高，这是常规做法。
 compileSdk = "37"
-minSdk = "24"
+# minSdk 28（Android 9）而不是原来的 24。抬这一档是为了媒体管线，换来的是：
+# - HEIF/HEIC 可解（iPhone 分享过来的默认格式，24~27 上是静默 decode failed）
+# - ImageDecoder 可用，且它自动应用 EXIF 方向
+# - MediaMetadataRetriever.getFramesAtIndex()，视频抽帧不用逐帧 seek
+# 停在 28 而不是继续往上：29 的 scoped storage 对这个工程没意义（本来就零存储权限），
+# 31 的 AVIF 解码是单格式锦上添花，可以运行时 gate，不值得再砍一截设备。
+minSdk = "28"
 targetSdk = "36"
 # Java / Kotlin 字节码目标，所有模块必须一致，否则 AGP 9 会报
 # "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks"
@@ -34,19 +40,27 @@ androidx-annotation = "1.10.0"
 androidx-appcompat = "1.7.1"
 androidx-constraintlayout = "2.2.2"
 androidx-core-ktx = "1.19.0"
-# 附件导入要读 EXIF 方向：相机 JPEG 的朝向在 EXIF 里，重编码会丢，
-# 不处理就会把躺着的图喂给视觉模型。ImageDecoder 会自动应用方向但要 API 28，minSdk 是 24。
-androidx-exifinterface = "1.4.1"
 androidx-lifecycle = "2.11.0"
+# 只取 media3-common，不取 media3-transformer。需要的是 androidx.media3.common.audio 那一包
+# （SonicAudioProcessor 重采样 / ChannelMixingAudioProcessor 降单声道 / ToInt16PcmAudioProcessor），
+# 解封装和解码用平台的 MediaExtractor + MediaCodec 就够。
+# transformer 会连带 exoplayer + effect + muxer + datasource + container 五个包进来，
+# 而这个工程只要「音频转成 16k mono PCM」，不要播放器也不要视频合成管线。
+androidx-media3 = "1.11.0"
 androidx-navigation = "2.9.8"
 androidx-room = "2.8.4"
 compose-bom = "2026.06.01"
 
 # --- third party ---
+# Coil 停在 3.4.0 而不是最新的 3.5.0：3.5.0 依赖 kotlin-stdlib 2.4.0，比本工程的
+# 编译器（2.3.21，被 KSP 卡住，见上）新，会让每次编译都带一条
+# "Runtime JAR ... is newer than the compiler" 警告。3.4.0 依赖 stdlib 2.3.10，正好在下面。
+# 换句话说这是「Kotlin 卡在 2.3.21」那条依赖链的延伸，KSP 出 2.4.x 之后一起抬。
+coil = "3.4.0"
 gson = "2.14.0"
-# 跟 lifecycle 2.11 传递进来的版本对齐。之前没在 catalog 里声明，全靠传递依赖，
-# 谁升 lifecycle 就跟着漂。显式钉住的同时保持和原解析结果一致，不引入行为变化。
-kotlinx-coroutines = "1.9.0"
+# 1.9.0 → 1.10.2：Coil 3.x 全线依赖 coroutines 1.10.2，不抬的话解析结果会是
+# 「声明 1.9.0 实际拿到 1.10.2」这种最难查的状态。显式跟上，让 catalog 说的是真话。
+kotlinx-coroutines = "1.10.2"
 material = "1.14.0"          # 终于从 1.9.0-beta01 挪到正式版
 # okhttp 停在 4.12.0：这是 retrofit 3.0.0 自己依赖的版本。okhttp 5.x 已发布，但它把
 # MediaType / RequestBody 等一批 API 做了 Kotlin 化重构，属于独立的迁移动作，不在基座这轮。
@@ -64,7 +78,9 @@ androidx-annotation = { module = "androidx.annotation:annotation", version.ref =
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintlayout" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core-ktx" }
-androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "androidx-exifinterface" }
+# 只有 common，见 [versions] 里的说明。这一包里的 AudioProcessor 全是 @UnstableApi，
+# 用的地方要 @OptIn(UnstableApi::class)。
+androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "androidx-media3" }
 
 # lifecycle
 androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "androidx-lifecycle" }
@@ -99,6 +115,10 @@ compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview"
 compose-ui-viewbinding = { module = "androidx.compose.ui:ui-viewbinding" }
 
 # --- third party ---
+# coil-core 只要解码能力（ImageLoader / ImageRequest / Decoder 链）。
+# 附件缩略图那步 UI 要另加 coil-compose；动图和视频帧的 Decoder 在 coil-gif / coil-video 里，
+# 当前都不需要——归一化后落盘的就是静态 JPEG/PNG，UI 直接显示那份文件。
+coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 # coroutines-android 而不是 -core：前者额外带 Dispatchers.Main 的 Android 实现
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

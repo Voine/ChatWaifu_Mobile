@@ -11,7 +11,7 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 - 三块 Native：VITS(ncnn) 语音合成、Live2D Cubism SDK(C++) 渲染、meta-lipSync 口型分析
 - Sherpa-ncnn 语音识别跑在**独立进程** `:sherpa`，通过 AIDL 通信
 - AGP 9.3.1 / Gradle 9.6.1 / Kotlin 2.3.21 / JDK 17 toolchain，全模块字节码目标 Java 11
-- `compileSdk` = 37，`targetSdk` = 36，`minSdk` = 24
+- `compileSdk` = 37，`targetSdk` = 36，`minSdk` = 28（为媒体管线从 24 抬上来的，理由见 `docs/media-pipeline.md` 第三节）
 - **走 AGP 9 的 built-in Kotlin**：模块不再 apply `org.jetbrains.kotlin.android`，也没有任何 `kotlinOptions {}`
 - Room 的注解处理走 **KSP**（2.3.11），已从 kapt 迁走；`kotlin-kapt` 插件全工程不再使用
 - 只申请 `RECORD_AUDIO` + `INTERNET`。**没有任何存储权限**，模型走应用专属目录 + SAF 导入
@@ -70,15 +70,39 @@ Room 实体不跨模块边界；`ChatLogEntry` 也刻意不是 `ChatCore` 的 `C
 
 附件的**字节**不在 `Log` 里，在 app 的 `data/attachment/AttachmentStore.kt`：
 落 `<getExternalFilesDir("attachments")>/<characterId>/<uuid>.<ext>`，
-DB 里只存**相对路径**。图片入库时就按最严 provider 重编码（长边 1568 / 4MB / 烧进 EXIF 旋转）——
-落盘这份就是模型看到的东西，历史重放要用它。文件回收是独立的（CASCADE 只清行）：
-删角色先取路径再删记录再删文件，启动时另跑一次全库孤儿 GC。
+DB 里只存**相对路径**。落盘那份就是模型看到的东西，历史重放要用它。
+文件回收是独立的（CASCADE 只清行）：删角色先取路径再删记录再删文件，
+启动时另跑一次全库孤儿 GC + `clearTemp()`。
+
+**`AttachmentStore` 只管字节，不懂格式**——格式归一化是独立一层，见下。
 
 `characterId` 目前传的是**角色名**（角色层还没有稳定 uuid），存储层只当它是不透明键——
 这是一道有文档的缝，见 `docs/chat-storage.md` 第六节。
 
-设计取舍（为什么继续用 Room、改造前发现的三个 bug、附件合规化的参数依据、
+设计取舍（为什么继续用 Room、改造前发现的三个 bug、
 按模型算的能力 gate、`upload()` 预上传）全在 **`docs/chat-storage.md`**。
+
+### 媒体管线（格式兼容层）
+`app/data/attachment/` 里除 `AttachmentStore` 之外的那一堆，负责把用户选中的任意媒体
+变成「能发给任何一家基座」的规范形态。入口是 `AttachmentProvider.ingest(context)`：
+
+```
+MediaProbe → MediaNormalizer(Image/Audio/Video/Doc) → AttachmentStore.adopt()
+```
+
+四条规范形态：图像长边 ≤1568（不透明 JPEG / 带 alpha 走 PNG→WebP）；
+音频 **16kHz 单声道 WAV**（mp3 直通）；视频**不转码，抽帧 + 抽音轨**；DOC 只收 PDF。
+
+三条纪律：
+- **体积闸门必须在读字节之前**（`OpenableColumns.SIZE`）。整条管线没有 `readBytes()`，
+  产物是临时文件 + `renameTo` 接管
+- **`alpha` 决定编码格式**。无条件 JPEG 会让透明区域变黑
+- **只有派生行进上下文**。视频落「父行 + N 帧 + 音轨」，父行只给 UI 回放，
+  规则在 `ChatHistoryStore.modelVisibleAttachments()`
+
+选库依据（为什么是 Coil 3 + `media3-common`，为什么否掉 ffmpeg-kit 和
+`media3-transformer`）、各家能收什么的对照表、修掉的三个洞、v4 schema，
+全在 **`docs/media-pipeline.md`**，动这一层之前先看它。
 
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。
@@ -164,13 +188,20 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 
 **等 KSP 发 2.4.x 之后，把 `kotlin` 和 `ksp` 两个版本一起往上抬即可。**
 
+这条链还牵着一个第三方库：**Coil 钉在 3.4.0 而不是最新的 3.5.0**，
+因为 3.5.0 依赖 `kotlin-stdlib 2.4.0`（比编译器新，每次编译都会警告
+`Runtime JAR ... is newer than the compiler`），3.4.0 依赖 2.3.10 正好在下面。
+抬 Kotlin 的时候顺手把它一起抬。
+
 ### 其他版本约束
 
 - `compileSdk` 必须 >= 37：`core-ktx` 1.19 / `lifecycle` 2.11 的 AAR metadata 硬性要求。本地缺 platform 37 时 AGP 会自动下载
 - `material-icons-extended` 被 compose-bom 钉在 **1.7.8**（这个 artifact 已废弃、停止发版），和 compose 1.11.4 混用。工程里用到了十几个只存在于 extended 里的图标（`AlternateEmail` / `Pinch` / `SettingsVoice` 等），所以暂时不能去掉；将来要么换 core 图标要么内联成 vector drawable
 - okhttp 4+ 把 `MediaType.parse` / `RequestBody.create` 的静态形式标成 `DeprecationLevel.ERROR`，必须用 Kotlin 扩展（`toRequestBody()` / `toMediaType()`）
 - okhttp 钉在 **4.12.0**（retrofit 3.0.0 自己依赖的版本）。okhttp 5.x 已发布，但它把 `MediaType` / `RequestBody` 一批 API 做了 Kotlin 化重构，是一次独立迁移
-- kotlinx-coroutines 钉在 **1.9.0**，和 lifecycle 2.11 传递进来的版本对齐。用 `kotlinx-coroutines-android`（比 `-core` 多带 `Dispatchers.Main` 的 Android 实现）
+- kotlinx-coroutines 钉在 **1.10.2**：Coil 3.x 全线依赖这个版本，不跟着抬就会变成「catalog 声明 1.9.0、实际解析到 1.10.2」这种最难查的状态。用 `kotlinx-coroutines-android`（比 `-core` 多带 `Dispatchers.Main` 的 Android 实现）
+- media3 **只取 `media3-common`**，为的是 `androidx.media3.common.audio` 那一包（重采样 / 声道混合）。不要顺手换成 `media3-transformer`：它会连带 exoplayer + effect + muxer + datasource + container 五个包，而这里只需要「音频转 16k mono PCM」。那一包的 API 全是 `@UnstableApi`，用的地方要 `@androidx.annotation.OptIn(UnstableApi::class)`（**androidx 的 OptIn，不是 kotlin 的**——kotlin.OptIn 认不出 androidx 的 `@RequiresOptIn`，会警告「has no effect」）
+- `androidx-exifinterface` **已删除**：EXIF 方向交给 Coil 的 `ExifOrientationStrategy.RESPECT_ALL`（`ImageNormalizer.defaultLoader()` 里那一行是唯一开关，删了会静默回归成「躺着的图」）
 
 ## Edge-to-edge
 
@@ -194,9 +225,10 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 
 - `ChatWaifuApplication.context` 是静态 Context，多处直接引用而非注入
 - `ChatCore` 只联调过编译，**实机端到端还没验证**；Anthropic / Gemini / 端内三个 provider 是 stub
-- 存储层同样只过了编译：**Room 1→2 的数据迁移还没在真机老库上跑过**
-- 多模态**只有存储和映射通了，UI 没有附件入口**：`ChatSession.send()` 还只收 `String`，
-  聊天页也没有「加图片」按钮。`AttachmentKind.VIDEO` 明确拒绝（要转码 + 时间轴）
+- 存储层同样只过了编译：**Room 1→2 和 3→4 的数据迁移都还没在真机老库上跑过**
+- 多模态**存储、归一化、映射都通了，但 UI 没有附件入口**：`ChatSession.send()` 还只收
+  `String`，聊天页也没有「加图片」按钮。接线点见 `docs/media-pipeline.md` 第八节
+- `Log/schemas/` 缺 `2.json`（只有 1/3/4），不影响构建但迁移测试要用
 - `mainLoop()` 的 `while(true)` + continuation 唤醒设计，异常和取消路径比较脆
 - lint 还有 **177 条 warning / 0 error** 的历史存量：`UnusedResources` 62（含
   `activity_chat.xml` + `app_bar_chat.xml` 两个 Navigation 模板留下的死布局，从来没被 inflate，

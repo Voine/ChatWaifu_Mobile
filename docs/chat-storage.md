@@ -119,7 +119,7 @@ Room 那一包全部 `internal`：**持久化类型不跨模块边界**。app �
 
 索引：`(characterId, timeline)`。
 
-`chat_attachment`（v3 起）：
+`chat_attachment`（v3 起，v4 加了后六列）：
 
 | 列 | 说明 |
 |---|---|
@@ -130,6 +130,9 @@ Room 那一包全部 `internal`：**持久化类型不跨模块边界**。app �
 | `mime` / `byteSize` | |
 | `width` / `height` / `durationMs` | 可空，给 token 估算用 |
 | `remoteFileId` / `remoteProvider` / `remoteExpiresAt` | 基座侧 file id 的缓存 |
+| `sampleRate` / `channels` | v4。音频参数，判「能不能直接发给某家」要用 |
+| `sourceRelPath` / `posMs` | v4。**派生关系**（视频抽帧/抽音轨），见 [media-pipeline.md](media-pipeline.md) 第七节 |
+| `origMime` / `origByteSize` | v4。用户**原本**给的形态，归一化会改前面那些值 |
 
 **存相对路径不存绝对路径**：应用专属目录的绝对路径会随
 「内部存储 ↔ 外部存储」「多用户」变化，写死进库就等于给自己埋一个「重装后全部附件失效」。
@@ -144,15 +147,19 @@ Room 那一包全部 `internal`：**持久化类型不跨模块边界**。app �
 
 ### 迁移
 
-`exportSchema = true`，`1.json` / `2.json` / `3.json` 都入库，Room 会用
-`identityHash` 校验手写的迁移和实体声明是否一致——对不上直接崩，
-而不是在运行时因为缺一列而莫名其妙地失败。
+`exportSchema = true`，导出的 schema 入库，Room 会用 `identityHash` 校验手写的迁移和
+实体声明是否一致——对不上直接崩，而不是在运行时因为缺一列而莫名其妙地失败。
+（**`Log/schemas/` 目前只有 `1.json` / `3.json` / `4.json`，缺 `2.json`**，
+不影响构建，但迁移测试要用它，补上。）
 
 - `MIGRATION_1_2`：建 `chat_message`，从老 `ChatMessage` 表搬数据。
   `sendFromMe` 布尔列展开成 `role`（`CASE WHEN sendFromMe != 0 THEN 'USER' ELSE 'ASSISTANT' END`），
   `characterName` → `characterId`。**`id` 原样带过去**，这样附件表的外键有稳定的目标。
   然后 drop 老表、建索引
 - `MIGRATION_2_3`：建 `chat_attachment` + 索引
+- `MIGRATION_3_4`：`chat_attachment` 加六列，纯加列所以走 `ALTER TABLE ADD COLUMN`。
+  `origByteSize` 是 NOT NULL，ALTER 必须带 `DEFAULT 0`，实体侧要有配对的
+  `@ColumnInfo(defaultValue = "0")` —— 少一边 `identityHash` 就对不上、启动即崩
 
 **没有 `fallbackToDestructiveMigration()`**，这是刻意的：聊天记录是用户资产，
 迁移写错了应该崩在开发者脸上，不能静默清库。
@@ -176,8 +183,8 @@ internal data class MessageWithAttachments(
 
 ## 四、附件字节：`AttachmentStore`
 
-在 app 模块（`data/attachment/`）而不是 `Log`：它要用 `Context`、`Bitmap`、
-`ExifInterface`，而 `Log` 应该只管数据库。
+在 app 模块（`data/attachment/`）而不是 `Log`：它要用 `Context` 和一堆平台媒体 API，
+而 `Log` 应该只管数据库。
 
 ```
 <getExternalFilesDir("attachments")>/<characterId>/<uuid>.jpg
@@ -191,27 +198,35 @@ SAF 给的 `content://` URI 的授权生命周期绑在那一次 `ACTION_OPEN_DO
 进程重启后可能就读不了了；而历史重放要求**任意时刻**都能读到这份字节。
 这和 VITS 模型必须导入落地是同一个理由的变体（那边是 ncnn 在 native 层 `fopen`）。
 
-### 为什么重编码而不是原样复制
+### 为什么归一化而不是原样复制
 
-各家云端 API 对单张图有边长和体积上限。落盘的这一份副本
+各家云端 API 对格式、边长、体积、采样率都有硬要求。落盘的这一份副本
 **就是模型真正看到的东西**，所以裁剪必须在入库时做完，而不是发送时临时算——
-否则历史重放和当初发出去的不是同一张图。
+否则历史重放和当初发出去的不是同一份内容。
 
-参数按**最严的 provider** 取（`Limits`：长边 1568、体积 4MB、JPEG 质量 88 起步退到 55 地板）。
-按最严的压，切到任何一家重放都合法；按宽松的压，切到严格的一家就重放失败。
-**只留这一份，不留原图**——留原图能保真，代价是媒体占用翻倍，而 APK 已经 440MB。
+参数按**最严的 provider** 取：按最严的压，切到任何一家重放都合法；
+按宽松的压，切到严格的一家就重放失败。
+**只留这一份，不留原件**——留原件能保真，代价是媒体占用翻倍，而 APK 已经 440MB。
+（唯一例外是视频：父行存原视频给 UI 回放，模型看的是抽出来的帧。见下。）
 
-### 两个容易踩的点
+### 格式这件事已经搬走了
 
-1. **EXIF 方向**。相机拍的 JPEG 靠 EXIF 记方向，像素本身没转。重编码会丢掉 EXIF，
-   所以必须先把旋转烧进像素，否则喂给视觉模型的是一张躺着的图。
-   八种 orientation 全处理（含 transpose / transverse）
-2. **两段式解码**。先 `inJustDecodeBounds` 只读尺寸算 `inSampleSize`，再真解码——
-   直接全尺寸解一张 108MP 的图会 OOM。`inSampleSize` 只能是 2 的幂，
-   所以之后还要 `createScaledBitmap` 精确缩一次
+`AttachmentStore` 现在**只管字节**：落盘（`adopt`）/ 定位（`resolve`）/ 删除 / GC。
+它一度同时管图像归一化（解码、降采样、EXIF、JPEG 重编码），加上音视频之后那条路走不通了。
 
-音频/文档目前是**直通**（只做体积闸门不转码）；`VIDEO` 明确拒绝——
-它要转码 + 时间轴，宁可明确拒绝也不要落一个发不出去的附件。
+格式知识全在 `MediaProbe` + `MediaNormalizer` 那一族里，**设计和取舍写在
+[media-pipeline.md](media-pipeline.md)**，动这一层之前先看它。这里只记结论：
+
+| 类型 | 规范形态 |
+|---|---|
+| 图像 | 长边 ≤1568，不透明走 JPEG、带 alpha 走 PNG→WebP |
+| 音频 | 16kHz 单声道 16bit WAV；mp3 和已经是 16k mono 的 wav 直通 |
+| 视频 | **不转码**，抽帧成 N 张图 + 抽音轨成 WAV，父行只给 UI |
+| DOC | 只受理 PDF，原样落地 |
+
+改造前这里有个会 OOM 的洞：体积闸门写在 `readBytes()` **之后**，
+选一个大文件时 OOM 发生在闸门之前。现在体积从 `OpenableColumns.SIZE` 拿，
+整条管线再没有 `readBytes()`。
 
 ### 文件回收
 
@@ -221,8 +236,12 @@ SAF 给的 `content://` URI 的授权生命周期绑在那一次 `ACTION_OPEN_DO
 - **孤儿 GC**：`gc(referenced)` 遍历磁盘，不在引用集合里的文件全删。
   `referenced` 必须是 `referencedAttachmentPaths()`（**全库**）——
   按角色算会把别人的文件误判成孤儿
+- **临时文件**：`clearTemp()`。归一化的中间产物落在 `externalCacheDir`，
+  **刻意不在 GC 的覆盖范围内**（否则正在转码的文件会被当孤儿删掉），
+  所以要单独扫一次
 
-启动时跑一次 GC，兜住「写完文件但插库失败」这类中间态。
+启动时 GC 和 `clearTemp()` 各跑一次，兜住「写完文件但插库失败」和
+「转码中途被杀进程」这两类中间态。
 
 ## 五、和 `ChatCore` 的接线
 
@@ -316,19 +335,24 @@ file id 缓存在 `chat_attachment` 的三个 remote 列里，
 | 4 | 接回 `ChatCore`：多模态落库与恢复、thinking gate、流式 status、真实维度估算 | ✅ 完成 |
 | 5 | 能力检查下沉到模型级 + `ChatProvider.upload()` | ✅ 完成 |
 | 6 | 本文档 + CLAUDE.md 订正 | ✅ 完成 |
+| 7 | 媒体格式兼容层（v4 / 音频转码 / 视频抽帧） | ✅ 完成，见 [media-pipeline.md](media-pipeline.md) |
 
 验证：`:ChatCore:compileDebugKotlin` ✅、`:Log:compileDebugKotlin` ✅、
-`:app:compileDebugKotlin` ✅。**实机端到端联调还没做**，和 `ChatCore` 一样。
+`:app:compileDebugKotlin` ✅、`assembleDebug` ✅。
+**实机端到端联调还没做**，和 `ChatCore` 一样。
 
 ## 八、待办
 
-1. **附件 UI 入口**。存储和映射都通了，但聊天页还没有「加图片」这个按钮。
-   接线点：`AttachmentStore.importImage()` → `ChatHistoryStore.appendUser(text, attachmentRefs = ...)`
+1. **附件 UI 入口**。存储、归一化、映射都通了，但聊天页还没有「加图片」这个按钮。
+   接线点：`AttachmentProvider.ingest(context).ingest(characterId, uri)`
+   → `Progress.Success.refs` → `ChatHistoryStore.appendUser(text, attachmentRefs = ...)`
    → `uploadIfWorthwhile()`
-2. **`ChatSession.send()` 收附件**。现在只收 `String`
-3. **迁移的实机验证**。1→2 的数据搬迁在真机上跑一遍老库
-4. **音频转码**。直通只做了体积闸门，各家对采样率/编码是有要求的
-5. **视频**。要转码 + 时间轴（`video_metadata` / fps / start-end offset），单独一轮
-6. **语义召回**。见第一节结尾
+2. **`ChatSession.send()` 收附件**。现在只收 `String`，这是发送路径上最后一道缺口
+3. **迁移的实机验证**。1→2 的数据搬迁、3→4 的加列，都要在真机老库上跑一遍
+4. **补 `Log/schemas/2.json`**。见第三节「迁移」
+5. **语义召回**。见第一节结尾
 
-明确**不在**范围内：realtime 会话（另立接口，见第一节）；给角色层加真 uuid（见第六节）。
+~~音频转码~~、~~视频~~ 已经做完，搬到 [media-pipeline.md](media-pipeline.md) 了。
+
+明确**不在**范围内：realtime 会话（另立接口，见第一节）；给角色层加真 uuid（见第六节）；
+流媒体格式（见 media-pipeline.md 第八节）。

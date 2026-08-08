@@ -79,7 +79,12 @@ dependencies {
     // 12 个文件直接 import kotlinx.coroutines，原先靠 lifecycle 的传递依赖
     implementation libs.kotlinx.coroutines.android
     implementation libs.androidx.core.ktx
-    implementation libs.androidx.exifinterface
+    // 媒体管线（docs/media-pipeline.md）：
+    // coil 做图像解码前端（HEIF/AVIF/EXIF 方向/采样解码都归它），
+    // media3-common 只用 androidx.media3.common.audio 那一包做重采样和声道混合。
+    // exifinterface 已经去掉——方向由 Coil 的 ExifOrientationPolicy.RESPECT_ALL 接管。
+    implementation libs.coil.core
+    implementation libs.androidx.media3.common
     implementation libs.androidx.appcompat
     implementation libs.material
     implementation libs.androidx.constraintlayout

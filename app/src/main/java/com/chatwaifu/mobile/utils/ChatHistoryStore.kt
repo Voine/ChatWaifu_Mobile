@@ -253,9 +253,31 @@ class ChatHistoryStore(
         }
 
         if (text.isNotBlank()) contents += ChatContent.Text(text)
-        contents += attachments.mapNotNull { it.toCoreContent(currentProviderId) }
+        contents += modelVisibleAttachments()
+            .mapNotNull { it.toCoreContent(currentProviderId) }
 
         return if (contents.isEmpty()) null else ChatMessage(coreRole, contents)
+    }
+
+    /**
+     * 过滤掉**派生物的父行**。
+     *
+     * 视频是一个视频落多行：父行（原视频）+ N 行抽帧 + 1 行音轨，
+     * 而模型看的是帧和音轨，父行只给 UI 回放（见 `VideoNormalizer` 的 KDoc）。
+     *
+     * 判定方式是「这条消息里有没有别的行认它当 source」，而不是硬编码
+     * `kind == VIDEO`：以后要是图像也长出派生物（比如超大图切片），这里不用改。
+     * 反过来，一个 VIDEO 行**没有**任何派生物时它不会被过滤掉，
+     * 会走到 [toCoreContent] 的 VIDEO 分支被拒——那是老数据（v4 之前存进去的视频）
+     * 应有的下场。
+     */
+    private fun ChatLogEntry.modelVisibleAttachments(): List<AttachmentRef> {
+        val parentPaths = attachments.mapNotNullTo(mutableSetOf()) { it.sourceRelPath }
+        return if (parentPaths.isEmpty()) {
+            attachments
+        } else {
+            attachments.filter { it.relPath !in parentPaths }
+        }
     }
 
     /**
@@ -292,9 +314,11 @@ class ChatHistoryStore(
                 fileName = relPath.substringAfterLast('/'),
                 mimeType = mime,
             )
-            // 视频入库这一环还没做（要转码 + 时间轴），到这里说明数据不该存在
+            // 视频本体不发给基座——只有 Gemini 收视频，而抽出来的帧和音轨已经
+            // 作为派生行进上下文了（见 modelVisibleAttachments）。走到这里的只有
+            // 两种情况：v4 之前存进去的老视频行，或者抽帧全失败的视频。都跳过。
             AttachmentKind.VIDEO -> {
-                Log.w(TAG, "video attachment not supported yet, skipped: $relPath")
+                Log.w(TAG, "video row without derived frames, skipped: $relPath")
                 null
             }
         }

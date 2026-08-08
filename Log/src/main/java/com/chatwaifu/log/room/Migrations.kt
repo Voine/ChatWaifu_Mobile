@@ -116,5 +116,35 @@ internal object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * v3 → v4：`chat_attachment` 加六列，全部**纯加列**，所以能用 `ALTER TABLE ADD COLUMN`
+     * 而不必重建表。
+     *
+     * - `sampleRate` / `channels`：音频参数，判「能不能直接发」要用
+     * - `sourceRelPath` / `posMs`：派生关系（视频抽帧 / 抽音轨），见 [com.chatwaifu.log.AttachmentRef]
+     * - `origMime` / `origByteSize`：用户原本给的形态
+     *
+     * 五列可空所以历史行自然是 NULL；`origByteSize` 是 NOT NULL，
+     * 必须给 `DEFAULT 0` —— 老行没有这个信息，0 就是「未记录」这个语义。
+     * 加 NOT NULL 列不带默认值，SQLite 会直接拒绝执行这条 ALTER。
+     *
+     * **实体里 `origByteSize` 不能声明默认值**：Room 校验 schema 时比对的是列定义，
+     * 这里写了 `DEFAULT 0` 而实体没有对应的 `@ColumnInfo(defaultValue = "0")`，
+     * identityHash 就对不上、启动即崩。所以下面 ALTER 里的默认值和实体的
+     * `@ColumnInfo(defaultValue = "0")` 是一对，改一个必须改另一个。
+     */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `chat_attachment` ADD COLUMN `sampleRate` INTEGER")
+            db.execSQL("ALTER TABLE `chat_attachment` ADD COLUMN `channels` INTEGER")
+            db.execSQL("ALTER TABLE `chat_attachment` ADD COLUMN `sourceRelPath` TEXT")
+            db.execSQL("ALTER TABLE `chat_attachment` ADD COLUMN `posMs` INTEGER")
+            db.execSQL("ALTER TABLE `chat_attachment` ADD COLUMN `origMime` TEXT")
+            db.execSQL(
+                "ALTER TABLE `chat_attachment` ADD COLUMN `origByteSize` INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }
