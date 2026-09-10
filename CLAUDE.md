@@ -148,6 +148,18 @@ LFS 指针文件，会被打进 AAR 但体积可忽略。代价是 **`BertVITS2S
 已经改成跟着模型走：`SoundPlayHandler` 现在会按需重建 `AudioTrack`（以前 `setTrackData()`
 只改字段不重建，等于没生效），`LipsValueHandler.playDefaultAnimation` 用实际采样率算动画时长。
 
+### 记忆分层
+
+**尚未施工**，设计已定稿在 **`docs/memory.md`**。
+
+现在唯一的「记忆」是 `ContextBudget.trim()` 的尾部截断 + `ChatHistoryStore.HISTORY_LIMIT = 200`，
+第 200 条之前的对话对模型完全不存在，且每轮掉一条导致 prompt cache 前缀每轮都变。
+
+定下来的方向：L0 工作记忆分块淘汰（修缓存）+ L2 结构化事实槽位（每轮常驻 system 区，
+`(characterId, slot)` UNIQUE 强制 upsert 语义）。**记忆按角色隔离不共享**、
+抽取走 `MemoryExtractor` 接口且模型可单独配置、L3 检索用 `LIKE` 不上 FTS ——
+这三条是拍过板的，不要再当开放问题讨论。
+
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。
 
