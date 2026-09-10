@@ -18,10 +18,22 @@ data class CharacterModel(
      * 从 meta.json 读出来的实际文件名，不再靠「文件名必须和目录名一致」的约定去猜。
      */
     val live2dEntryFileName: String,
-    /** vits 模型目录绝对路径，null 表示这个角色没有语音 */
+    /**
+     * 声库根目录绝对路径，null 表示这个角色没有语音。
+     *
+     * 内置角色指向 [ModelStorage.bv2Root] 那份共享的 BV2 权重（单模型多 speaker，
+     * 靠 [speakerId] 区分），导入角色指向自己的 `vits/` 目录。
+     */
     val vitsDir: String?,
-    /** 多人混合模型里的 speaker id，单人模型为 0 */
+    /**
+     * BERT 编码器目录绝对路径。**按语种共享**、随包走，所以和 [vitsDir] 分开：
+     * 导入模型只需要自带声学模型，不用背一份 40MB 的 BERT。
+     */
+    val bertDir: String?,
+    /** BV2 config.json `spk2id` 里的 speaker id，单人模型为 0 */
     val speakerId: Int,
+    /** `LANGUAGE_ZH/EN/JP/MIX_ZH_EN` 之一 */
+    val language: Int,
 ) {
     val hasVoice: Boolean get() = vitsDir != null
 }

@@ -1,0 +1,3 @@
+[submodule "Bert-VITS2-MNN"]
+	path = Bert-VITS2-MNN
+	url = git@github.com:Voine/Bert-VITS2-MNN.git

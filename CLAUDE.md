@@ -1,6 +1,6 @@
 # ChatWaifu_Mobile
 
-Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → 本地 VITS 推理出语音 → 驱动 Live2D 模型口型与动作；语音输入走本地 Sherpa-ncnn ASR。
+Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → 本地 Bert-VITS2 推理出语音 → 驱动 Live2D 模型口型与动作；语音输入走本地 Sherpa-ncnn ASR。
 
 初版写于 2023 年初（GPT-3.5 刚发布），2023 年后基本停止维护，2026 年重新开始迭代。当前开发分支 `feature/v2.0.0`。
 
@@ -8,10 +8,14 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 
 - Kotlin + Jetpack Compose（UI 全部 Compose，但外壳仍是 Activity + Fragment + Navigation 混合架构）
 - MVVM + LiveData / SharedFlow，Retrofit + Gson 做网络，Room 做聊天记录持久化
-- 三块 Native：VITS(ncnn) 语音合成、Live2D Cubism SDK(C++) 渲染、meta-lipSync 口型分析
+- Native：Bert-VITS2 + MNN 语音合成（走 `Bert-VITS2-MNN` submodule 打的 AAR，本仓库自己不再有 TTS 的 cpp）、Live2D Cubism SDK(C++) 渲染、meta-lipSync 口型分析
 - Sherpa-ncnn 语音识别跑在**独立进程** `:sherpa`，通过 AIDL 通信
 - AGP 9.3.1 / Gradle 9.6.1 / Kotlin 2.3.21 / JDK 17 toolchain，全模块字节码目标 Java 11
-- `compileSdk` = 37，`targetSdk` = 36，`minSdk` = 28（为媒体管线从 24 抬上来的，理由见 `docs/media-pipeline.md` 第三节）
+- `compileSdk` = 37，`targetSdk` = 36，`minSdk` = 29（先为媒体管线从 24 抬到 28，
+  理由见 `docs/media-pipeline.md` 第三节；再被 Bert-VITS2-MNN 顶到 29）
+- **只出 `arm64-v8a`**：BV2 的 native 只有 arm64 一份。决定 APK 里有哪些 ABI 的是
+  `app/build.gradle` 的 `defaultConfig.ndk.abiFilters`——库模块里的 `abiFilters` 只管自己
+  CMake 的产物，管不到预置 jniLibs（Sherpa）和 AAR 带进来的 `.so`
 - **走 AGP 9 的 built-in Kotlin**：模块不再 apply `org.jetbrains.kotlin.android`，也没有任何 `kotlinOptions {}`
 - Room 的注解处理走 **KSP**（2.3.11），已从 kapt 迁走；`kotlin-kapt` 插件全工程不再使用
 - 只申请 `RECORD_AUDIO` + `INTERNET`。**没有任何存储权限**，模型走应用专属目录 + SAF 导入
@@ -25,13 +29,16 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 | `app` | `com.chatwaifu.mobile` | 唯一 application 模块，UI + 编排全流程 |
 | `ChatCore` | `com.chatwaifu.chat` | 聊天基座抽象层，多 provider（见 `docs/chat-core.md`） |
 | `Translate` | `com.chatwaifu.translate` | 翻译抽象 `ITranslate` + 百度翻译实现 |
-| `VITS` | `com.chatwaifu.vits` | VITS-ncnn 语音合成 + 文本清洗 + 音频播放/录制（含 CMake） |
+| `VITS` | `com.chatwaifu.vits` | TTS 门面：包 BV2 的 AAR + 音频播放 + 文件/权限工具（模块名沿用，Bert-VITS2 本身就是 VITS） |
 | `Live2D` | `com.chatwaifu.live2d` | Live2D Cubism SDK Native 封装（含 CMake + SDKRoot） |
 | `Lipsync` | `com.chatwaifu.lipsync` | meta-lipSync Native 封装（含 CMake） |
 | `Sherpa` | `com.k2fsa.sherpa.ncnn` | Sherpa-ncnn ASR，跑在 `:sherpa` 进程，AIDL 暴露 |
 | `Log` | `com.chatwaifu.log` | Room 数据库，聊天记录 + 附件引用读写（见 `docs/chat-storage.md`） |
 
 依赖方向：`app` → 其余 7 个模块，模块之间**无横向依赖**。
+
+外加一个 submodule `Bert-VITS2-MNN`（`git@github.com:Voine/Bert-VITS2-MNN.git`，钉在 `master`），
+不参与 ChatWaifu 的 Gradle 构建，见下面「端内 TTS」一节。
 
 ## 核心链路
 
@@ -43,7 +50,7 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 3. `beginAssistant()` 先插一行 `STREAMING` 占位，拿到 messageId
 4. `streamChatRequest()` → `ChatSession.send()`，collect `Flow<ChatDelta>`；`TextDelta` 逐字累积后 emit 到 `_chatContentUIFlow` 渲染气泡（`isStreaming = true`）。结束时 `finishAssistant()` 把占位行补成最终文本 + usage + thinking + `OK`；失败或断流走 `failAssistant()` 标 `FAILED` 并保留片段
 5. `fetchTranslateIfNeed()` — 默认把回复翻成日文（内置模型都是日语声库）
-6. `generateAndPlaySound()` → `SoundGenerateHelper.generateAndPlay()`，VITS 推理出的 `FloatArray` 一路给 `SoundPlayHandler` 播放、一路 `forwardResult` 给 `LipsValueHandler` 驱动口型
+6. `generateAndPlaySound()` → `SoundGenerateHelper.generateAndPlay()`，BV2 **按句**推理出的 `FloatArray` 一路给 `SoundPlayHandler` 播放、一路连同**采样率**一起 `forwardResult` 给 `LipsValueHandler` 驱动口型
 
 `ChatStatus` 枚举（`DEFAULT/FETCH_INPUT/SEND_REQUEST/TRANSLATE/GENERATE_SOUND`）通过 `chatStatusLiveData` 给 UI 显示当前阶段。
 
@@ -104,6 +111,43 @@ MediaProbe → MediaNormalizer(Image/Audio/Video/Doc) → AttachmentStore.adopt(
 `media3-transformer`）、各家能收什么的对照表、修掉的三个洞、v4 schema，
 全在 **`docs/media-pipeline.md`**，动这一层之前先看它。
 
+### 端内 TTS（Bert-VITS2 + MNN）
+
+2026/9 从 2023 年那套 VITS-ncnn 换过来的。老实现（自己写的 Kotlin 音素化 +
+`vitsncnn_jni.cpp` 里的 ncnn 前向 + 302MB `.ncnn.bin` 权重）已整体删除。
+
+**AAR 不入库，从 submodule 现场产出**。首次 clone 或换 submodule commit 后要跑一次：
+
+```bash
+git submodule update --init --recursive
+git lfs install
+git -C Bert-VITS2-MNN lfs pull --include="bertvits2-jni/src/main/assets/bv2_model/jp/*,\
+bertvits2-jni/src/main/assets/bert/jp/*,\
+openjtalk/src/main/assets/open_jtalk_dic_utf_8-1.11/*"
+cd Bert-VITS2-MNN && ./gradlew publishAars \
+    -PpublishGroupId=com.chatwaifu.bv2 -PpublishVersion=2.0.0-a45fd76
+```
+
+产物落在 `Bert-VITS2-MNN/build/repo`，`settings.gradle` 里已经把它加成第一个 maven 源。
+版本号在 `libs.versions.toml` 的 `bertvits2`，格式是 `<上游 versionNameExt>-<submodule commit>`，
+**换 commit 时它和 `-PpublishVersion` 要一起改**。
+
+**只拉了日文链路的 LFS 权重**（约 190MB）。zh / en / mix 在 submodule 里仍是 130 字节的
+LFS 指针文件，会被打进 AAR 但体积可忽略。代价是 **`BertVITS2SimpleInferImpl` 不能用**——
+它启动时要遍历全部四个语种的 config.json，会在解析指针文件时挂掉。
+我们走的是 `IBertVITS2FullInfer`（`setBertVITS2ModelPath` 收绝对路径），不碰那条路。
+
+**两处硬编码路径**（BV2 的 AAR 里写死的，不是我们能选的）：
+- `text-preprocess` 的 `JPBV2Impl` 读 `filesDir/bert/jp/vocab.txt` → 由 `Bv2ModelInstaller` 装
+- openjtalk 词典从 **APK assets** 直读 `open_jtalk_dic_utf_8-1.11`（98MB，openjtalk AAR 自带）
+
+好消息是 BV2 四个语种的预处理全是 `by lazy`，日文链路不碰 zh 的 jieba 词典，
+所以 `initPreprocessor()`（拷 17MB zh/en 词典）**只在非日文语种才调**。
+
+**采样率是运行时才知道的**（日文底模 44100，老内置模型 22050）。两处以前写死 22050 的地方
+已经改成跟着模型走：`SoundPlayHandler` 现在会按需重建 `AudioTrack`（以前 `setTrackData()`
+只改字段不重建，等于没生效），`LipsValueHandler.playDefaultAnimation` 用实际采样率算动画时长。
+
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。
 
@@ -115,11 +159,25 @@ MediaProbe → MediaNormalizer(Image/Audio/Video/Doc) → AttachmentStore.adopt(
 内置模型和用户导入模型走**同一套磁盘布局**，落在应用专属外部目录：
 
 ```
-<getExternalFilesDir("models")>/<角色名>/
-  meta.json
-  live2d/    xxx.model3.json, xxx.moc3, ...
-  vits/      config.json, *.bin       ← 可选，没有就是无语音角色
+<getExternalFilesDir("models")>/
+  <角色名>/
+    meta.json
+    live2d/    xxx.model3.json, xxx.moc3, ...
+    vits/      config.json, *.mnn     ← 可选；导入角色自带的声学模型
+  _bv2/                               ← BV2 共享声库，内置角色都指向这里
+    bv2_model/<lang>/  config.json + 6 个 *.mnn
+    bert/<lang>/       BERT *.mnn
 ```
+
+**声库为什么要拆共享**：BV2 是单模型多 speaker（config.json 的 `spk2id`），三个内置角色
+共用同一份权重、只差一个 speaker id，按角色各拷一份的话磁盘上会躺三份 90MB。
+`ModelMeta.sharedVoice` 标记走哪条路，`Bv2ModelInstaller` 负责装共享那份并分配 speaker。
+**BERT 永远是共享的**（它是「一个语种的编码器」随包走），所以导入模型只需自带声学模型，
+不用背一份 40MB 的 BERT——`CharacterModel` 里 `vitsDir` 和 `bertDir` 因此是两个字段。
+
+日文底模的 `spk2id` 是 `{八重神子_JP:0, 宵宫_JP:1, 椿_JP:2, 野兽先辈_JP:3}`，
+按角色在 assets 里的顺序轮着分。**皮套和声音是对不上的**（BV2 的日文角色和
+Yuuka/Amadeus/ATRI 没关系），等炼了自己的模型再替换 `_bv2/bv2_model/jp/` 那 6 个 `.mnn`。
 
 - `CharacterRepository`（接口）是角色数据的唯一来源，调用方只看 `CharacterModel`，不关心是内置还是导入
 - `ModelImporter`（接口）负责从 zip 导入，`Flow<ImportProgress>` 发进度
@@ -209,7 +267,7 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 已经逐屏适配过，改动模式如下，新增页面照这个来：
 
 - Activity 侧调 `enableEdgeToEdge()`（`ChatActivity` / `LoginActivity`）。系统在 35+ 本来就强制，
-  显式调用是为了 minSdk 24~34 行为一致，外加把系统栏图标明暗对比交给 androidx
+  显式调用是为了 minSdk 29~34 行为一致，外加把系统栏图标明暗对比交给 androidx
 - **Compose 页面**：默认不要动 `Scaffold.contentWindowInsets`。只有底部真的挂了 `UserInput`
   才 `exclude(navigationBars)`，并且**必须**在 `UserInput` 上补
   `Modifier.navigationBarsPadding().imePadding()`（padding 加在内层，`Surface` 的
@@ -230,23 +288,29 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
   `String`，聊天页也没有「加图片」按钮。接线点见 `docs/media-pipeline.md` 第八节
 - `Log/schemas/` 缺 `2.json`（只有 1/3/4），不影响构建但迁移测试要用
 - `mainLoop()` 的 `while(true)` + continuation 唤醒设计，异常和取消路径比较脆
-- lint 还有 **177 条 warning / 0 error** 的历史存量：`UnusedResources` 62（含
+- lint 还有 **195 条 warning / 0 error** 的历史存量（其中 `ChromeOsAbiSupport` 那条是
+  只出 arm64 的直接后果）：`UnusedResources` 66（含
   `activity_chat.xml` + `app_bar_chat.xml` 两个 Navigation 模板留下的死布局，从来没被 inflate，
   真正的内容是 `content_main.xml`）、`HardcodedText` 27、`Typos` 20、`Autofill`/`TextFields` 各 11
 - manifest 里锁死横屏（`DiscouragedApi`）：Android 16 起固定屏幕方向在多数情况下会被忽略
-- APK 体积 ~440MB，因为三个内置模型（Live2D + VITS 声库）全打进 `assets`，没有做按需下载
+- APK 体积 ~354MB（换 BV2 后从 ~440MB 降下来的）。大头是 openjtalk 词典 98MB +
+  BV2 日文声学模型 49MB + 日文 BERT 43MB + zh/en 预处理词典 17MB + Live2D 22MB，
+  全打进 `assets`，没有做按需下载
+- **BV2 的端到端还没在真机上验过**：整条链路只过了编译和打包
 - 无任何单元测试 / instrumentation 测试
 
 ## 常用命令
 
 ```bash
+# 首次 clone 后必须先产出 BV2 的 AAR，见上面「端内 TTS」一节
 ./gradlew assembleDebug          # 打 debug 包
 ./gradlew :app:assembleRelease   # release 包，产物名 ChatWaifu_<yyyyMMddHHmm>.apk
 ./gradlew clean
 ./gradlew :app:dependencies      # 查依赖树，确认 catalog 收拢后版本解析结果
 ```
 
-Native 部分由 `externalNativeBuild` 的 CMake 自动构建，需要本地装好 NDK（`abiFilters` 只出 `armeabi-v7a` / `arm64-v8a`）。
+Live2D / Lipsync 的 Native 由 `externalNativeBuild` 的 CMake 自动构建，需要本地装好 NDK。
+TTS 的 `.so` 来自 BV2 的 AAR，不在本仓库构建。全工程只出 `arm64-v8a`。
 
 ## 约束
 

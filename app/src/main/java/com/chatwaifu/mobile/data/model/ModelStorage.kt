@@ -2,6 +2,7 @@ package com.chatwaifu.mobile.data.model
 
 import android.content.Context
 import android.util.Log
+import com.chatwaifu.vits.utils.SoundGenerateHelper
 import com.chatwaifu.vits.utils.file.FileUtils
 import com.google.gson.Gson
 import java.io.File
@@ -15,8 +16,13 @@ import java.io.File
  *   <characterName>/
  *     meta.json
  *     live2d/    xxx.model3.json, xxx.moc3, ...
- *     vits/      config.json, *.bin
+ *     vits/      config.json, *.mnn     ← 角色自带声库（导入模型用）
+ *   _bv2/                               ← BV2 共享声库，见 [Bv2ModelInstaller]
+ *     bv2_model/<lang>/  bert/<lang>/
  * ```
+ *
+ * `_bv2` 用下划线前缀是为了和角色名区分：[listInstalled] 靠 meta.json 存在与否过滤，
+ * 共享目录里没有 meta.json，所以不会被当成角色扫出来。
  *
  * 选专属目录而不是 /sdcard/chatwaifu/：targetSdk 升上去之后非媒体文件已经没有
  * 任何运行时权限能访问任意路径了。专属目录零权限、卸载自动清理，且不占内部存储配额。
@@ -30,6 +36,7 @@ internal class ModelStorage(private val context: Context) {
         private const val TAG = "ModelStorage"
         private const val MODELS_DIR = "models"
         private const val STAGING_DIR = "staging"
+        private const val BV2_DIR = "_bv2"
         private const val META_FILE = "meta.json"
         const val LIVE2D_DIR = "live2d"
         const val VITS_DIR = "vits"
@@ -44,6 +51,25 @@ internal class ModelStorage(private val context: Context) {
     val root: File
         get() = (context.getExternalFilesDir(MODELS_DIR) ?: File(context.filesDir, MODELS_DIR))
             .also { if (!it.exists()) it.mkdirs() }
+
+    /** BV2 共享声库根目录，内部布局照抄 AAR 的 assets（见 [Bv2ModelInstaller]） */
+    val bv2Root: File
+        get() = File(root, BV2_DIR).also { if (!it.exists()) it.mkdirs() }
+
+    /** 共享的声学模型目录（内置角色用）。语种目录名的映射只在 BV2 侧有一份 */
+    fun bv2AcousticDir(language: Int): File? =
+        SoundGenerateHelper.languageDirName(language)?.let {
+            File(bv2Root, "${SoundGenerateHelper.BV2_MODEL_DIR}/$it")
+        }
+
+    /**
+     * 共享的 BERT 目录。**导入角色也用这里的** —— BERT 是「一个语种的编码器」，
+     * 随包走，不该逼着每个导入模型自带一份 40MB。
+     */
+    fun bv2BertDir(language: Int): File? =
+        SoundGenerateHelper.languageDirName(language)?.let {
+            File(bv2Root, "${SoundGenerateHelper.BERT_DIR}/$it")
+        }
 
     /** 导入过程中的暂存区，和 [root] 同分区，才能用 rename 原子落地 */
     val stagingRoot: File
@@ -107,9 +133,21 @@ internal class ModelStorage(private val context: Context) {
         source = runCatching { ModelSource.valueOf(meta.source) }.getOrDefault(ModelSource.IMPORTED),
         live2dDir = live2dDir(meta.name).absolutePath,
         live2dEntryFileName = meta.live2dEntryFileName,
-        vitsDir = vitsDir(meta.name).takeIf { meta.hasVits && it.isDirectory }?.absolutePath,
+        vitsDir = resolveVoiceDir(meta),
+        bertDir = bv2BertDir(meta.language)?.takeIf { it.isDirectory }?.absolutePath,
         speakerId = meta.speakerId,
+        language = meta.language,
     )
+
+    /**
+     * 角色的声学模型目录。[ModelMeta.sharedVoice] 为真时指向共享的那份
+     * （内置角色，BV2 是单模型多 speaker），否则是角色自己的 `vits/` 目录（导入模型）。
+     */
+    private fun resolveVoiceDir(meta: ModelMeta): String? {
+        if (!meta.hasVits) return null
+        val dir = if (meta.sharedVoice) bv2AcousticDir(meta.language) else vitsDir(meta.name)
+        return dir?.takeIf { it.isDirectory }?.absolutePath
+    }
 }
 
 /**
@@ -128,6 +166,13 @@ internal data class ModelMeta(
     val live2dEntryFileName: String = "",
     val hasVits: Boolean = false,
     val speakerId: Int = 0,
+    /**
+     * true 表示声库不在角色目录里，而是 [ModelStorage.bv2Root] 那份共享权重。
+     * 内置角色都是 true —— BV2 是单模型多 speaker，没必要每个角色拷一份 90MB。
+     */
+    val sharedVoice: Boolean = false,
+    /** `LANGUAGE_ZH/EN/JP/MIX_ZH_EN` 之一，决定走哪套 G2P 和哪份 BERT */
+    val language: Int = 0,
 ) {
     fun isValid(): Boolean = name.isNotBlank() && live2dEntryFileName.isNotBlank()
 }

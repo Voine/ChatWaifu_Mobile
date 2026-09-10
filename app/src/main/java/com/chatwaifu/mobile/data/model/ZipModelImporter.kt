@@ -7,6 +7,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import com.chatwaifu.vits.utils.file.ConfigParseResult
 import com.chatwaifu.vits.utils.file.FileUtils
+import com.example.textpreprocess.preprocess.LANGUAGE_JP
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -38,6 +39,10 @@ internal class ZipModelImporter(
         private const val TAG = "ZipModelImporter"
         private const val MODEL3_SUFFIX = ".model3.json"
         private const val VITS_CONFIG = "config.json"
+        private const val MNN_SUFFIX = ".mnn"
+
+        /** 导入模型的默认语种。BV2 的 config.json 不带语种信息，只能给个默认值 */
+        private const val IMPORTED_DEFAULT_LANGUAGE = LANGUAGE_JP
 
         /** 防 zip bomb：条目数和解压后总体积上限。内置模型约 330MB，2GB 留足余量 */
         private const val MAX_ENTRIES = 10_000
@@ -96,12 +101,13 @@ internal class ZipModelImporter(
                 return@flow
             }
 
-            // vits 目录 = 含 config.json 且同级有 .bin 的目录。加 .bin 判断是为了
-            // 不把 live2d 侧可能存在的同名 config.json 误认成 vits 配置
+            // 声库目录 = 含 config.json 且同级有 .mnn 的目录。加 .mnn 判断是为了
+            // 不把 live2d 侧可能存在的同名 config.json 误认成声库配置。
+            // 后缀从 .bin 换成 .mnn 是因为引擎从 VITS-ncnn 换成了 Bert-VITS2-MNN
             val vitsRoot = raw.walkTopDown().firstOrNull { dir ->
                 dir.isDirectory &&
                     File(dir, VITS_CONFIG).isFile &&
-                    dir.listFiles()?.any { it.name.endsWith(".bin") } == true
+                    dir.listFiles()?.any { it.name.endsWith(MNN_SUFFIX) } == true
             }
 
             if (vitsRoot != null) {
@@ -125,7 +131,7 @@ internal class ZipModelImporter(
 
             if (vitsRoot != null && vitsRoot == live2dRoot) {
                 // 扁平包：两种文件混在同一层，没法按目录搬，只能按文件名分流。
-                // vits 侧就是 config.json 和那堆 .bin，live2d 的资源里不含 .bin
+                // 声库侧就是 config.json 和那堆 .mnn，live2d 的资源里不含 .mnn
                 if (!splitFlatDir(live2dRoot, live2dTarget, vitsTarget)) {
                     emit(ImportProgress.Failed(ImportError.Io("split flat archive failed")))
                     return@flow
@@ -152,6 +158,13 @@ internal class ZipModelImporter(
                 live2dEntryFileName = live2dEntry.name,
                 hasVits = vitsRoot != null,
                 speakerId = 0,
+                // 导入模型自带声学模型，不共享（sharedVoice = false）；
+                // 但 BERT 仍走随包的共享那份，见 ModelStorage.bv2BertDir
+                sharedVoice = false,
+                // 语种默认按日文算：内置底模是日文，主循环也把回复翻成日文。
+                // 用户导入的模型如果是中/英，得在模型管理页改 —— 这是一道有意留的缝，
+                // config.json 里没有语种字段，猜不出来
+                language = IMPORTED_DEFAULT_LANGUAGE,
             )
             storage.writeMeta(stagedModel, meta)
 
@@ -171,15 +184,15 @@ internal class ZipModelImporter(
     }.flowOn(Dispatchers.IO)
 
     /**
-     * live2d 和 vits 文件混在同一目录时按文件名分流：
-     * `config.json` 和 `*.bin` 归 vits，其余归 live2d。
+     * live2d 和声库文件混在同一目录时按文件名分流：
+     * `config.json` 和 `*.mnn` 归声库，其余归 live2d。
      */
     private fun splitFlatDir(from: File, live2dTarget: File, vitsTarget: File): Boolean {
         if (!live2dTarget.mkdirs() || !vitsTarget.mkdirs()) return false
         val children = from.listFiles() ?: return false
         children.forEach { child ->
             val isVits = child.isFile &&
-                (child.name == VITS_CONFIG || child.name.endsWith(".bin"))
+                (child.name == VITS_CONFIG || child.name.endsWith(MNN_SUFFIX))
             val target = File(if (isVits) vitsTarget else live2dTarget, child.name)
             if (!child.renameTo(target)) return false
         }

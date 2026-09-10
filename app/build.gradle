@@ -18,6 +18,16 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        ndk {
+            // **决定 APK 里最终有哪些 ABI 的就是这一处**。库模块里的 abiFilters 只约束
+            // 自己 CMake 的产物，管不到别人预置的 jniLibs（Sherpa 就是预置 .so），
+            // 也管不到 AAR 带进来的 .so —— 加这条之前包里躺着 4 个 ABI。
+            //
+            // 只出 arm64-v8a 是被 Bert-VITS2-MNN 逼的：它的 libMNN / libbertvits2 /
+            // libtokenizers_c.a 只有 arm64 一份。不过滤的话 32 位设备装得上、
+            // 但一调 TTS 就 UnsatisfiedLinkError，比装不上更糟。
+            abiFilters 'arm64-v8a'
+        }
     }
 
     buildTypes {
@@ -96,7 +106,6 @@ dependencies {
     implementation libs.androidx.lifecycle.viewmodel.ktx
     implementation libs.androidx.lifecycle.runtime.ktx
     implementation libs.androidx.lifecycle.runtime.compose
-    implementation libs.pinyin4j
     implementation libs.androidx.activity.ktx
     implementation libs.androidx.annotation
     implementation libs.unpeek.livedata

@@ -18,6 +18,11 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // Bert-VITS2-MNN 的 AAR 本地仓库。**不入库**，由 submodule 现场产出：
+        //   cd Bert-VITS2-MNN && ./gradlew publishAars \
+        //       -PpublishGroupId=com.chatwaifu.bv2 -PpublishVersion=<版本>
+        // 放在最前面，省得每次都去镜像站问一遍这个不存在的坐标。
+        maven { url = uri("$rootDir/Bert-VITS2-MNN/build/repo") }
         maven { url = 'https://maven.aliyun.com/repository/public/' }
         maven { url = 'https://maven.aliyun.com/repository/central' }
         maven { url = 'https://maven.aliyun.com/repository/google' }

@@ -6,13 +6,20 @@ import android.content.res.AssetManager
 import android.util.Log
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.vits.utils.file.FileUtils
+import com.example.textpreprocess.preprocess.LANGUAGE_JP
 import java.io.File
 
 /**
  * Description: 把随包内置的模型从 assets 解到 [ModelStorage] 的统一布局下。
  *
- * assets 实际来自 Live2D / VITS 两个库模块（`Live2D/src/main/assets/Live2DModels/`、
- * `VITS/src/main/assets/VITSModels/`），运行时会合并进 app 的 asset 命名空间。
+ * live2d 的 assets 来自 `Live2D/src/main/assets/Live2DModels/`；
+ * 声库的 assets 来自 **Bert-VITS2-MNN 的 AAR**（`bertvits2-jni` 的
+ * `bv2_model/` + `bert/`）—— AAR 的 assets 在构建时就合并进了 app 的 asset 命名空间，
+ * 所以读法和本模块自己的 assets 没区别。老的 `VITS/src/main/assets/VITSModels/`
+ * 已经随 ncnn 引擎一起删掉了。
+ *
+ * 声库**不再按角色拷**：BV2 是单模型多 speaker，三个内置角色共用
+ * [Bv2ModelInstaller] 装的那一份权重，各自只记一个 speaker id。
  *
  * 关键点是**版本 gate**：以前每次进角色列表都 deleteIfExists 全量重拷三百多 MB，
  * 现在只在内置资源版本变化或目录缺失时才解。
@@ -25,10 +32,17 @@ internal class BuiltInModelInstaller(
     private val storage: ModelStorage,
     private val sp: SharedPreferences,
 ) {
+    private val bv2Installer by lazy { Bv2ModelInstaller(context, storage) }
+
     companion object {
         private const val TAG = "BuiltInModelInstaller"
         private const val MODEL3_SUFFIX = ".model3.json"
-        private const val VITS_CONFIG = "config.json"
+
+        /**
+         * 内置角色统一用日文声库：主循环的 `fetchTranslateIfNeed()` 本来就把回复
+         * 翻成日文，而且 BV2 只有日文链路的 LFS 权重被拉下来了（见 CLAUDE.md）。
+         */
+        private const val BUILT_IN_LANGUAGE = LANGUAGE_JP
     }
 
     /**
@@ -47,16 +61,25 @@ internal class BuiltInModelInstaller(
         val installedVersion = sp.getInt(Constant.SAVED_BUILT_IN_MODEL_VERSION, -1)
         val versionChanged = installedVersion != Constant.BUILT_IN_MODEL_VERSION
 
+        // 共享声库先装，角色的 speakerId 要从它的 config.json 里分配
+        val bv2Ready = bv2Installer.ensureInstalled(BUILT_IN_LANGUAGE, force = versionChanged) != null
+        if (!bv2Ready) Log.w(TAG, "bv2 voice unavailable, built-in characters will be mute")
+        val speakers = if (bv2Ready) bv2Installer.availableSpeakers(BUILT_IN_LANGUAGE) else emptyList()
+
         val result = mutableListOf<ModelMeta>()
         var allSucceeded = true
-        names.forEach { name ->
+        names.forEachIndexed { index, name ->
             // 版本没变且已经解好了就跳过，这是省掉几百 MB 重拷的关键分支
             val existing = storage.readMeta(name)
             if (!versionChanged && existing != null) {
                 result += existing
-                return@forEach
+                return@forEachIndexed
             }
-            val meta = install(assets, name)
+            // speaker 按角色在 assets 里的顺序轮着分，声库里 speaker 不够就重复用。
+            // 皮套和声音本来就对不上（BV2 的日文角色和 Yuuka/Amadeus/ATRI 没关系），
+            // 等用户自己炼了模型再替换，见 docs 里的说明
+            val speaker = speakers.getOrNull(index % speakers.size.coerceAtLeast(1))
+            val meta = install(assets, name, speaker?.second ?: 0, bv2Ready)
             if (meta != null) {
                 result += meta
             } else {
@@ -74,7 +97,12 @@ internal class BuiltInModelInstaller(
         return result
     }
 
-    private fun install(assets: AssetManager, name: String): ModelMeta? {
+    private fun install(
+        assets: AssetManager,
+        name: String,
+        speakerId: Int,
+        hasVoice: Boolean,
+    ): ModelMeta? {
         Log.d(TAG, "installing built-in model $name")
         val staged = File(storage.stagingRoot, name)
         if (staged.exists()) FileUtils.deleteDirectory(staged)
@@ -91,19 +119,16 @@ internal class BuiltInModelInstaller(
                 return null
             }
 
-            // vits 是可选的：只有 live2d 的角色也能用，只是不出声
-            val vitsSrc = "${Constant.VITS_BASE_PATH}/$name"
-            val hasVits = assets.list(vitsSrc)?.contains(VITS_CONFIG) == true
-            if (hasVits) {
-                copyAssetDir(assets, vitsSrc, File(staged, ModelStorage.VITS_DIR))
-            }
-
+            // 声库是可选的：只有 live2d 的角色也能用，只是不出声。
+            // 这里不再往 staged 里拷任何声库文件 —— 权重在共享目录，见 Bv2ModelInstaller
             val meta = ModelMeta(
                 name = name,
                 source = ModelSource.BUILT_IN.name,
                 live2dEntryFileName = entry,
-                hasVits = hasVits,
-                speakerId = 0,
+                hasVits = hasVoice,
+                speakerId = speakerId,
+                sharedVoice = true,
+                language = BUILT_IN_LANGUAGE,
             )
             storage.writeMeta(staged, meta)
 

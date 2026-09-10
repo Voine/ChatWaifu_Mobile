@@ -234,30 +234,33 @@ class ChatActivityViewModel : ViewModel() {
         loadVitsModel(character)
     }
 
+    /**
+     * 装载角色的 BV2 声库。
+     *
+     * 改造前是 `loadConfigs()` + `loadModel()` 两次 `suspendCancellableCoroutine`，
+     * 因为老 VITS 必须先从 config 解出 symbols 才能建 textUtils。BV2 的 G2P 在
+     * `text-preprocess` 里，config 只提供采样率，所以合成了一次 suspend 调用。
+     */
     private fun loadVitsModel(character: CharacterModel) {
         val vitsDir = character.vitsDir
         if (vitsDir == null) {
             // 没有语音的角色也应该能进聊天页，只是不出声。
             // 以前这里会走到加载失败，导致这类模型根本进不去。
-            Log.i(TAG, "${character.name} has no vits model, skip loading")
+            Log.i(TAG, "${character.name} has no voice model, skip loading")
             viewModelScope.launch { _loadVITSModelLiveData.emit(VITSLoadStatus.STATE_SUCCESS) }
             return
         }
-        loadingUILiveData.postValue(Pair(true, "Load VITS Model...."))
+        loadingUILiveData.postValue(Pair(true, "Load TTS Model...."))
         viewModelScope.launch(Dispatchers.IO) {
-            val rootFiles = File(vitsDir).listFiles()?.toList().orEmpty()
-            val configResult = suspendCancellableCoroutine<Boolean> {
-                vitsHelper.loadConfigs(rootFiles.find { it.name.endsWith("json") }?.absolutePath) { isSuccess ->
-                    it.safeResume(isSuccess)
-                }
-            }
-
-            val binResult = suspendCancellableCoroutine<Boolean> {
-                vitsHelper.loadModel(rootFiles.find { it.name.endsWith("bin") }?.absolutePath) { isSuccess ->
-                    it.safeResume(isSuccess)
-                }
-            }
-            _loadVITSModelLiveData.emit(if (binResult && configResult) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED)
+            val success = vitsHelper.init(
+                bv2Dir = vitsDir,
+                bertDir = character.bertDir,
+                language = character.language,
+                targetSpeakerId = character.speakerId,
+            )
+            _loadVITSModelLiveData.emit(
+                if (success) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED
+            )
             loadingUILiveData.postValue(Pair(false, ""))
         }
     }
@@ -348,23 +351,21 @@ class ChatActivityViewModel : ViewModel() {
         }
     }
 
-    private fun generateAndPlaySound(needPlayText: String?) {
+    private suspend fun generateAndPlaySound(needPlayText: String?) {
         val character = currentCharacter
         if (character == null || !character.hasVoice) {
             chatStatusLiveData.postValue(ChatStatus.DEFAULT)
             return
         }
-        vitsHelper.generateAndPlay(text = needPlayText,
-            targetSpeakerId = character.speakerId,
-            callback = { isSuccess ->
-            Log.d(TAG, "generate sound $isSuccess")
-            if (chatStatusLiveData.value == ChatStatus.GENERATE_SOUND) {
-                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
-            }},
-            forwardResult = {
-                lipsValueHandler.sendLipsValues(it)
-            }
-        )
+        // speakerId 不再每次传：它在 loadVitsModel() 里就随模型一起设好了，
+        // 一个 SoundGenerateHelper 实例同时只服务一个角色
+        val isSuccess = vitsHelper.generateAndPlay(text = needPlayText) { pcm, sampleRate ->
+            lipsValueHandler.sendLipsValues(pcm, sampleRate)
+        }
+        Log.d(TAG, "generate sound $isSuccess")
+        if (chatStatusLiveData.value == ChatStatus.GENERATE_SOUND) {
+            chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+        }
     }
 
     fun sendMineMsgUIState(content: String) {

@@ -8,23 +8,12 @@ android {
 
     defaultConfig {
         minSdk libs.versions.minSdk.get().toInteger()
-
-        externalNativeBuild {
-            cmake {
-                cppFlags '-std=c++11'
-            }
-        }
-        ndk{
-            abiFilters 'armeabi-v7a', 'arm64-v8a'
-        }
     }
 
-    externalNativeBuild {
-        cmake {
-            path file('src/main/cpp/CMakeLists.txt')
-            version = libs.versions.cmake.get()
-        }
-    }
+    // 没有 externalNativeBuild / abiFilters 了：老的 vitsncnn_jni.cpp 已经删掉，
+    // 现在这个模块自己不含 native 代码，推理的 .so 全部来自 BV2 的 AAR
+    // （只有 arm64-v8a，所以 app 侧的 abiFilters 也收窄到了 arm64）。
+
     buildFeatures {
         viewBinding = true
     }
@@ -42,6 +31,12 @@ android {
 }
 
 dependencies {
+    // BV2 端内 TTS。api 而不是 implementation：SoundGenerateHelper 的公开签名和
+    // ModelMeta.language 里用到了 LANGUAGE_* 和 IBertVITS2JNI，调用方（app）要能看见
+    api libs.bertvits2.infer.wrapper
+    api libs.bertvits2.jni
+    api libs.bertvits2.text.preprocess
+
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material
@@ -49,6 +44,5 @@ dependencies {
     implementation libs.gson
     implementation libs.androidx.navigation.fragment
     implementation libs.androidx.navigation.ui.ktx
-    implementation libs.pinyin4j
-    implementation libs.pinyin.houbb
+    implementation libs.kotlinx.coroutines.android
 }

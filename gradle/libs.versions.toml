@@ -6,13 +6,17 @@
 # compileSdk 37：core-ktx 1.19 / lifecycle 2.11 的 AAR metadata 硬性要求 >= 37。
 # targetSdk 36 是当前已发布的最新正式版本；compileSdk 可以比 targetSdk 高，这是常规做法。
 compileSdk = "37"
-# minSdk 28（Android 9）而不是原来的 24。抬这一档是为了媒体管线，换来的是：
+# minSdk 29（Android 10）而不是原来的 24。两拨原因叠加：
+#
+# 媒体管线要的是 28：
 # - HEIF/HEIC 可解（iPhone 分享过来的默认格式，24~27 上是静默 decode failed）
 # - ImageDecoder 可用，且它自动应用 EXIF 方向
 # - MediaMetadataRetriever.getFramesAtIndex()，视频抽帧不用逐帧 seek
-# 停在 28 而不是继续往上：29 的 scoped storage 对这个工程没意义（本来就零存储权限），
-# 31 的 AVIF 解码是单格式锦上添花，可以运行时 gate，不值得再砍一截设备。
-minSdk = "28"
+#
+# 再从 28 抬到 29 是被 Bert-VITS2-MNN 逼的（它的 app_version.gradle 是 minSdkVer = 29），
+# 不是我们自己想抬 —— 29 的 scoped storage 对这个工程本来没意义（零存储权限）。
+# 继续往上也不划算：31 的 AVIF 解码是单格式锦上添花，可以运行时 gate。
+minSdk = "29"
 targetSdk = "36"
 # Java / Kotlin 字节码目标，所有模块必须一致，否则 AGP 9 会报
 # "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks"
@@ -57,6 +61,9 @@ compose-bom = "2026.06.01"
 # "Runtime JAR ... is newer than the compiler" 警告。3.4.0 依赖 stdlib 2.3.10，正好在下面。
 # 换句话说这是「Kotlin 卡在 2.3.21」那条依赖链的延伸，KSP 出 2.4.x 之后一起抬。
 coil = "3.4.0"
+# Bert-VITS2-MNN 的 AAR 版本。格式是 <上游 app_version.gradle 的 versionNameExt>-<submodule commit>，
+# 换 submodule commit 时这里和 publishAars 的 -PpublishVersion 要一起改。
+bertvits2 = "2.0.0-a45fd76"
 gson = "2.14.0"
 # 1.9.0 → 1.10.2：Coil 3.x 全线依赖 coroutines 1.10.2，不抬的话解析结果会是
 # 「声明 1.9.0 实际拿到 1.10.2」这种最难查的状态。显式跟上，让 catalog 说的是真话。
@@ -65,8 +72,6 @@ material = "1.14.0"          # 终于从 1.9.0-beta01 挪到正式版
 # okhttp 停在 4.12.0：这是 retrofit 3.0.0 自己依赖的版本。okhttp 5.x 已发布，但它把
 # MediaType / RequestBody 等一批 API 做了 Kotlin 化重构，属于独立的迁移动作，不在基座这轮。
 okhttp = "4.12.0"
-pinyin-houbb = "0.4.0"
-pinyin4j = "2.5.1"
 retrofit = "3.0.0"
 unpeek-livedata = "4.4.1-beta1"
 
@@ -119,13 +124,21 @@ compose-ui-viewbinding = { module = "androidx.compose.ui:ui-viewbinding" }
 # 附件缩略图那步 UI 要另加 coil-compose；动图和视频帧的 Decoder 在 coil-gif / coil-video 里，
 # 当前都不需要——归一化后落盘的就是静态 JPEG/PNG，UI 直接显示那份文件。
 coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
+
+# BV2 端内 TTS。三个都要显式声明，因为源码里直接 import 了它们的类型：
+# - infer-wrapper: BertVITS2FullInferImpl / IBertVITS2FullInfer
+# - text-preprocess: LANGUAGE_* / PreprocessResult
+# - jni: IBertVITS2JNI —— IBertVITS2FullInfer 继承了它，但上游 POM 里它是
+#   implementation（runtime scope），不声明的话编译期看不见这个父接口
+# cpptokenizer / cppjieba / openjtalk 没有直接引用，靠 POM 传递依赖进来就够。
+bertvits2-infer-wrapper = { module = "com.chatwaifu.bv2:bertvits2-infer-wrapper", version.ref = "bertvits2" }
+bertvits2-jni = { module = "com.chatwaifu.bv2:bertvits2-jni", version.ref = "bertvits2" }
+bertvits2-text-preprocess = { module = "com.chatwaifu.bv2:text-preprocess", version.ref = "bertvits2" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 # coroutines-android 而不是 -core：前者额外带 Dispatchers.Main 的 Android 实现
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-pinyin-houbb = { module = "com.github.houbb:pinyin", version.ref = "pinyin-houbb" }
-pinyin4j = { module = "com.belerweb:pinyin4j", version.ref = "pinyin4j" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
 unpeek-livedata = { module = "com.kunminx.archi:unpeek-livedata", version.ref = "unpeek-livedata" }

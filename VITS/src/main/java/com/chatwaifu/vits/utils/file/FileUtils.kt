@@ -2,7 +2,7 @@ package com.chatwaifu.vits.utils.file
 
 import android.content.res.AssetManager
 import android.util.Log
-import com.chatwaifu.vits.data.Config
+import com.chatwaifu.vits.data.Bv2Config
 import com.google.gson.Gson
 import java.io.*
 
@@ -10,37 +10,36 @@ import java.io.*
 object FileUtils {
 
     /**
-     * 解析并校验 VITS 的 config.json。
+     * 解析并校验 Bert-VITS2 的 config.json。
      *
-     * 以前这里直接 Toast，数据层拿不到失败原因也没法自定义提示；现在把原因回给调用方，
-     * 由调用方决定怎么展示（模型导入要把它写进 ImportError.InvalidVitsConfig）。
+     * 和老 VITS 的 config 不是一回事：老的靠 `symbols` + `text_cleaners` 驱动我们自己写的
+     * 音素化（`ChineseTextUtils` / `JapaneseTextUtils`，已随 ncnn 引擎一起删掉），
+     * BV2 的 G2P 在 `text-preprocess` 里做，config 只需要提供两样东西——
+     * 采样率（要拿去配 AudioTrack）和 `spk2id`（多人模型的 speaker 表）。
+     *
+     * 失败原因回给调用方而不是在这里 Toast：模型导入要把它写进 ImportError.InvalidVitsConfig。
      */
     fun parseConfig(path: String): ConfigParseResult {
         return try {
             val configBuffer = File(path).bufferedReader().use { it.readText() }
-            val config = Gson().fromJson(configBuffer, Config::class.java)
+            val config = Gson().fromJson(configBuffer, Bv2Config::class.java)
                 ?: return ConfigParseResult.Failure("config.json 解析为空")
-            val cleaners = config.data?.text_cleaners
-                ?: return ConfigParseResult.Failure("config.json 缺少 text_cleaners")
-            if (config.symbols.isNullOrEmpty()) {
-                return ConfigParseResult.Failure("config.json 必须包含 symbols")
+            val data = config.data
+                ?: return ConfigParseResult.Failure("config.json 缺少 data 段")
+            if (data.sampling_rate == null || data.sampling_rate <= 0) {
+                return ConfigParseResult.Failure("config.json 缺少合法的 sampling_rate")
             }
-            cleaners.firstOrNull { it !in SUPPORTED_CLEANERS }?.let {
-                return ConfigParseResult.Failure("暂不支持的 cleaner: $it")
+            if (data.spk2id.isNullOrEmpty()) {
+                return ConfigParseResult.Failure("config.json 缺少 spk2id，无法确定 speaker")
             }
             ConfigParseResult.Success(config)
         } catch (e: Exception) {
-            Log.e("LoadConfig", e.message.toString())
+            Log.e(TAG, "parse config failed: $path", e)
             ConfigParseResult.Failure(e.message ?: "config.json 解析失败")
         }
     }
 
-    private val SUPPORTED_CLEANERS = listOf(
-        "japanese_cleaners",
-        "japanese_cleaners2",
-        "chinese_cleaners",
-    )
-
+    private const val TAG = "FileUtils"
 
     @Throws(IOException::class)
     fun copy(src: File?, dst: File?) {
@@ -139,6 +138,6 @@ object FileUtils {
  * [FileUtils.parseConfig] 的结果。失败带上可直接展示给用户的原因。
  */
 sealed interface ConfigParseResult {
-    data class Success(val config: Config) : ConfigParseResult
+    data class Success(val config: Bv2Config) : ConfigParseResult
     data class Failure(val reason: String) : ConfigParseResult
 }

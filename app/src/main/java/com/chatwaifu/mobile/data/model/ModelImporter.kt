@@ -7,8 +7,9 @@ import kotlinx.coroutines.flow.Flow
  * Description: 从用户选中的压缩包导入一个角色模型。
  *
  * 之所以要「导入」而不是像以前那样直接读 /sdcard/chatwaifu/：
- * VITS 的 ncnn 在 native 侧按目录 fopen 那些 .bin（见 VITS/src/main/cpp/vitsncnn_jni.cpp），
- * content:// URI 喂不进去，所以必须先落地成应用专属目录下的真实路径。
+ * 推理引擎在 native 侧是按**文件路径**加载模型的（老的 ncnn 是 fopen 那些 `.bin`，
+ * 换成 Bert-VITS2-MNN 之后是 `setBertVITS2ModelPath` 收 `.mnn` 的绝对路径），
+ * content:// URI 两者都喂不进去，所以必须先落地成应用专属目录下的真实路径。
  *
  * Author: Voine
  * Date: 2026/8/5

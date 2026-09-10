@@ -54,11 +54,13 @@ object Constant {
      *
      * 不用 BuildConfig.VERSION_CODE：app/build.gradle 的 defaultConfig 从来没声明
      * versionCode，AGP 会兜底成 1 且永不变化，拿它当 gate 会永久失效。
+     *
+     * 1 → 2：TTS 引擎从 VITS-ncnn 换成 Bert-VITS2-MNN，老的 `vits/` 目录里全是
+     * 已经没人能读的 `.ncnn.bin`。不 +1 的话老用户升级后是「有角色但不出声」。
      */
-    const val BUILT_IN_MODEL_VERSION = 1
+    const val BUILT_IN_MODEL_VERSION = 2
 
     const val LIVE2D_BASE_PATH = "Live2DModels"
-    const val VITS_BASE_PATH = "VITSModels"
 
     const val LOCAL_MODEL_YUUKA = "Yuuka"
     const val LOCAL_MODEL_AMADEUS = "Amadeus"
