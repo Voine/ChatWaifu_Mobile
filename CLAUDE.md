@@ -150,15 +150,25 @@ LFS 指针文件，会被打进 AAR 但体积可忽略。代价是 **`BertVITS2S
 
 ### 记忆分层
 
-**尚未施工**，设计已定稿在 **`docs/memory.md`**。
+设计和落地记录在 **`docs/memory.md`**，动这一层之前先看它。
+**Phase 0 + 1 已落地，真机未验证**；L1 情节摘要和 L3 检索还没做。
 
-现在唯一的「记忆」是 `ContextBudget.trim()` 的尾部截断 + `ChatHistoryStore.HISTORY_LIMIT = 200`，
-第 200 条之前的对话对模型完全不存在，且每轮掉一条导致 prompt cache 前缀每轮都变。
+两件事：
 
-定下来的方向：L0 工作记忆分块淘汰（修缓存）+ L2 结构化事实槽位（每轮常驻 system 区，
-`(characterId, slot)` UNIQUE 强制 upsert 语义）。**记忆按角色隔离不共享**、
-抽取走 `MemoryExtractor` 接口且模型可单独配置、L3 检索用 `LIKE` 不上 FTS ——
-这三条是拍过板的，不要再当开放问题讨论。
+**L0 分块淘汰**（`ContextBudget.trim`）。改造前每轮从头部掉一条，prompt 前缀每轮都变，
+各家的缓存都是按前缀匹配的，命中率基本是 0。现在起点粘性、超预算时按
+`EVICT_CHUNK = 20` 整块推，换来连续 20 轮前缀不变。`trim` 返回 `TrimResult`，
+**调用方必须把 `startIndex` 存下来下轮传回**，否则退化回老行为。
+
+**L2 事实层**。`memory_fact` 表（DB v5），`(characterId, slot)` 上的 UNIQUE 索引
+让 upsert 成为**数据库层强制**的——没有它事实库会长出「所在城市=北京」和
+「所在城市=上海」两行并存。外键是 `SET NULL` 不是 `CASCADE`（记忆是从消息派生的
+独立事实，删聊天记录不该连带删记忆，和附件表刻意相反）。抽取跑在 TTS 播报窗口，
+和推理并发，不占首字延迟。注入走 `MemoryContributor`，`ChatCore` 仍然不碰 Room。
+
+三条拍过板的决策不要再当开放问题：**记忆按角色隔离不共享**、
+抽取走接口且模型可单独配置（`SAVED_MEMORY_MODEL`，空 = 跟随主模型）、
+L3 检索用 `LIKE` 不上 FTS。
 
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。

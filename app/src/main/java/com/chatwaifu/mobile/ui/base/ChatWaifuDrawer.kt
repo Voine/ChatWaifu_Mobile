@@ -137,6 +137,14 @@ fun ChatWaifuDrawerContent(
             onItemClicked(NavigationItemType.TYPE_MODEL_MANAGER)
         }
         DrawerItem(
+            stringResource(id = R.string.drawer_item_memory),
+            selectItem == NavigationItemType.TYPE_MEMORY,
+            R.drawable.ic_drawer_character_log
+        ) {
+            selectItem = NavigationItemType.TYPE_MEMORY
+            onItemClicked(NavigationItemType.TYPE_MEMORY)
+        }
+        DrawerItem(
             stringResource(id = R.string.drawer_item_setting),
             selectItem == NavigationItemType.TYPE_SETTING,
             R.drawable.ic_drawer_character_setting

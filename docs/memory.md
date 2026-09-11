@@ -1,7 +1,7 @@
 # 记忆分层
 
-> 状态：设计已定，**尚未施工**。本轮范围是 Phase 0 + Phase 1（写到可直接施工的粒度），
-> Phase 2 / 3 只列方向。
+> 状态：**Phase 0 + Phase 1 已落地**（2026/9/11），只过了编译和 lint，
+> **真机端到端未验证**。Phase 2 / 3 只列方向。
 >
 > 相关文档：上下文裁剪在 [`chat-core.md`](chat-core.md) 的 `ContextBudget` 一节，
 > 存储层约定在 [`chat-storage.md`](chat-storage.md)。动这一层之前先看那两份。
@@ -361,37 +361,60 @@ pin/unpin、手动新增。
 
 ---
 
-## 八、施工清单
+## 八、落地清单
 
-Phase 0（可独立合入，不依赖记忆功能）：
+Phase 0（`ChatCore`，不依赖记忆功能）：
 
-- [ ] `ContextBudget.trim()` 改分块淘汰，返回 `TrimResult`；`ChatSession` 持 `historyStart`
-- [ ] `ContextBudget` 拆出 `memoryTokens` 子预算
-- [ ] 记忆断层标记追加到 system prompt（不带条数）
-- [ ] `MemoryContributor` 接口 + `ChatSession` 调用点（实现留空）
+- [x] `ContextBudget.trim()` 分块淘汰（`EVICT_CHUNK = 20`），返回 `TrimResult`；
+      `ChatSession` 持 `historyStart`，`restore()` / `clear()` 时归零
+- [x] `ContextBudget` 拆出 `memoryTokens = 600` 子预算，`trim` 先扣掉它
+- [x] 断层标记追加到 system prompt（`ChatSession.composeSystemPrompt`，不带条数）
+- [x] `MemoryContributor` 接口 + `ChatSession.memory` 调用点
 
 Phase 1：
 
-- [ ] `Log`：`MemoryFactEntity` / `MemoryFactDao` / `RoomMemoryRepository`（全 `internal`）
-      + 领域类型 `MemoryFact` + 接口 `MemoryRepository`
-- [ ] `Log`：`MIGRATION_4_5`，DB version 4 → 5，追加进 `ALL`
-- [ ] `ChatHistoryStore.clearCharacter()` 补 `memory.deleteAll()`
-- [ ] `app/data/memory/`：`MemoryExtractor` 接口 + `MemoryOp`
-- [ ] `LlmMemoryExtractor`：无历史 `ChatSession` + JSON 解析 + slot 归一化 + 整批丢弃策略
-- [ ] `MemoryConsolidator`：Mutex + 轮次闸门 + `runCatching`
-- [ ] `Constant.SAVED_MEMORY_MODEL` + 设置页的抽取模型配置项（空 = 跟随主模型）
-- [ ] `MemoryContributor` 的实现：读 facts、排序、按预算截断、拼第一人称块
-- [ ] `mainLoop()` 在 `generateAndPlaySound()` 前 fire-and-forget 抽取
-- [ ] `nav_memory` 页面 + Drawer 入口
+- [x] `Log`：`MemoryFact` / `MemoryRepository`（public）+
+      `MemoryFactEntity` / `MemoryFactDao` / `RoomMemoryRepository`（`internal`）
+- [x] `Log`：`MIGRATION_4_5`，DB 4 → 5，schema 5.json 已导出
+- [x] `ChatHistoryStore.clearCharacter()` 补 `memory.deleteAll()`
+- [x] `app/data/memory/`：`MemoryExtractor` + `MemoryOp`
+- [x] `LlmMemoryExtractor`：无历史 `ChatSession`、`temperature = 0`、
+      JSON 围栏宽容解析、slot 截断、整批丢弃
+- [x] `MemoryConsolidator`：`tryLock` + `MIN_TURNS = 3` 闸门 + `runCatching`
+- [x] `Constant.SAVED_MEMORY_MODEL` + 设置页配置项（空串是有效值 = 跟随主模型）
+- [x] `FactMemoryContributor`：读 facts、按预算截断、第一人称块、带缓存
+- [x] `mainLoop()` 在 `generateAndPlaySound()` 前 fire-and-forget
+- [x] `nav_memory` 页面 + Drawer 入口 + 改写后让注入缓存失效
+
+### 施工中做的两个补充决定
+
+**手动添加的事实默认 `pinned = true`**。用户特意敲进来的东西，不该被抽取器
+下一轮判定失效就删掉。
+
+**`DELETE` 的 pinned 保护写在 SQL 的 `where` 里**（`deleteBySlotUnpinned`）而不是
+先查再判断——后者是两次查询，中间用户正好在记忆页 pin 住就会漏掉。
+
+**`upsert` 手写分支而不是 `@Insert(onConflict = REPLACE)`**：REPLACE 是「删了再插」，
+会换掉自增 id、丢掉 `createdAt` 和用户设的 `pinned`，还会触发外键动作。
 
 ## 九、验证
 
-工程目前**无任何单元测试**，所以这一层的验证只能靠手动。三条最小路径：
+已经过的：`assembleDebug` 通过；`:app:lintDebug` **0 error / 196 warning，
+和不含本功能的基线完全一致**（stash 后重跑对比过），零新增；
+Room 导出了 `schemas/.../5.json`，说明实体和手写迁移是一致的。
+
+**没过的：真机端到端一次都没跑。** 工程目前无任何单元测试，
+所以下面三条只能手动验，都还欠着：
 
 1. **upsert 收敛**：跟同一个角色说「我在北京」，几轮后说「我搬到上海了」，
    记忆页里应该只有一条「所在城市 = 上海」，不是两条。
 2. **缓存前缀稳定**：连续聊 25 轮以上（跨过一次 `EVICT_CHUNK`），
    看 usage 里的 cached token 数——分块淘汰生效的话，20 轮里应该有 19 轮命中。
-3. **迁移**：拿一个 version 4 的真机老库升上来，聊天记录一条不少。
-   这条尤其要做——`chat-storage.md` 里标着 1→2 的迁移**至今没在真机老库上跑过**，
-   4→5 不要再欠一笔。
+3. **抽取真的会跑**：聊 3 轮以上，看 logcat 里 `MemoryConsolidator` 的
+   `applied N memory op(s)`。跑不起来最可能的两个原因是 provider 没配好
+   （抽取器返回 null 会安静跳过）和模型没按 JSON 格式输出（日志里有原始回复前 200 字）。
+
+> 迁移这条**按用户指示跳过**：这个库还没有实际使用、没有老用户，
+> 出现结构性变更也不需要兼容老数据。`MIGRATION_4_5` 仍然写了（纯建表，十行的事），
+> 这样开发机上的库能平滑升上来，也不用破坏工程「不加
+> `fallbackToDestructiveMigration()`」的既有约定。

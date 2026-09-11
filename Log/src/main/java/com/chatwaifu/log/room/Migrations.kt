@@ -146,5 +146,40 @@ internal object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    /**
+     * v4 → v5：新增 `memory_fact`（L2 长期记忆，见 docs/memory.md）。
+     *
+     * 纯建表，不动任何已有数据，所以没有数据兼容风险。三处要和
+     * [MemoryFactEntity] 严格对齐，改一个必须改另一个：
+     * - `importance` / `pinned` 的 `DEFAULT 0` ↔ 实体上的 `@ColumnInfo(defaultValue = "0")`
+     * - 外键是 `SET NULL` 不是 `CASCADE`（记忆是派生事实，不随来源消息消失）
+     * - `(characterId, slot)` 的 UNIQUE 索引是 upsert 语义的执行者，不能漏
+     */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `memory_fact` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `characterId` TEXT NOT NULL,
+                    `slot` TEXT NOT NULL,
+                    `content` TEXT NOT NULL,
+                    `importance` INTEGER NOT NULL DEFAULT 0,
+                    `pinned` INTEGER NOT NULL DEFAULT 0,
+                    `sourceMessageId` INTEGER,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    FOREIGN KEY(`sourceMessageId`) REFERENCES `chat_message`(`id`)
+                        ON UPDATE NO ACTION ON DELETE SET NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_memory_fact_characterId_slot` " +
+                    "ON `memory_fact` (`characterId`, `slot`)"
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }

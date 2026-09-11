@@ -33,7 +33,8 @@ fun ChatWaifuRootView(
     onChannelListClick: ()->Unit = {},
     onChatLogClick: () ->Unit= {},
     onSettingClick: ()->Unit= {},
-    onModelManagerClick: ()->Unit= {}
+    onModelManagerClick: ()->Unit= {},
+    onMemoryClick: ()->Unit= {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerOpen by chatViewModel.drawerShouldBeOpened.observeAsState(initial = false)
@@ -87,6 +88,12 @@ fun ChatWaifuRootView(
                     }
                     onModelManagerClick()
                 }
+                NavigationItemType.TYPE_MEMORY -> {
+                    scope.launch {
+                        drawerState.close()
+                    }
+                    onMemoryClick()
+                }
             }
         }
     ) {
@@ -99,4 +106,5 @@ enum class NavigationItemType{
     TYPE_CHAT_LOG,
     TYPE_CHANNEL_LIST,
     TYPE_MODEL_MANAGER,
+    TYPE_MEMORY,
 }

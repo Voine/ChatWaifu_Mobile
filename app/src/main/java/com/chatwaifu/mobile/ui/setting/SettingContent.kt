@@ -278,6 +278,20 @@ private fun ChatProviderSection(settingUIState: SettingUIState) {
             settingUIState.updateForm(selectedId) { current -> current.copy(model = it.trim()) }
         }
     }
+
+    // 记忆抽取模型。刻意放在 provider 区块**外面**：它不按基座分开存，
+    // 抽取复用当前 provider 的连接，只换 model 名
+    ItemTitle(stringResource(id = R.string.setting_memory_model))
+    SettingEditText(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        initValue = settingUIState.memoryModel,
+        hint = stringResource(id = R.string.setting_memory_model_hint),
+        singleLine = true,
+    ) {
+        settingUIState.memoryModel = it.trim()
+    }
 }
 
 @Composable
@@ -482,6 +496,7 @@ class SettingUIState(data: SettingUIData) {
     var amaduesSetting by mutableStateOf(data.amaduesSetting)
     var atriSetting by mutableStateOf(data.atriSetting)
     var darkModeSwitch by mutableStateOf(data.darkModeSwitch)
+    var memoryModel by mutableStateOf(data.memoryModel)
 
     fun formOf(id: ProviderId): ProviderForm = providerForms[id.key] ?: ProviderForm()
 
@@ -500,6 +515,7 @@ class SettingUIState(data: SettingUIData) {
             amaduesSetting = amaduesSetting,
             atriSetting = atriSetting,
             darkModeSwitch = darkModeSwitch,
+            memoryModel = memoryModel,
         )
     }
 }
@@ -518,6 +534,8 @@ data class SettingUIData(
     var amaduesSetting: String = "",
     var atriSetting: String = "",
     var darkModeSwitch: Boolean = false,
+    /** 记忆抽取专用模型，空 = 跟随主模型。见 docs/memory.md 4.2 */
+    var memoryModel: String = "",
 )
 
 val exampleSettingUi = SettingUIData(

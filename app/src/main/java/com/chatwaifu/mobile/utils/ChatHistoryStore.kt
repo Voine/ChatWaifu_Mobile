@@ -15,8 +15,10 @@ import com.chatwaifu.log.ChatLogEntry
 import com.chatwaifu.log.ChatLogRepository
 import com.chatwaifu.log.ChatLogRole
 import com.chatwaifu.log.MessageSource
+import com.chatwaifu.log.MemoryRepository
 import com.chatwaifu.log.MessageStatus
 import com.chatwaifu.log.room.RoomChatLogRepository
+import com.chatwaifu.log.room.RoomMemoryRepository
 import com.chatwaifu.mobile.data.attachment.AttachmentStore
 
 /**
@@ -46,6 +48,7 @@ class ChatHistoryStore(
     context: Context,
     private val repository: ChatLogRepository = RoomChatLogRepository(context),
     private val attachments: AttachmentStore = AttachmentStore(context),
+    private val memory: MemoryRepository = RoomMemoryRepository(context),
 ) {
 
     private var currentCharacterId: String = ""
@@ -150,13 +153,17 @@ class ChatHistoryStore(
     }
 
     /**
-     * 删掉某个角色的全部记录，**连附件文件一起**。
-     * FK cascade 只清行，文件得自己删——所以要先取路径再删记录。
+     * 删掉某个角色的全部记录，**连附件文件和长期记忆一起**。
+     *
+     * 两件 cascade 管不到的事：
+     * - 附件的**字节**在磁盘上，FK cascade 只清行，所以要先取路径再删记录
+     * - `memory_fact` 根本没有指向角色的外键（角色层没有表），必须显式删
      */
     suspend fun clearCharacter(characterName: String) {
         val paths = repository.attachmentPathsOf(characterName)
         repository.deleteChatLog(characterName)
         attachments.deletePaths(paths)
+        memory.deleteAll(characterName)
     }
 
     /** 回收没有任何记录引用的附件文件。启动时调一次即可。 */

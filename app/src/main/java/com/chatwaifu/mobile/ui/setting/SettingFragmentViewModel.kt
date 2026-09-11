@@ -48,6 +48,7 @@ class SettingFragmentViewModel: ViewModel() {
             data.translateSwitch = it
         }
 
+        data.memoryModel = sp.getString(Constant.SAVED_MEMORY_MODEL, null).orEmpty()
         sp.getBoolean(Constant.SAVED_USE_DARKMODE, false).let {
             data.darkModeSwitch = it
         }
@@ -78,6 +79,10 @@ class SettingFragmentViewModel: ViewModel() {
             if (saved.atriSetting.isNotBlank()) {
                 putString(Constant.SAVED_ATRI_SETTING, saved.atriSetting)
             }
+
+            // 空串是**有意义的值**（= 跟随主模型），所以不像上面那几项那样 isNotBlank 才写，
+            // 否则用户清空之后存不回去
+            putString(Constant.SAVED_MEMORY_MODEL, saved.memoryModel)
 
             putBoolean(Constant.SAVED_USE_TRANSLATE, saved.translateSwitch)
             putBoolean(Constant.SAVED_USE_DARKMODE, saved.darkModeSwitch)

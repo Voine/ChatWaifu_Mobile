@@ -46,6 +46,14 @@ object Constant {
      */
     const val SAVED_SYSTEM_PROMPT_PREFIX = "saved_system_prompt_"
 
+    /**
+     * 记忆抽取专用模型。**空 = 跟随主模型**。
+     *
+     * 只存 model，不存 key / base_url —— 抽取复用当前 provider 的连接，
+     * 换一家基座还要再配一套 key 是没必要的负担。见 docs/memory.md 4.2。
+     */
+    const val SAVED_MEMORY_MODEL = "saved_memory_model"
+
     /** 已解出的内置模型版本，和 [BUILT_IN_MODEL_VERSION] 比对决定要不要重解 */
     const val SAVED_BUILT_IN_MODEL_VERSION = "saved_built_in_model_version"
 

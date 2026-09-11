@@ -107,9 +107,26 @@
 
     <string name="drawer_function_list">Function List</string>
     <string name="drawer_item_model_manager">ModelManager</string>
+    <string name="drawer_item_memory">Memory</string>
 
     <!-- 模型管理 -->
     <string name="model_manager_title">Model Manager</string>
+
+    <!-- 记忆页，见 docs/memory.md -->
+    <string name="memory_title">Memory</string>
+    <string name="memory_add">Add memory</string>
+    <string name="memory_add_confirm">Add</string>
+    <string name="memory_cancel">Cancel</string>
+    <string name="memory_delete">Delete</string>
+    <string name="memory_pin">Pin</string>
+    <string name="memory_delete_title">Delete this memory?</string>
+    <string name="memory_delete_message">「%1$s」will be forgotten.</string>
+    <string name="memory_delete_confirm">Delete</string>
+    <string name="memory_slot_hint">Topic, e.g. name / hometown</string>
+    <string name="memory_content_hint">What to remember</string>
+    <string name="memory_empty">Nothing remembered yet. Memories are extracted from your chats automatically.</string>
+    <string name="setting_memory_model">Memory extraction model</string>
+    <string name="setting_memory_model_hint">blank = same as chat model</string>
     <string name="model_manager_import">Import model zip</string>
     <string name="model_manager_empty">No imported model yet. Tap the import button to add one.</string>
     <string name="model_manager_built_in">Built-in</string>

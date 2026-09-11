@@ -26,19 +26,35 @@ class ChatSession(
 
     private val budget: ContextBudget =
         ContextBudget.forContextWindow(provider.capabilities.maxContextTokens),
+
+    /**
+     * 长期记忆。null 表示不注入（`ChatCore` 自己不知道记忆是怎么来的，见
+     * [MemoryContributor] 的 KDoc）。
+     */
+    var memory: MemoryContributor? = null,
 ) {
 
     private val history = mutableListOf<ChatMessage>()
+
+    /**
+     * 上一轮裁剪用的历史起点，喂回 [ContextBudget.trim] 让前缀保持粘性。
+     * 不持久化：重启后从 0 重新开始，无非是第一轮多算一次淘汰。
+     */
+    private var historyStart = 0
 
     /** 从 Room 恢复历史。会覆盖当前内存里的记录。 */
     fun restore(messages: List<ChatMessage>) {
         history.clear()
         history.addAll(messages)
+        historyStart = 0
     }
 
     fun snapshot(): List<ChatMessage> = history.toList()
 
-    fun clear() = history.clear()
+    fun clear() {
+        history.clear()
+        historyStart = 0
+    }
 
     /**
      * 发一轮对话。
@@ -52,9 +68,17 @@ class ChatSession(
     fun send(userMessage: ChatMessage): Flow<ChatDelta> = flow {
         history.add(userMessage)
 
+        // 记忆先取：它要从 maxPromptTokens 里占掉一块，trim 得知道还剩多少
+        val memoryBlock = memory?.runCatching { memoryBlock(budget.memoryTokens) }
+            ?.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+
+        val trimmed = budget.trim(history, systemPrompt, historyStart)
+        historyStart = trimmed.startIndex
+
         val request = options.toRequest(
-            messages = budget.trim(history, systemPrompt),
-            systemPrompt = systemPrompt,
+            messages = trimmed.messages,
+            systemPrompt = composeSystemPrompt(memoryBlock, trimmed.truncated),
         )
 
         val accumulator = MessageAccumulator()
@@ -74,6 +98,36 @@ class ChatSession(
 
     /** 便捷入口：纯文本一问一答。 */
     fun send(text: String): Flow<ChatDelta> = send(ChatMessage.user(text))
+
+    /**
+     * 人设 + 记忆 + 断层标记拼成最终的 system prompt。
+     *
+     * 顺序是刻意的：**变得越慢的放越前面**。人设几乎不变，记忆变得很慢，
+     * 断层标记只会从「无」翻成「有」一次。这三块合起来就是缓存前缀，
+     * 越稳定命中率越高。
+     *
+     * 断层标记**刻意不带被丢掉的条数**——带了就等于每次淘汰都改写一次 system prompt，
+     * 而它是缓存前缀的一部分。不带条数的话整个会话生命周期里只会变一次。
+     */
+    private fun composeSystemPrompt(memoryBlock: String?, truncated: Boolean): String? {
+        if (memoryBlock == null && !truncated) return systemPrompt
+        return buildString {
+            systemPrompt?.takeIf { it.isNotBlank() }?.let { append(it) }
+            memoryBlock?.let {
+                if (isNotEmpty()) append("\n\n")
+                append(it)
+            }
+            if (truncated) {
+                if (isNotEmpty()) append("\n\n")
+                append(TRUNCATION_NOTICE)
+            }
+        }.takeIf { it.isNotBlank() }
+    }
+
+    companion object {
+        private const val TRUNCATION_NOTICE =
+            "（更早的对话已从上下文中省略。需要时依据上面记录的记忆作答，不要凭空编造。）"
+    }
 }
 
 /**

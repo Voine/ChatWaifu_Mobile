@@ -14,6 +14,9 @@ import com.chatwaifu.chat.core.ChatResult
 import com.chatwaifu.chat.core.ChatSession
 import com.chatwaifu.mobile.application.ChatWaifuApplication
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.data.memory.FactMemoryContributor
+import com.chatwaifu.mobile.data.memory.LlmMemoryExtractor
+import com.chatwaifu.mobile.data.memory.MemoryConsolidator
 import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.data.chat.ChatProviderSettings
 import com.chatwaifu.mobile.data.model.CharacterModel
@@ -110,6 +113,26 @@ class ChatActivityViewModel : ViewModel() {
     private val historyStore: ChatHistoryStore by lazy {
         ChatHistoryStore(ChatWaifuApplication.context)
     }
+
+    /** 注入 system 区的 L2 记忆块。见 docs/memory.md */
+    private val memoryContributor: FactMemoryContributor by lazy {
+        FactMemoryContributor(ChatWaifuApplication.context)
+    }
+
+    /**
+     * 抽取器每次现取：它绑在当前 provider 上，切基座后不能再用旧的。
+     * provider 还没建好时返回 null，巩固器会安静跳过。
+     */
+    private val memoryConsolidator: MemoryConsolidator by lazy {
+        MemoryConsolidator(ChatWaifuApplication.context) {
+            chatProvider?.let { provider ->
+                LlmMemoryExtractor(
+                    provider = provider,
+                    modelOverride = sp.getString(Constant.SAVED_MEMORY_MODEL, null),
+                )
+            }
+        }
+    }
     private var translate: ITranslate? = null
 
     fun refreshAllKeys() {
@@ -136,6 +159,7 @@ class ChatActivityViewModel : ViewModel() {
             systemPrompt = previous?.systemPrompt
                 ?: currentCharacter?.let { characterRepository.getSystemPrompt(it.name) },
             options = ChatOptions(model = config.model),
+            memory = memoryContributor,
         ).apply {
             previous?.let { restore(it.snapshot()) }
         }
@@ -182,6 +206,9 @@ class ChatActivityViewModel : ViewModel() {
                 val translateText = fetchTranslateIfNeed(result.text)
                 Log.d(TAG, "translate result: $translateText")
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
+                // 抽取和 TTS 并发：这几秒用户在听、主循环在等输入，是白送的异步窗口。
+                // 放在 generateAndPlaySound 之前启动，两者重叠（一个等网络一个吃 CPU）
+                consolidateMemoryInBackground()
                 generateAndPlaySound(translateText)
             }
         }
@@ -223,6 +250,9 @@ class ChatActivityViewModel : ViewModel() {
      */
     fun selectCharacter(character: CharacterModel) {
         currentCharacter = character
+        // 记忆按角色隔离，切角色时 scope 和轮次计数一起换
+        memoryContributor.characterId = character.name
+        memoryConsolidator.reset()
         val session = requireSession()
         // 设定为空时不覆盖已有的 system prompt，保持原来的行为
         characterRepository.getSystemPrompt(character.name)?.let {
@@ -262,6 +292,27 @@ class ChatActivityViewModel : ViewModel() {
                 if (success) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED
             )
             loadingUILiveData.postValue(Pair(false, ""))
+        }
+    }
+
+    /**
+     * fire-and-forget 地跑一次记忆巩固。
+     *
+     * **不 await**：主循环接着去做 TTS，抽取在后台跑完自己落库。
+     * 巩固器内部有 Mutex 和轮次闸门，这里可以每轮无脑调。
+     */
+    /** 用户在记忆页改了内容，让注入侧的缓存失效 */
+    fun onMemoryChanged() {
+        memoryContributor.invalidate()
+    }
+
+    private fun consolidateMemoryInBackground() {
+        val characterName = currentCharacter?.name ?: return
+        val snapshot = chatSession?.snapshot() ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            memoryConsolidator.onTurnCompleted(characterName, snapshot)
+            // 事实可能变了，让下一轮重新读库
+            memoryContributor.invalidate()
         }
     }
 

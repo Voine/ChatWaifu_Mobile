@@ -29,4 +29,9 @@
         android:id="@+id/nav_model_manager"
         android:name="com.chatwaifu.mobile.ui.modelmanager.ModelManagerFragment"
         tools:layout="@layout/fragment_chat_log" />
+
+    <fragment
+        android:id="@+id/nav_memory"
+        android:name="com.chatwaifu.mobile.ui.memory.MemoryFragment"
+        tools:layout="@layout/fragment_chat_log" />
 </navigation>
