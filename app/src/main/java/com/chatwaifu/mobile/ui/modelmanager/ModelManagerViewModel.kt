@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -31,12 +32,44 @@ class ModelManagerViewModel : ViewModel() {
     /** 一次性事件（toast），用 SharedFlow 避免旋转后重放 */
     private val _events = MutableSharedFlow<ModelManagerEvent>()
     val events = _events.asSharedFlow()
+    private var setCurrentJob: Job? = null
 
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true) }
             val characters = repository.loadCharacters()
-            _uiState.update { it.copy(loading = false, characters = characters) }
+            val current = repository.getCurrentCharacter()
+            _uiState.update {
+                it.copy(
+                    loading = false,
+                    characters = characters,
+                    currentCharacterId = current?.id,
+                    selectedCharacterId = it.selectedCharacterId
+                        ?.takeIf { id -> characters.any { character -> character.id == id } },
+                )
+            }
+        }
+    }
+
+    fun openDetail(id: String) {
+        _uiState.update { it.copy(selectedCharacterId = id) }
+    }
+
+    fun closeDetail() {
+        _uiState.update { it.copy(selectedCharacterId = null) }
+    }
+
+    fun setCurrent(character: CharacterModel) {
+        setCurrentJob?.cancel()
+        setCurrentJob = viewModelScope.launch {
+            val selected = repository.setCurrentCharacter(character.id) ?: return@launch
+            _uiState.update {
+                it.copy(
+                    currentCharacterId = selected.id,
+                    selectedCharacterId = selected.id,
+                )
+            }
+            _events.emit(ModelManagerEvent.CurrentChanged(selected))
         }
     }
 
@@ -52,7 +85,7 @@ class ModelManagerViewModel : ViewModel() {
 
                     is ImportProgress.Success -> {
                         _uiState.update { it.copy(importing = null) }
-                        _events.emit(ModelManagerEvent.ImportSucceeded(progress.model.name))
+                        _events.emit(ModelManagerEvent.ImportSucceeded(progress.model.displayName))
                         refresh()
                     }
 
@@ -67,35 +100,54 @@ class ModelManagerViewModel : ViewModel() {
 
     fun delete(character: CharacterModel) {
         viewModelScope.launch {
-            if (repository.delete(character.name)) {
-                _events.emit(ModelManagerEvent.Deleted(character.name))
-                refresh()
+            val deletingCurrent = _uiState.value.currentCharacterId == character.id
+            if (repository.delete(character.id)) {
+                val characters = repository.loadCharacters()
+                val current = repository.getCurrentCharacter()
+                _uiState.update {
+                    it.copy(
+                        characters = characters,
+                        currentCharacterId = current?.id,
+                        selectedCharacterId = null,
+                    )
+                }
+                _events.emit(ModelManagerEvent.Deleted(character.displayName))
+                if (deletingCurrent && current != null) {
+                    _events.emit(ModelManagerEvent.CurrentChanged(current))
+                }
             }
         }
     }
 
     fun saveCharacterConfig(character: CharacterModel, prompt: String, speakerId: Int) {
         viewModelScope.launch {
-            if (prompt.isNotBlank()) {
-                repository.saveSystemPrompt(character.name, prompt)
-            }
+            repository.saveSystemPrompt(character.storageKey, prompt)
             if (speakerId != character.speakerId) {
-                repository.updateSpeakerId(character.name, speakerId)
+                repository.updateSpeakerId(character.id, speakerId)
             }
             _events.emit(ModelManagerEvent.ConfigSaved)
             refresh()
         }
     }
 
-    fun getSystemPrompt(name: String): String? = repository.getSystemPrompt(name)
+    fun getSystemPrompt(storageKey: String): String? =
+        repository.getSystemPrompt(storageKey)
 }
 
 data class ModelManagerUiState(
     val loading: Boolean = false,
     val characters: List<CharacterModel> = emptyList(),
+    val currentCharacterId: String? = null,
+    val selectedCharacterId: String? = null,
     /** 非 null 表示正在导入 */
     val importing: ImportingState? = null,
-)
+) {
+    val currentCharacter: CharacterModel?
+        get() = characters.firstOrNull { it.id == currentCharacterId }
+
+    val selectedCharacter: CharacterModel?
+        get() = characters.firstOrNull { it.id == selectedCharacterId }
+}
 
 sealed interface ImportingState {
     data class Extracting(val percent: Int) : ImportingState
@@ -106,5 +158,6 @@ sealed interface ModelManagerEvent {
     data class ImportSucceeded(val name: String) : ModelManagerEvent
     data class ImportFailed(val error: ImportError) : ModelManagerEvent
     data class Deleted(val name: String) : ModelManagerEvent
+    data class CurrentChanged(val character: CharacterModel) : ModelManagerEvent
     data object ConfigSaved : ModelManagerEvent
 }

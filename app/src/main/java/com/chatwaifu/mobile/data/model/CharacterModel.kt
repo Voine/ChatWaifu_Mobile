@@ -1,15 +1,18 @@
 package com.chatwaifu.mobile.data.model
 
 /**
- * Description: 一个可用角色的领域模型。
+ * Description: 一个可用角色包的领域模型。
  *
- * 刻意不含 R.drawable 之类的资源 id —— 头像映射是 UI 层的事，由 UI 层用 [name] 去映射。
+ * [id] 是产品层稳定身份；[storageKey] 只兼容现有按角色名分区的 Room、Memory、
+ * persona 和触控数据。新代码不得用 displayName 或 storageKey 代替 id 做 UI 选择。
  *
  * Author: Voine
  * Date: 2026/8/5
  */
-data class CharacterModel(
-    val name: String,
+data class CharacterPackage(
+    val id: String,
+    val displayName: String,
+    val storageKey: String,
     val source: ModelSource,
     /** live2d 资源目录绝对路径 */
     val live2dDir: String,
@@ -34,8 +37,28 @@ data class CharacterModel(
     val speakerId: Int,
     /** `LANGUAGE_ZH/EN/JP/MIX_ZH_EN` 之一 */
     val language: Int,
+    val preview: CharacterPreview? = null,
+    val personaProfileId: String? = null,
+    val voiceProfileId: String? = null,
+    val behaviorProfileId: String? = null,
+    val availability: CharacterAvailability = CharacterAvailability.AVAILABLE,
 ) {
     val hasVoice: Boolean get() = vitsDir != null
+
+    /** 旧调用点的过渡别名；只用于展示，身份判断必须使用 [id]。 */
+    @Deprecated("Use displayName for UI or storageKey for legacy storage")
+    val name: String get() = displayName
+}
+
+typealias CharacterModel = CharacterPackage
+
+sealed interface CharacterPreview {
+    data class FilePath(val path: String) : CharacterPreview
+}
+
+enum class CharacterAvailability {
+    AVAILABLE,
+    MISSING_LIVE2D,
 }
 
 enum class ModelSource {

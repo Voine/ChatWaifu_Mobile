@@ -31,23 +31,24 @@ class SettingFragment : Fragment() {
             ViewGroup.LayoutParams.MATCH_PARENT
         )
         setContent {
-            val initData = fragmentViewModel.loadInitData(requireContext())
+            val settingState = fragmentViewModel.state
             var currentDarkMode by rememberSaveable {
-                mutableStateOf(initData.darkModeSwitch)
+                mutableStateOf(settingState.darkModeSwitch)
             }
             globalDarkTheme = currentDarkMode
             ChatWaifu_MobileTheme(darkTheme = currentDarkMode) {
                 SettingContentScaffold(
-                    settingUIState = SettingUIState(initData),
+                    settingUIState = settingState,
                     onNavIconPressed = {
                         activityViewModel.openDrawer()
                     },
-                    onSave = { saved ->
-                        fragmentViewModel.saveData(saved)
-                        activityViewModel.refreshAllKeys()
-                        currentDarkMode = saved?.darkModeSwitch ?: false
+                    onSave = {
+                        fragmentViewModel.saveData()
+                        activityViewModel.refreshAllKeys(rebuildSession = false)
+                        currentDarkMode = settingState.darkModeSwitch
                         showToast("save key success...")
-                    }
+                    },
+                    onTestConnection = fragmentViewModel::testConnection,
                 )
             }
         }

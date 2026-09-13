@@ -105,7 +105,7 @@ class CharacterRendererHost(
             character.live2dDir + File.separator,
             character.live2dEntryFileName,
         )
-        if (character.name == Constant.LOCAL_MODEL_AMADEUS) {
+        if (character.storageKey == Constant.LOCAL_MODEL_AMADEUS) {
             JniBridgeJava.needRenderBack(false)
             JniBridgeJava.nativeApplyExpression("fix")
         } else {

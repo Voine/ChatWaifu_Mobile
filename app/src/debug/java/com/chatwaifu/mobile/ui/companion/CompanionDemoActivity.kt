@@ -58,20 +58,20 @@ class CompanionDemoActivity : AppCompatActivity() {
     private fun loadCharacter() {
         companionViewModel.setRendererLoading()
         lifecycleScope.launch {
-            val characters = ModelProvider.repository(this@CompanionDemoActivity)
-                .loadCharacters()
+            val repository = ModelProvider.repository(this@CompanionDemoActivity)
+            val characters = repository.loadCharacters()
             val character = if (companionViewModel.hasInitializedCharacter) {
                 characters.firstOrNull {
-                    it.name == companionViewModel.uiState.value.characterName
+                    it.id == companionViewModel.uiState.value.characterId
                 }
             } else {
-                characters.firstOrNull()
+                repository.getCurrentCharacter()
             }
             if (character == null) {
                 companionViewModel.setRendererFailed("没有可用角色资源")
             } else {
                 if (!companionViewModel.hasInitializedCharacter) {
-                    companionViewModel.setCharacter(character.name)
+                    companionViewModel.setCharacter(character.id, character.displayName)
                     companionViewModel.prepareConversation(character)
                 }
                 rendererHost.setCharacter(character)

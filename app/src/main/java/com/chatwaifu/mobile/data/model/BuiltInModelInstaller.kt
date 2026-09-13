@@ -215,7 +215,9 @@ internal class BuiltInModelInstaller(
             // 声库是可选的：只有 live2d 的角色也能用，只是不出声。
             // 这里不再往 staged 里拷任何声库文件 —— 权重在共享目录，见 Bv2ModelInstaller
             val meta = ModelMeta(
+                id = ModelStorage.builtinCharacterId(name),
                 name = name,
+                displayName = name,
                 source = ModelSource.BUILT_IN.name,
                 live2dEntryFileName = entry,
                 hasVits = hasVoice,

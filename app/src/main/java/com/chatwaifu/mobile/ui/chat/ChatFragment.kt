@@ -118,7 +118,7 @@ class ChatFragment : Fragment() {
                         },
                         onTouchEnd = {
                             enableTouch = false
-                            fragmentViewModel.saveTouch(activityViewModel.currentCharacterName)
+                            fragmentViewModel.saveTouch(activityViewModel.currentCharacterStorageKey)
                         },
                         onResetModel = {
                             fragmentViewModel.resetModel()
@@ -147,7 +147,7 @@ class ChatFragment : Fragment() {
 
     private fun onLoadModelDone() {
         CoroutineScope(Dispatchers.Main).launch{
-            fragmentViewModel.initTouch(activityViewModel.currentCharacterName)
+            fragmentViewModel.initTouch(activityViewModel.currentCharacterStorageKey)
             activityViewModel.lipsValueHandler.createContext()
         }
     }

@@ -90,7 +90,7 @@ class ChatSession(
                     ?: accumulator.build()
                 history.add(finalMessage)
                 emit(delta.copy(message = finalMessage))
-            } else {
+            } else if (options.streamResponse) {
                 emit(delta)
             }
         }
@@ -141,6 +141,7 @@ data class ChatOptions(
     val reasoning: ReasoningLevel? = null,
     val tools: List<ToolSpec> = emptyList(),
     val stopSequences: List<String> = emptyList(),
+    val streamResponse: Boolean = true,
     val extras: Map<String, Any?> = emptyMap(),
 ) {
     fun toRequest(messages: List<ChatMessage>, systemPrompt: String?): ChatRequest = ChatRequest(

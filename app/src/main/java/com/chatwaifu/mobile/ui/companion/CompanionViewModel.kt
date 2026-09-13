@@ -105,7 +105,7 @@ class CompanionViewModel(
         }
     }
 
-    fun setCharacter(name: String) {
+    fun setCharacter(id: String, name: String) {
         responseDriver.cancel()
         responseJob?.cancel()
         preparationJob?.cancel()
@@ -114,6 +114,7 @@ class CompanionViewModel(
         lastFailedInput = null
         _uiState.update {
             it.copy(
+                characterId = id,
                 characterName = name,
                 runtime = CompanionRuntimeState.IDLE,
                 overlay = CompanionOverlayState.NONE,

@@ -26,7 +26,7 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="title_activity_login222">LoginActivity222</string>
 
-    <string name="drawer_item_channel_list">ChannelList</string>
+    <string name="drawer_item_channel_list">角色</string>
     <string name="drawer_item_setting">Setting</string>
     <string name="drawer_item_chat">ChatLog</string>
 
@@ -89,6 +89,36 @@
     <string name="setting_title_provider_base_url">Base Url:</string>
     <string name="setting_title_provider_model">Model:</string>
     <string name="setting_provider_not_implemented">Not implemented yet</string>
+    <string name="model_settings_title">模型</string>
+    <string name="model_settings_current">当前模型</string>
+    <string name="model_settings_default_model">默认模型</string>
+    <string name="model_settings_service_type">服务类型</string>
+    <string name="model_settings_cloud">云端服务</string>
+    <string name="model_settings_local_network">局域网模型</string>
+    <string name="model_settings_embedded">本机模型</string>
+    <string name="model_settings_connection">连接设置</string>
+    <string name="model_settings_auth">认证信息</string>
+    <string name="model_settings_use_model">设为当前模型</string>
+    <string name="model_settings_test_connection">测试连接</string>
+    <string name="model_settings_testing">测试中…</string>
+    <string name="model_settings_advanced">高级设置</string>
+    <string name="model_settings_streaming">流式输出</string>
+    <string name="model_settings_temperature">Temperature</string>
+    <string name="model_settings_max_tokens">最大输出 Tokens</string>
+    <string name="model_settings_timeout">连接超时（秒）</string>
+    <string name="model_settings_context_length">上下文长度</string>
+    <string name="model_settings_runtime">运行时类型</string>
+    <string name="model_settings_model_placeholder">模型标识或路径占位</string>
+    <string name="model_settings_optional">可选</string>
+    <string name="model_settings_toggle_key">显示或隐藏密钥</string>
+    <string name="model_settings_embedded_notice">本机推理尚未接入。这里仅保存未来运行时所需的占位配置，不会伪造连接成功。</string>
+    <string name="model_settings_test_success">连接成功</string>
+    <string name="model_settings_test_network">网络不可达或连接超时</string>
+    <string name="model_settings_test_auth">认证失败，请检查密钥或 Token</string>
+    <string name="model_settings_test_model">模型不存在或无权访问</string>
+    <string name="model_settings_test_endpoint">Endpoint 不兼容</string>
+    <string name="model_settings_test_unavailable">该 Provider 尚未接入</string>
+    <string name="model_settings_test_unknown">连接测试失败</string>
 
     <!-- 聊天错误提示 -->
     <string name="chat_error_auth">API key is missing or invalid, check it in Setting.</string>
@@ -140,6 +170,28 @@
     <string name="model_manager_prompt_hint">Input this character\'s setting here…</string>
     <string name="model_manager_save">Save</string>
     <string name="model_manager_saved">Saved</string>
+    <string name="character_title">角色</string>
+    <string name="character_current">当前角色</string>
+    <string name="character_mine">我的角色</string>
+    <string name="character_current_using">当前使用</string>
+    <string name="character_selected">已选择</string>
+    <string name="character_import">导入角色</string>
+    <string name="character_no_available">暂无可用角色</string>
+    <string name="character_set_current">设为当前角色</string>
+    <string name="character_enter_chat">进入对话</string>
+    <string name="character_appearance">形象</string>
+    <string name="character_source">来源</string>
+    <string name="character_builtin">内置</string>
+    <string name="character_imported">导入</string>
+    <string name="character_voice">语音</string>
+    <string name="character_persona">人格</string>
+    <string name="character_behavior">表现</string>
+    <string name="character_default">默认</string>
+    <string name="character_configured">已配置</string>
+    <string name="character_not_configured">尚未配置</string>
+    <string name="character_resource_missing">角色资源缺失，当前不可使用</string>
+    <string name="character_unavailable">不可用</string>
+    <string name="character_back">返回角色列表</string>
     <string name="model_manager_importing">Importing… %1$d%%</string>
     <string name="model_manager_validating">Validating archive…</string>
     <string name="model_manager_import_done">%1$s imported</string>

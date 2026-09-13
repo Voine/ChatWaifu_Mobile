@@ -21,7 +21,7 @@ data class ChannelListBean(
 )
 
 fun CharacterModel.toChannelListBean(): ChannelListBean = ChannelListBean(
-    avatarDrawable = avatarResOf(name),
-    characterName = name,
+    avatarDrawable = avatarResOf(storageKey),
+    characterName = displayName,
     character = this,
 )

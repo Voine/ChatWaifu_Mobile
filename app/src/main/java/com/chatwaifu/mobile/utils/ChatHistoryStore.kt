@@ -37,9 +37,9 @@ import com.chatwaifu.mobile.data.attachment.AttachmentStore
  * 上下文裁剪不在这里做，交给 [com.chatwaifu.chat.core.ContextBudget] 按 token 算。
  * 排序也不在这里做，[ChatLogRepository.getRecentChatLog] 已经保证「最近 N 条、时间正序」。
  *
- * **characterId 这道缝**：角色层目前没有稳定 uuid，`CharacterModel.name` 同时是身份、
- * 显示名和 `models/` 目录名，所以这里暂时把 name 当 id 传下去。存储层只把它当不透明键，
- * 将来 meta.json 长出 uuid 时只改这个映射 + 一次数据迁移。
+ * **characterId 这道缝**：角色层已有稳定 ID，但 Room / Memory 本阶段不做身份迁移，
+ * 因此这里的 `characterStorageKey` 仍是旧的角色目录键。每次写入都显式传入该键，
+ * 避免快速切角色时旧请求把结果写到新角色分区。
  *
  * Author: Voine
  * Date: 2026/8/6
@@ -51,8 +51,6 @@ class ChatHistoryStore(
     private val memory: MemoryRepository = RoomMemoryRepository(context),
 ) {
 
-    private var currentCharacterId: String = ""
-
     /**
      * 读出某个角色最近的历史，**时间正序**（老的最前面），
      * 可以直接喂给 [com.chatwaifu.chat.core.ChatSession.restore]。
@@ -60,20 +58,18 @@ class ChatHistoryStore(
      * @param providerId 当前基座。thinking block 的签名是绑基座+模型的，
      *   只有当条记录来自同一个基座时才回传，否则丢掉（见 [toCoreMessage]）。
      */
-    suspend fun load(characterName: String, providerId: String? = null): List<ChatMessage> {
-        currentCharacterId = characterName
-        val stored = repository.getRecentChatLog(currentCharacterId, limit = HISTORY_LIMIT)
-        Log.d(TAG, "load ${stored.size} messages for $characterName")
+    suspend fun load(characterStorageKey: String, providerId: String? = null): List<ChatMessage> {
+        val stored = repository.getRecentChatLog(characterStorageKey, limit = HISTORY_LIMIT)
+        Log.d(TAG, "load ${stored.size} messages for $characterStorageKey")
         return stored.mapNotNull { it.toCoreMessage(providerId) }
     }
 
     /** 读取 UI 历史；与模型上下文不同，这里保留带部分文本的 `FAILED` 记录。 */
-    suspend fun loadDisplayHistory(characterName: String): List<ChatLogEntry> {
-        currentCharacterId = characterName
-        return repository.getRecentChatLog(currentCharacterId, limit = HISTORY_LIMIT)
-    }
+    suspend fun loadDisplayHistory(characterStorageKey: String): List<ChatLogEntry> =
+        repository.getRecentChatLog(characterStorageKey, limit = HISTORY_LIMIT)
 
     suspend fun appendUser(
+        characterStorageKey: String,
         text: String,
         source: MessageSource = MessageSource.TYPED,
         attachmentRefs: List<AttachmentRef> = emptyList(),
@@ -83,6 +79,7 @@ class ChatHistoryStore(
             text = text,
             source = source,
             attachmentRefs = attachmentRefs,
+            characterStorageKey = characterStorageKey,
             // 附件在、文本空也要落库，否则这一轮的图就丢了
             allowBlankText = attachmentRefs.isNotEmpty(),
         )
@@ -94,27 +91,33 @@ class ChatHistoryStore(
      * 有这一步，流中途被杀进程时历史里留下的是一条半截回复（能看出发生了什么），
      * 而不是凭空少一轮。收尾调 [finishAssistant]。
      */
-    suspend fun beginAssistant(providerId: String?, model: String?): Long = insert(
+    suspend fun beginAssistant(
+        characterStorageKey: String,
+        providerId: String?,
+        model: String?,
+    ): Long = insert(
         role = ChatLogRole.ASSISTANT,
         text = "",
         status = MessageStatus.STREAMING,
         providerId = providerId,
         model = model,
+        characterStorageKey = characterStorageKey,
         allowBlankText = true,
     )
 
     /** 更新同一条 `STREAMING` 占位行，使 Room 始终保存当前已收到的完整片段。 */
     suspend fun updateStreamingAssistant(
+        characterStorageKey: String,
         messageId: Long,
         partialText: String,
         providerId: String?,
         model: String?,
     ) {
-        if (messageId == ChatLogEntry.NO_ID || currentCharacterId.isEmpty()) return
+        if (messageId == ChatLogEntry.NO_ID || characterStorageKey.isEmpty()) return
         repository.updateChatLog(
             ChatLogEntry(
                 id = messageId,
-                characterId = currentCharacterId,
+                characterId = characterStorageKey,
                 role = ChatLogRole.ASSISTANT,
                 text = partialText,
                 timeline = System.currentTimeMillis(),
@@ -127,20 +130,21 @@ class ChatHistoryStore(
 
     /** 把 [beginAssistant] 占的那行补成最终内容。[messageId] 无效时退化成直接插入。 */
     suspend fun finishAssistant(
+        characterStorageKey: String,
         messageId: Long,
         message: ChatMessage,
         usage: TokenUsage? = null,
         providerId: String? = null,
         model: String? = null,
     ) {
-        if (currentCharacterId.isEmpty()) {
+        if (characterStorageKey.isEmpty()) {
             Log.e(TAG, "no character selected, drop message")
             return
         }
         val thinking = message.contents.filterIsInstance<ChatContent.Thinking>().firstOrNull()
         val entry = ChatLogEntry(
             id = messageId,
-            characterId = currentCharacterId,
+            characterId = characterStorageKey,
             role = ChatLogRole.ASSISTANT,
             text = message.text,
             timeline = System.currentTimeMillis(),
@@ -160,12 +164,16 @@ class ChatHistoryStore(
     }
 
     /** 流失败时把占位行标成 `FAILED`，保留已收到的片段。 */
-    suspend fun failAssistant(messageId: Long, partialText: String) {
-        if (messageId == ChatLogEntry.NO_ID || currentCharacterId.isEmpty()) return
+    suspend fun failAssistant(
+        characterStorageKey: String,
+        messageId: Long,
+        partialText: String,
+    ) {
+        if (messageId == ChatLogEntry.NO_ID || characterStorageKey.isEmpty()) return
         repository.updateChatLog(
             ChatLogEntry(
                 id = messageId,
-                characterId = currentCharacterId,
+                characterId = characterStorageKey,
                 role = ChatLogRole.ASSISTANT,
                 text = partialText,
                 timeline = System.currentTimeMillis(),
@@ -233,16 +241,17 @@ class ChatHistoryStore(
         providerId: String? = null,
         model: String? = null,
         attachmentRefs: List<AttachmentRef> = emptyList(),
+        characterStorageKey: String,
         allowBlankText: Boolean = false,
     ): Long {
-        if (currentCharacterId.isEmpty()) {
+        if (characterStorageKey.isEmpty()) {
             Log.e(TAG, "no character selected, drop message")
             return ChatLogEntry.NO_ID
         }
         if (text.isBlank() && !allowBlankText) return ChatLogEntry.NO_ID
         return repository.insertChatLog(
             ChatLogEntry(
-                characterId = currentCharacterId,
+                characterId = characterStorageKey,
                 role = role,
                 text = text,
                 timeline = System.currentTimeMillis(),

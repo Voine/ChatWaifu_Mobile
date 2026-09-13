@@ -6,6 +6,11 @@ import com.chatwaifu.vits.utils.SoundGenerateHelper
 import com.chatwaifu.vits.utils.file.FileUtils
 import com.google.gson.Gson
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.Locale
+import java.util.UUID
 
 /**
  * Description: 模型在磁盘上的布局与 meta.json 读写。
@@ -40,6 +45,33 @@ internal class ModelStorage(private val context: Context) {
         private const val META_FILE = "meta.json"
         const val LIVE2D_DIR = "live2d"
         const val VITS_DIR = "vits"
+
+        internal fun builtinCharacterId(storageKey: String): String =
+            "builtin:" + storageKey.trim().lowercase(Locale.ROOT)
+                .replace(Regex("[^a-z0-9._-]+"), "-")
+                .trim('-')
+
+        internal fun migrateMetadata(
+            meta: ModelMeta,
+            storageKey: String,
+            importedId: () -> String = { "imported:${UUID.randomUUID()}" },
+        ): ModelMeta {
+            val source = runCatching { ModelSource.valueOf(meta.source) }
+                .getOrDefault(ModelSource.IMPORTED)
+            val stableId = meta.id.ifBlank {
+                if (source == ModelSource.BUILT_IN) {
+                    builtinCharacterId(storageKey)
+                } else {
+                    importedId()
+                }
+            }
+            return meta.copy(
+                id = stableId,
+                name = storageKey,
+                displayName = meta.displayName.ifBlank { meta.name.ifBlank { storageKey } },
+                source = source.name,
+            )
+        }
     }
 
     private val gson by lazy { Gson() }
@@ -87,7 +119,12 @@ internal class ModelStorage(private val context: Context) {
         val file = File(modelDir(name), META_FILE)
         if (!file.isFile) return null
         return try {
-            gson.fromJson(file.readText(), ModelMeta::class.java)?.takeIf { it.isValid() }
+            val parsed = gson.fromJson(file.readText(), ModelMeta::class.java)
+                ?.takeIf { it.isValid() }
+                ?: return null
+            migrateMetadata(parsed, name).also { migrated ->
+                if (migrated != parsed) writeMeta(name, migrated)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "parse meta failed for $name", e)
             null
@@ -95,12 +132,28 @@ internal class ModelStorage(private val context: Context) {
     }
 
     fun writeMeta(dir: File, meta: ModelMeta) {
-        File(dir, META_FILE).writeText(gson.toJson(meta))
+        val target = File(dir, META_FILE)
+        val temporary = File(dir, "$META_FILE.tmp")
+        temporary.writeText(gson.toJson(meta))
+        try {
+            Files.move(
+                temporary.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(
+                temporary.toPath(),
+                target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        }
     }
 
     fun writeMeta(name: String, meta: ModelMeta) = writeMeta(modelDir(name), meta)
 
-    /** 扫描根目录，返回所有 meta.json 合法的模型。目录存在但 meta 坏掉的会被跳过 */
+    /** 扫描根目录。meta 损坏会跳过；Live2D 资源缺失会保留为 unavailable 角色。 */
     fun listInstalled(): List<ModelMeta> {
         val dirs = root.listFiles()?.filter { it.isDirectory } ?: emptyList()
         return dirs.mapNotNull { readMeta(it.name) }
@@ -127,9 +180,11 @@ internal class ModelStorage(private val context: Context) {
         return staged.renameTo(target)
     }
 
-    /** 把 [ModelMeta] 补上绝对路径，变成领域模型 */
-    fun toCharacterModel(meta: ModelMeta): CharacterModel = CharacterModel(
-        name = meta.name,
+    /** 把 [ModelMeta] 补上绝对路径，变成角色包。 */
+    fun toCharacterModel(meta: ModelMeta): CharacterPackage = CharacterPackage(
+        id = meta.id,
+        displayName = meta.displayName.ifBlank { meta.name },
+        storageKey = meta.name,
         source = runCatching { ModelSource.valueOf(meta.source) }.getOrDefault(ModelSource.IMPORTED),
         live2dDir = live2dDir(meta.name).absolutePath,
         live2dEntryFileName = meta.live2dEntryFileName,
@@ -137,6 +192,20 @@ internal class ModelStorage(private val context: Context) {
         bertDir = bv2BertDir(meta.language)?.takeIf { it.isDirectory }?.absolutePath,
         speakerId = meta.speakerId,
         language = meta.language,
+        preview = meta.previewFileName
+            ?.let { File(modelDir(meta.name), it) }
+            ?.takeIf { it.isFile }
+            ?.let { CharacterPreview.FilePath(it.absolutePath) },
+        personaProfileId = meta.personaProfileId,
+        voiceProfileId = meta.voiceProfileId,
+        behaviorProfileId = meta.behaviorProfileId,
+        availability = if (
+            File(live2dDir(meta.name), meta.live2dEntryFileName).isFile
+        ) {
+            CharacterAvailability.AVAILABLE
+        } else {
+            CharacterAvailability.MISSING_LIVE2D
+        },
     )
 
     /**
@@ -148,6 +217,7 @@ internal class ModelStorage(private val context: Context) {
         val dir = if (meta.sharedVoice) bv2AcousticDir(meta.language) else vitsDir(meta.name)
         return dir?.takeIf { it.isDirectory }?.absolutePath
     }
+
 }
 
 /**
@@ -160,7 +230,9 @@ internal class ModelStorage(private val context: Context) {
  * 字段给默认值是为了兼容 Gson 反序列化缺字段的情况，读出来后一律走 [isValid] 校验。
  */
 internal data class ModelMeta(
+    val id: String = "",
     val name: String = "",
+    val displayName: String = "",
     /** [ModelSource] 的 name */
     val source: String = ModelSource.IMPORTED.name,
     val live2dEntryFileName: String = "",
@@ -173,6 +245,10 @@ internal data class ModelMeta(
     val sharedVoice: Boolean = false,
     /** `LANGUAGE_ZH/EN/JP/MIX_ZH_EN` 之一，决定走哪套 G2P 和哪份 BERT */
     val language: Int = 0,
+    val previewFileName: String? = null,
+    val personaProfileId: String? = null,
+    val voiceProfileId: String? = null,
+    val behaviorProfileId: String? = null,
 ) {
     fun isValid(): Boolean = name.isNotBlank() && live2dEntryFileName.isNotBlank()
 }

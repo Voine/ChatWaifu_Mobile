@@ -2,9 +2,11 @@
 
 ## Companion UI 开发交接
 
-前台角色陪伴界面 V0.1 的施工方案、跨机器环境准备及接手步骤见
-**[施工与跨机器交接文档](docs/companion-ui-construction-plan.md)**。
-当前仅完成规划；接手 Copilot 请先读该文档，再按未完成批次开始 Phase 1。
+新会话先阅读 **[项目架构、当前进展与交接](docs/project-handoff.md)**。
+Companion UI 的逐批施工记录、设备证据和剩余事项见
+**[施工与跨机器交接文档](docs/companion-ui-construction-plan.md)** 第 10、12 节。
+当前已完成 Phase 2.6，尚未进入 Phase 3。下方部分说明来自旧版项目，涉及当前架构、BV2、
+角色身份和 Provider 的信息以交接文档为准。
 
 ## 年轻人的第一个移动版老婆聊天器（雾
 ## 简介

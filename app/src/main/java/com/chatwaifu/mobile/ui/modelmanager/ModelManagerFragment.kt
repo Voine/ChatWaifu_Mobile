@@ -65,6 +65,9 @@ class ModelManagerFragment : Fragment() {
                             )
                         }
 
+                        is ModelManagerEvent.CurrentChanged ->
+                            activityViewModel.selectCharacter(event.character)
+
                         ModelManagerEvent.ConfigSaved ->
                             showToast(resources.getString(R.string.model_manager_saved))
                     }
@@ -81,8 +84,9 @@ class ModelManagerFragment : Fragment() {
                         picker.launch(arrayOf("application/zip", "application/octet-stream"))
                     },
                     onDelete = fragmentViewModel::delete,
-                    onSaveConfig = fragmentViewModel::saveCharacterConfig,
-                    systemPromptOf = fragmentViewModel::getSystemPrompt,
+                    onOpenDetail = fragmentViewModel::openDetail,
+                    onCloseDetail = fragmentViewModel::closeDetail,
+                    onSetCurrent = fragmentViewModel::setCurrent,
                 )
             }
         }
@@ -94,7 +98,7 @@ class ModelManagerFragment : Fragment() {
     }
 }
 
-private fun ImportError.toMessage(resources: Resources): String = when (this) {
+internal fun ImportError.toMessage(resources: Resources): String = when (this) {
     ImportError.NotAZip -> resources.getString(R.string.import_error_not_zip)
     ImportError.NoLive2DEntry -> resources.getString(R.string.import_error_no_live2d)
     is ImportError.MultipleLive2DEntries ->

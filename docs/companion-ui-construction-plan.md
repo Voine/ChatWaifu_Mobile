@@ -1,9 +1,9 @@
 # Live2D Companion UI V0.1 施工与跨机器交接
 
-> 给接手 Copilot / GPT-6 的第一指令：先读本文件，再读设计包和本阶段涉及的源码；
-> 从第 10 节的第一个未完成批次开始实施，不需要重新输出一份总体规划。
-> 不依赖原对话、原机器绝对路径或原 Copilot 会话。默认只实施 Phase 1；
-> 完成验收后停止，报告结果，由用户决定是否进入 Phase 2。
+> 给接手 Copilot / AI 会话的第一指令：先读
+> [`docs/project-handoff.md`](project-handoff.md)，再读本文第 10、12 节和当前任务涉及的
+> 专项文档。本文前半部分保留最初 Phase 1 规划作为历史背景，实际进度以第 10、12 节为准。
+> 不依赖原对话、原机器绝对路径或原 Copilot 会话；未经用户授权不得进入 Phase 3。
 
 ## 1. 交接状态与证据边界
 
@@ -94,7 +94,7 @@ Phase 4 的后台陪伴另开设计。
 |---|---|---|
 | 应用外壳 | `ui\login\LoginActivity.kt` 是 launcher；`ChatActivity.kt` 创建 Compose 外壳并启动业务循环 | 不全量迁移导航 |
 | 导航 | `ui\base\ChatWaifuMainContent.kt` 内嵌 Fragment NavHost；`mobile_navigation.xml` 从角色列表开始 | 历史弹层不作为新导航目的地 |
-| 正式入口 | `ChannelListFragment` 调 `initModel()`、申请录音权限；选择角色后等待声库成功再进入聊天 | 演示不能直接复用整条初始化路径 |
+| 正式入口 | `ChannelListFragment` 复用角色管理 VM/UI、申请录音权限；详情明确选择或进入当前角色后，由 Activity VM 准备 Session/TTS，声库成功再进聊天 | 演示不能直接复用整条初始化路径 |
 | 主页面 | `ChatFragment` 承载 GLSurfaceView，`ChatContent.kt` 已有当前发言区和常驻输入区 | 替换覆盖层，不是从瀑布流全盘重写 |
 | UI 数据 | `ChatDialogContentUIState` 有内容、发送方、错误、流式标记；业务 SharedFlow 无 replay | 后续需页面快照，不能仅依靠重订阅旧事件恢复 |
 | 编排 | `ChatActivityViewModel` 调 ChatSession、翻译、TTS、ChatHistoryStore、记忆巩固 | 页面 VM 不复制业务会话 |
@@ -416,7 +416,9 @@ Pop-Location
 | P1.5-C 历史玻璃层 | 已完成 | P1.5-B | 保留 60%/96% 双高度；深蓝灰半透明层与紧凑消息块；debug/release 构建通过 |
 | Phase 1 验收门 | 部分完成（真机余项保留） | P1-D | 自动化与构建已通过；API 36 已验证首次 IME 展开稳定，其余第 11 节设备交互与生命周期项仍待验证 |
 | P2-M 最小真实链路 | 已完成（debug Companion 入口） | Phase 1 + 用户确认 | 现有 provider/Room/翻译/BV2 接入；明确六态、重试与忙碌门禁；API 37 arm64 虚拟设备冒烟 |
-| P2.1 实时表现基础 | 已完成 | P2-M | 现有 provider 的文本 delta 增量上屏/落同一 STREAMING 行；AudioTrack marker 精确完成、取消与过期回调隔离 |
+| P2.1 实时表现基础 | 已完成 | P2-M | debug Companion 复用现有 provider，将文本 delta 增量上屏/落同一 STREAMING 行；AudioTrack marker 精确完成、取消与过期回调隔离 |
+| P2.5 Provider 与模型设置 | 已完成 | P2.1 + 用户确认 | 收敛现有 Provider 抽象；Cloud/Local Network/Embedded Local 配置隔离；连接测试、迁移、会话快照与模型设置页完成 |
+| P2.6 角色管理与角色包 | 已完成 | P2.5 + 用户确认 | 稳定 CharacterPackage ID、旧 storageKey 隔离、当前选择迁移、角色页/详情页、Persona 与迟到异步结果隔离 |
 | P2-A 文本与历史 | 部分完成 | P2.1 | 流式片段、最终/失败状态和 DB 消息 ID 已接；历史分页及正式 runtime 复用仍待做 |
 | P2-B 语音 | 部分完成（TTS） | P2.1 | BV2、口型、精确播放完成与取消已接；ASR 未做 |
 | P2-C 正式入口 | 未开始 | P2-B + 用户确认 | 恢复角色、准备态、无 Key 可看角色、次级导航及旧数据回归 |
@@ -495,14 +497,16 @@ PowerShell 在仓库根目录：
 
 当前记录：
 
-- 最后完成批次：P2.1 实时表现基础；流式文本和 AudioTrack 精确完成通知已接入，
-  并完成 API 37 arm64 虚拟设备验证。
-- 下一批次：停止施工；P2-C、ASR、历史分页及 Phase 3 均需用户另行授权。
-- 实际新增/修改的应用源码：`ui/companion/` 状态、ViewModel、宿主与屏幕入口；
-  `src/debug` 演示 Activity/Mock/真实 adapter/manifest；模型仓库准备路径；
-  `ChatFragment` 改用共用宿主。
-- 产品侧阻塞决定：最小 Phase 2 范围已完成；正式入口、ASR、流式 UI、历史分页、
-  AudioTrack 精确完成通知及 Phase 3 均不在本批范围。
+- 最后完成批次：P2.6 角色管理与角色包；稳定 ID、legacy storageKey 边界、当前角色持久化、
+  角色管理/详情 UI、Persona 清空和异步切换隔离已接入，并完成 API 37 arm64 虚拟设备验证。
+- 下一批次：停止施工；Persona/Voice/Behavior 编辑器、Room/Memory identity 迁移、
+  Embedded Local 真正推理、P2-C、ASR、历史分页及 Phase 3 均需用户另行授权。
+- 实际新增/修改的主要范围：Phase 2.5 的 `ChatCore` Provider descriptor/config/factory、
+  app `data/chat` 与 `ui/setting`；Phase 2.6 的 `data/model`、`ui/modelmanager`、
+  `ui/channellist`、正式 `ChatActivityViewModel` 和 Companion/History/Memory 接线。
+- 产品侧阻塞决定：Embedded Local 只保留可恢复配置和明确未接入状态；Character profile
+  只留 reference，不实现 Persona/Voice/Behavior 编辑器；Room/Memory identity 仍用
+  storageKey。正式 Companion runtime 收敛、ASR、历史分页及 Phase 3 均不在本批范围。
 
 ### 2026-09-13 / P0 基线
 
@@ -759,6 +763,97 @@ PowerShell 在仓库根目录：
   音频焦点中断。Room 当前每个文本 delta 都更新一次，长回复的写入频率后续可在不改变
   最终权威状态的前提下做合并节流；本批未做历史分页、ASR 或正式入口迁移。
 - 下一批次及第一个动作：按用户要求停止，不进入 Phase 3。
+
+### 2026-09-13 / P2.5 Provider 与模型设置
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：新增 ChatCore 的 `core/ProviderDescriptor.kt`；新增 app 的
+  `data/chat/ProviderProfile.kt`、`ui/setting/ModelSettingsState.kt`、
+  `ui/setting/ModelSettingsSection.kt` 及三组 Provider/会话/设置状态单元测试；修改
+  `ChatProviderFactory.kt`、`ProviderCapabilities.kt`、`ProviderConfig.kt`、
+  `ChatSession.kt`、`OpenAICompatProvider.kt`、`ChatProviderSettings.kt`、
+  `SettingContent.kt`、`SettingFragment.kt`、`SettingFragmentViewModel.kt`、
+  `ChatActivityViewModel.kt`、debug `CompanionRealResponseDriver.kt`、常量和文案。
+- 架构选择：保留 `ChatProvider.chatStream()` 唯一网络抽象和 `ChatSession` 客户端上下文；
+  静态 `ProviderDescriptor + ProviderCapabilities + settingFields` 驱动 UI。app 层 sealed
+  `ProviderProfile` 表达 Cloud、Local Network、Embedded Local 差异，再生成不可变
+  `InferenceSelection(ProviderConfig + ChatOptions)`。局域网产品身份使用独立稳定 ID，
+  协议实现复用 OpenAI-compatible；空 endpoint 在 UI 与 factory 两层失败关闭，绝不回落公网。
+- 配置与迁移：继续使用现有 SharedPreferences，不引入新安全依赖；Provider 配置完全按 ID
+  分区。迁移版本升为 2，只在目标 key 不存在时搬旧 key/代理 URL，一次 commit 且重复执行
+  不覆盖新值。API key/auth 默认遮罩，运行时配置和 profile 的 debug/JSON 输出不含凭据。
+- 当前模型语义：设置页只修改 ViewModel 草稿，点“设为当前模型”后随 Save 持久化；
+  `ChatActivityViewModel` 和 Companion adapter 在建 session 时读取一次 selection，并快照
+  provider/model 元数据。保存设置调用 `refreshAllKeys(rebuildSession = false)`，已存在
+  session 不被静默替换，新 session 才读取新选择。
+- 连接测试：用当前未保存草稿构造临时 provider，发 8-token 无状态请求，不创建
+  `ChatSession`、不写 Room，并在结束后关闭 provider。结果区分成功、网络/超时、鉴权、
+  模型不存在、endpoint 不兼容、未知和未接入；切换 Provider 或修改草稿后，旧请求结果
+  不能覆盖当前状态。Embedded Local 明确禁用测试。
+- 自动化验证：
+  `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease`
+  成功，共 24 个测试；新增覆盖旧配置迁移幂等且不覆盖、三类配置转换与隔离、能力/字段
+  schema、凭据脱敏、Embedded 占位恢复、当前/编辑模型分离、非法局域网激活阻断、错误分类、
+  既有 session 保持模型快照、新 session 使用最新模型，以及关闭流式展示仍复用 provider flow。
+  `git diff --check` 通过。
+- 设备/API、场景与观察：arm64 虚拟设备 `sdk_gphone16k_arm64` / API 37。模型页按冷色玻璃
+  风格显示当前模型、三类服务、连接字段和折叠高级项；API key 默认 password mask；
+  Cloud 与 Local Network 编辑草稿互不覆盖；Embedded Local 显示模型路径/runtime/context
+  占位且不可激活。局域网空 endpoint 无法设为当前并显示“Endpoint 不兼容”；经
+  `adb reverse` 接临时 OpenAI-compatible SSE 后连接测试显示“连接成功”。临时服务、
+  端口映射和测试 app 均已清理，截图保存在 session artifact
+  `files/phase25-settings.png`、`files/phase25-local-network.png`。
+- 未覆盖项 / 风险：没有连接物理真机；没有使用商业 Cloud 凭据做成功请求。`ChatActivity`
+  在 manifest 中锁定竖屏，因此无法以旋转触发配置重建；设置草稿由 Fragment ViewModel
+  持有，配置变更语义由代码和 JVM 状态测试覆盖，进程死亡仍只恢复已保存配置。Embedded
+  Local 仍是 stub；Anthropic/Gemini 仍未实现。SharedPreferences 沿用现状，不具备静态加密。
+- 下一批次及第一个动作：按用户要求停止，不进入 Phase 3；后续若单独授权 Embedded Local，
+  从现有 `EmbeddedLocalProviderProfile` 和 `LocalLlmProvider` stub 接入，不另建会话层。
+
+### 2026-09-13 / P2.6 角色管理与角色包
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`93f866c` / 未提交。
+- 实际新增与修改文件：新增 `data/model/CurrentCharacterSelectionStore.kt`、
+  `CharacterSwitchGuard.kt` 和 `CharacterPackageTest.kt`；扩展 `CharacterModel.kt`
+  （主类型为 `CharacterPackage`，保留兼容 typealias）、`ModelStorage.kt`、
+  `CharacterRepository*`、`BuiltInModelInstaller.kt`、`ZipModelImporter.kt`；
+  重写角色页 `ChannelListFragment.kt`、`ModelManagerContent.kt`，扩展
+  `ModelManagerViewModel.kt`/`ModelManagerFragment.kt`；接线
+  `ChatActivityViewModel.kt`、Companion adapter/activity、历史/记忆/触控调用点和文案。
+- 数据边界：`CharacterPackage.id` 是选择、详情和未来 profile reference 的稳定身份；
+  `storageKey` 只供现有 Room、Memory、legacy persona/touch 和磁盘目录使用。本批没有 Room
+  schema 或 Memory identity 迁移。Builtin ID 为确定性 `builtin:<key>`，Imported ID 为
+  `imported:<uuid>`；旧 metadata 首次读取时补 ID 并原子回写，重复读取不再生成。
+- 当前角色与切换语义：当前稳定 ID 写入 `SAVED_CURRENT_CHARACTER_ID`；首次迁移可从旧
+  `SAVED_CHAT_NAME` 按 storageKey 恢复，失效时回退到首个可用 Builtin。普通卡片只进入详情，
+  详情中的“设为当前角色”才切换；当前角色显示“进入对话”，避免持久化选择后无入口。
+  切换会创建不携带旧历史的新 `ChatSession`，并显式读取新角色 persona；空值明确表示
+  default/empty，不继承上一角色 prompt。
+- 并发隔离：每次切换生成 token；迟到的历史恢复、TTS 初始化、旧流式 UI 和错误结果必须同时
+  匹配 token、角色 ID 与目标 Session。TTS 初始化和推理共用 Mutex，避免切换时替换正在使用的
+  speaker/model。`ChatHistoryStore` 的每次写入显式接收本轮 storageKey，旧请求即使收尾也不会
+  写入新角色分区。快速连续选择会取消尚未完成的旧持久化任务。
+- UI 信息架构：页面标题统一为“角色”；顶部显示当前角色大卡，下方为自适应角色 Grid 与
+  “导入角色”；角色详情显示形象、来源、语音、人格和表现状态，并提供明确切换操作。
+  Builtin 不显示删除；Imported 删除沿用现有能力，删除当前角色时先持久化 Builtin fallback
+  并立即通知正式 Activity 切换。列表与详情只用静态头像/fallback，不创建额外 renderer。
+- 自动化与构建验证：
+  `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease` 成功，共 34 个
+  JVM 测试（新增 10 个 CharacterPackage/metadata/selection/switch guard/state 测试）；
+  Phase 2.5 既有 Provider/Session 测试继续通过，`git diff --check` 通过。
+- 设备/API、场景与观察：arm64 虚拟设备 `sdk_gphone16k_arm64` / API 37。已验证角色首页、
+  当前角色大卡、Builtin Grid、详情页、明确切换 ATRI → Amadeus、进入正式聊天后 Live2D
+  更新、强制停止重启后 Amadeus 保持、当前角色“进入对话”入口，以及 debug Companion
+  恢复 Amadeus。截图保存在
+  session artifact `files/p26-login.png`、`p26-character-detail.png`、
+  `p26-after-switch.png`、`p26-restart-selection.png`、`p26-companion-current.png`。
+- 未覆盖项 / 风险：没有物理真机；未准备可公开提交的合法导入 ZIP，因此 SAF 导入、Imported
+  删除和损坏资源 fallback 只由既有流程、代码路径及单元测试覆盖；没有用 Room/Memory 老库做
+  identity 迁移（本批明确不做）。Activity 锁定竖屏，旋转不适用；配置/进程重建通过强制停止
+  重启验证。角色预览目前使用已有内置头像或统一 fallback，未定义 ZIP preview 约定。
+- 下一批次及第一个动作：按用户要求停止，不进入 Phase 3。后续若授权 Persona/Voice/Behavior，
+  只沿 `personaProfileId`、`voiceProfileId`、`behaviorProfileId` reference 扩展，不把 Provider
+  配置塞入 CharacterPackage，也不要顺带迁移 Room/Memory identity。
 
 每完成一批在本节追加：
 

@@ -16,6 +16,11 @@ data class ProviderCapabilities(
     val audioOutput: Boolean = false,
     val fileInput: Boolean = false,
     val toolCalling: Boolean = false,
+    val systemPrompt: Boolean = true,
+    val modelDiscovery: Boolean = false,
+    val requiresApiKey: Boolean = false,
+    val remote: Boolean = true,
+    val embedded: Boolean = false,
 
     /** 空集表示这个基座没有推理档概念，[ChatRequest.reasoning] 会被忽略。 */
     val reasoningLevels: Set<ReasoningLevel> = emptySet(),

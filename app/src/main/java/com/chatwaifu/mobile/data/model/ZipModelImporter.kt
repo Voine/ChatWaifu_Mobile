@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.BufferedInputStream
 import java.io.File
+import java.util.UUID
 import java.io.FilterInputStream
 import java.io.InputStream
 import java.util.zip.ZipEntry
@@ -153,7 +154,9 @@ internal class ZipModelImporter(
             }
 
             val meta = ModelMeta(
+                id = "imported:${UUID.randomUUID()}",
                 name = name,
+                displayName = name,
                 source = ModelSource.IMPORTED.name,
                 live2dEntryFileName = live2dEntry.name,
                 hasVits = vitsRoot != null,

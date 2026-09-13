@@ -57,6 +57,6 @@ class MemoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         // 记忆按角色隔离，没选角色时这一页是空的
-        fragmentViewModel.bind(activityViewModel.currentCharacter?.name)
+        fragmentViewModel.bind(activityViewModel.currentCharacter?.storageKey)
     }
 }

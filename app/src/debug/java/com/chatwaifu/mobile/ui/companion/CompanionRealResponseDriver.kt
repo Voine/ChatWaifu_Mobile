@@ -55,6 +55,7 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
     private var session: ChatSession? = null
     private var activeProviderKey = ""
     private var activeModel: String? = null
+    private var activeCharacterStorageKey = ""
     private var pendingPersistedInput: String? = null
 
     private var soundHelper: SoundGenerateHelper? = null
@@ -74,7 +75,8 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
                 releaseConversationResources()
 
                 val providerId = providerSettings.activeProviderId
-                val storedConfig = providerSettings.config(providerId)
+                val storedSelection = providerSettings.selection(providerId)
+                val storedConfig = storedSelection.providerConfig
                 val config = if (
                     providerId in setOf(ProviderId.OPENAI_COMPAT, ProviderId.OPENAI_RESPONSES) &&
                     storedConfig.apiKey.isNullOrBlank() &&
@@ -89,16 +91,17 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
                 provider = newProvider
                 activeProviderKey = providerId.key
                 activeModel = config.model?.ifBlank { null } ?: newProvider.defaultModel
-                memoryContributor.characterId = character.name
+                activeCharacterStorageKey = character.storageKey
+                memoryContributor.characterId = character.storageKey
 
                 historyStore.failDanglingStreams()
                 historyStore.gcAttachments()
-                val restored = historyStore.load(character.name, activeProviderKey)
-                val displayHistory = historyStore.loadDisplayHistory(character.name)
+                val restored = historyStore.load(character.storageKey, activeProviderKey)
+                val displayHistory = historyStore.loadDisplayHistory(character.storageKey)
                 session = ChatSession(
                     provider = newProvider,
-                    systemPrompt = characterRepository.getSystemPrompt(character.name),
-                    options = ChatOptions(model = config.model),
+                    systemPrompt = characterRepository.getSystemPrompt(character.storageKey),
+                    options = storedSelection.sessionOptions.copy(model = config.model),
                     memory = memoryContributor,
                 ).apply {
                     restore(restored)
@@ -117,7 +120,7 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
         requestMutex.withLock {
             val activeSession = checkNotNull(session) { "聊天链路尚未准备完成" }
             if (!request.isRetry || pendingPersistedInput != request.input) {
-                historyStore.appendUser(request.input)
+                historyStore.appendUser(activeCharacterStorageKey, request.input)
                 pendingPersistedInput = request.input
             }
 
@@ -134,7 +137,11 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
             var assistantId: Long? = null
             try {
                 val messageId = withContext(NonCancellable) {
-                    historyStore.beginAssistant(activeProviderKey, activeModel)
+                    historyStore.beginAssistant(
+                        activeCharacterStorageKey,
+                        activeProviderKey,
+                        activeModel,
+                    )
                 }
                 assistantId = messageId
                 val result = requestAssistant(activeSession, request.input, messageId, partial)
@@ -146,7 +153,7 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
                 val reply = result.text.trim()
                 if (reply.isEmpty()) {
                     withContext(NonCancellable) {
-                        historyStore.failAssistant(messageId, "")
+                        historyStore.failAssistant(activeCharacterStorageKey, messageId, "")
                         val snapshot = activeSession.snapshot()
                         if (snapshot.lastOrNull()?.role == ChatRole.ASSISTANT) {
                             activeSession.restore(snapshot.dropLast(1))
@@ -163,6 +170,7 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
 
                 withContext(NonCancellable) {
                     historyStore.finishAssistant(
+                        characterStorageKey = activeCharacterStorageKey,
                         messageId = messageId,
                         message = result.message,
                         usage = result.usage,
@@ -209,7 +217,11 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
                 if (!assistantTerminal) {
                     assistantId?.let { messageId ->
                         withContext(NonCancellable) {
-                            historyStore.failAssistant(messageId, partial.toString())
+                            historyStore.failAssistant(
+                                activeCharacterStorageKey,
+                                messageId,
+                                partial.toString(),
+                            )
                         }
                     }
                 }
@@ -231,6 +243,7 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
                         partial.append(delta.text)
                         val streamedText = partial.toString()
                         historyStore.updateStreamingAssistant(
+                            characterStorageKey = activeCharacterStorageKey,
                             messageId = assistantId,
                             partialText = streamedText,
                             providerId = activeProviderKey,
@@ -247,13 +260,21 @@ class CompanionRealResponseDriver(context: Context) : CompanionResponseDriver {
             throw e
         } catch (e: Throwable) {
             Log.e(TAG, "chat request failed", e)
-            historyStore.failAssistant(assistantId, partial.toString())
+            historyStore.failAssistant(
+                activeCharacterStorageKey,
+                assistantId,
+                partial.toString(),
+            )
             emit(CompanionResponseEvent.Failed(ChatErrorMessages.describe(appContext, e)))
             return null
         }
 
         if (result == null) {
-            historyStore.failAssistant(assistantId, partial.toString())
+            historyStore.failAssistant(
+                activeCharacterStorageKey,
+                assistantId,
+                partial.toString(),
+            )
             emit(
                 CompanionResponseEvent.Failed(
                     appContext.getString(R.string.companion_response_incomplete)

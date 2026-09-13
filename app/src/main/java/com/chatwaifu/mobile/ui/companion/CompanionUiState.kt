@@ -37,6 +37,7 @@ data class CompanionErrorState(
 )
 
 data class CompanionUiState(
+    val characterId: String = "",
     val characterName: String = "Companion",
     val runtime: CompanionRuntimeState = CompanionRuntimeState.IDLE,
     val overlay: CompanionOverlayState = CompanionOverlayState.NONE,

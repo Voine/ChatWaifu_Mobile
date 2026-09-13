@@ -54,13 +54,12 @@ import kotlinx.coroutines.flow.flowOn
  */
 class OpenAICompatProvider(
     private val config: ProviderConfig,
+    override val id: ProviderId = ProviderId.OPENAI_COMPAT,
     override val displayName: String = "OpenAI 兼容",
     override val availableModels: List<ModelInfo> = DEFAULT_MODELS,
     override val defaultModel: String = FALLBACK_MODEL,
     override val capabilities: ProviderCapabilities = DEFAULT_CAPABILITIES,
 ) : ChatProvider {
-
-    override val id: ProviderId = ProviderId.OPENAI_COMPAT
 
     private val http = StreamingHttpClient(config) {
         // 本机推理服务通常不校验 key，没填就不发这个头，免得某些实现直接 401

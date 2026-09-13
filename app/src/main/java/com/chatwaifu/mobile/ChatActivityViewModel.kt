@@ -21,6 +21,7 @@ import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.data.chat.ChatProviderSettings
 import com.chatwaifu.mobile.data.model.CharacterModel
 import com.chatwaifu.mobile.data.model.CharacterRepository
+import com.chatwaifu.mobile.data.model.CharacterSwitchGuard
 import com.chatwaifu.mobile.data.model.ModelProvider
 import com.chatwaifu.mobile.ui.common.ChatDialogContentUIState
 import com.chatwaifu.mobile.utils.ChatErrorMessages
@@ -36,6 +37,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
@@ -75,10 +78,12 @@ class ChatActivityViewModel : ViewModel() {
      * 当前选中的角色。以前是 currentLive2DModelPath / currentLive2DModelName /
      * currentVITSModelName 三个散装 String，调用方要自己保证它们同步。
      */
+    @Volatile
     var currentCharacter: CharacterModel? = null
         private set
 
-    val currentCharacterName: String get() = currentCharacter?.name.orEmpty()
+    val currentCharacterName: String get() = currentCharacter?.displayName.orEmpty()
+    val currentCharacterStorageKey: String get() = currentCharacter?.storageKey.orEmpty()
 
     var needTranslate: Boolean = true
 
@@ -94,6 +99,10 @@ class ChatActivityViewModel : ViewModel() {
      */
     private var chatProvider: ChatProvider? = null
     private var chatSession: ChatSession? = null
+    private var sessionProviderKey: String? = null
+    private var sessionModel: String? = null
+    private val characterSwitchGuard = CharacterSwitchGuard()
+    private val characterVoiceMutex = Mutex()
 
     private val vitsHelper: SoundGenerateHelper by lazy {
         SoundGenerateHelper(ChatWaifuApplication.context)
@@ -135,8 +144,8 @@ class ChatActivityViewModel : ViewModel() {
     }
     private var translate: ITranslate? = null
 
-    fun refreshAllKeys() {
-        rebuildChatSession()
+    fun refreshAllKeys(rebuildSession: Boolean = true) {
+        if (rebuildSession) rebuildChatSession()
         val translateAppId = sp.getString(Constant.SAVED_TRANSLATE_APP_ID, null)
         val translateKey = sp.getString(Constant.SAVED_TRANSLATE_KEY, null)
         needTranslate = sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true)
@@ -146,9 +155,10 @@ class ChatActivityViewModel : ViewModel() {
     /**
      * 按当前设置重建 provider。历史会从旧会话里搬过去，切基座不断上下文。
      */
-    private fun rebuildChatSession() {
+    private fun rebuildChatSession(preserveHistory: Boolean = true) {
         val id = providerSettings.activeProviderId
-        val config = providerSettings.config(id)
+        val selection = providerSettings.selection(id)
+        val config = selection.providerConfig
         val previous = chatSession
 
         chatProvider?.close()
@@ -156,13 +166,24 @@ class ChatActivityViewModel : ViewModel() {
         chatProvider = provider
         chatSession = ChatSession(
             provider = provider,
-            systemPrompt = previous?.systemPrompt
-                ?: currentCharacter?.let { characterRepository.getSystemPrompt(it.name) },
-            options = ChatOptions(model = config.model),
+            systemPrompt = if (preserveHistory) {
+                previous?.systemPrompt
+                    ?: currentCharacter?.let {
+                        characterRepository.getSystemPrompt(it.storageKey)
+                    }
+            } else {
+                // null 明确表示该角色没有 persona，不能沿用上一角色的 system prompt。
+                currentCharacter?.let {
+                    characterRepository.getSystemPrompt(it.storageKey)
+                }
+            },
+            options = selection.sessionOptions,
             memory = memoryContributor,
         ).apply {
-            previous?.let { restore(it.snapshot()) }
+            if (preserveHistory) previous?.let { restore(it.snapshot()) }
         }
+        sessionProviderKey = id.key
+        sessionModel = config.model?.ifBlank { null } ?: provider.defaultModel
         Log.d(TAG, "chat provider rebuilt: ${provider.displayName} / ${config.model ?: provider.defaultModel}")
     }
 
@@ -170,11 +191,11 @@ class ChatActivityViewModel : ViewModel() {
         chatSession ?: run { rebuildChatSession(); chatSession!! }
 
     /** 落库时记的基座标识。thinking 签名跨基座不能重放，恢复历史时要靠它对齐。 */
-    private val activeProviderKey: String get() = providerSettings.activeProviderId.key
+    private val activeProviderKey: String?
+        get() = sessionProviderKey
 
     private val activeModel: String?
-        get() = providerSettings.config().model?.ifBlank { null }
-            ?: chatProvider?.defaultModel
+        get() = sessionModel
 
     fun mainLoop() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -186,30 +207,51 @@ class ChatActivityViewModel : ViewModel() {
             while (true) {
                 chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
                 val input = fetchInput()
-                historyStore.appendUser(input)
+                val turnCharacter = currentCharacter ?: continue
+                val turnGeneration =
+                    characterSwitchGuard.currentToken(turnCharacter.id) ?: continue
+                val turnCharacterStorageKey = turnCharacter.storageKey
+                historyStore.appendUser(turnCharacterStorageKey, input)
 
                 chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
                 // 先占一行 STREAMING 再发请求：流中途挂掉时历史里留下的是一条
                 // 标记为失败的半截回复，而不是凭空少一轮对话
-                val messageId = historyStore.beginAssistant(activeProviderKey, activeModel)
-                val result = streamChatRequest(input, messageId) ?: continue
+                val messageId = historyStore.beginAssistant(
+                    turnCharacterStorageKey,
+                    activeProviderKey,
+                    activeModel,
+                )
+                val result = streamChatRequest(
+                    input,
+                    messageId,
+                    turnCharacterStorageKey,
+                    turnCharacter.id,
+                    turnGeneration,
+                ) ?: continue
 
                 historyStore.finishAssistant(
+                    characterStorageKey = turnCharacterStorageKey,
                     messageId = messageId,
                     message = result.message,
                     usage = result.usage,
                     providerId = activeProviderKey,
                     model = activeModel,
                 )
+                if (!characterSwitchGuard.isCurrent(turnGeneration, turnCharacter.id)) continue
                 Log.d(TAG, "get response ${result.text}")
 
                 val translateText = fetchTranslateIfNeed(result.text)
+                if (!characterSwitchGuard.isCurrent(turnGeneration, turnCharacter.id)) continue
                 Log.d(TAG, "translate result: $translateText")
                 chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
                 // 抽取和 TTS 并发：这几秒用户在听、主循环在等输入，是白送的异步窗口。
                 // 放在 generateAndPlaySound 之前启动，两者重叠（一个等网络一个吃 CPU）
                 consolidateMemoryInBackground()
-                generateAndPlaySound(translateText)
+                generateAndPlaySound(
+                    needPlayText = translateText,
+                    character = turnCharacter,
+                    generation = turnGeneration,
+                )
             }
         }
     }
@@ -238,6 +280,11 @@ class ChatActivityViewModel : ViewModel() {
         loadingUILiveData.postValue(Pair(true, "Init Models...."))
         viewModelScope.launch(Dispatchers.IO) {
             val characters = characterRepository.loadCharacters()
+            val restoredCharacter = characterRepository.getCurrentCharacter()
+            if (currentCharacter == null && restoredCharacter != null) {
+                currentCharacter = restoredCharacter
+                characterSwitchGuard.begin(restoredCharacter.id)
+            }
             initModelResultLiveData.postValue(characters)
             loadingUILiveData.postValue(Pair(false, ""))
         }
@@ -249,19 +296,24 @@ class ChatActivityViewModel : ViewModel() {
      * 加载结果通过 [loadVITSModelLiveData] 通知，UI 收到 SUCCESS 后才跳聊天页。
      */
     fun selectCharacter(character: CharacterModel) {
+        val generation = characterSwitchGuard.begin(character.id)
         currentCharacter = character
         // 记忆按角色隔离，切角色时 scope 和轮次计数一起换
-        memoryContributor.characterId = character.name
+        memoryContributor.characterId = character.storageKey
         memoryConsolidator.reset()
-        val session = requireSession()
-        // 设定为空时不覆盖已有的 system prompt，保持原来的行为
-        characterRepository.getSystemPrompt(character.name)?.let {
-            session.systemPrompt = it
+        vitsHelper.cancelPlayback()
+        rebuildChatSession(preserveHistory = false)
+        val targetSession = requireSession()
+        viewModelScope.launch(Dispatchers.IO) {
+            val restored = historyStore.load(character.storageKey, activeProviderKey)
+            if (
+                characterSwitchGuard.isCurrent(generation, character.id) &&
+                chatSession === targetSession
+            ) {
+                targetSession.restore(restored)
+            }
         }
-        CoroutineScope(Dispatchers.IO).launch {
-            session.restore(historyStore.load(character.name, activeProviderKey))
-        }
-        loadVitsModel(character)
+        loadVitsModel(character, generation)
     }
 
     /**
@@ -271,27 +323,38 @@ class ChatActivityViewModel : ViewModel() {
      * 因为老 VITS 必须先从 config 解出 symbols 才能建 textUtils。BV2 的 G2P 在
      * `text-preprocess` 里，config 只提供采样率，所以合成了一次 suspend 调用。
      */
-    private fun loadVitsModel(character: CharacterModel) {
+    private fun loadVitsModel(character: CharacterModel, generation: Long) {
         val vitsDir = character.vitsDir
         if (vitsDir == null) {
             // 没有语音的角色也应该能进聊天页，只是不出声。
             // 以前这里会走到加载失败，导致这类模型根本进不去。
-            Log.i(TAG, "${character.name} has no voice model, skip loading")
-            viewModelScope.launch { _loadVITSModelLiveData.emit(VITSLoadStatus.STATE_SUCCESS) }
+            Log.i(TAG, "${character.displayName} has no voice model, skip loading")
+            loadingUILiveData.postValue(Pair(false, ""))
+            viewModelScope.launch {
+                if (characterSwitchGuard.isCurrent(generation, character.id)) {
+                    _loadVITSModelLiveData.emit(VITSLoadStatus.STATE_SUCCESS)
+                }
+            }
             return
         }
         loadingUILiveData.postValue(Pair(true, "Load TTS Model...."))
         viewModelScope.launch(Dispatchers.IO) {
-            val success = vitsHelper.init(
-                bv2Dir = vitsDir,
-                bertDir = character.bertDir,
-                language = character.language,
-                targetSpeakerId = character.speakerId,
-            )
-            _loadVITSModelLiveData.emit(
-                if (success) VITSLoadStatus.STATE_SUCCESS else VITSLoadStatus.STATE_FAILED
-            )
-            loadingUILiveData.postValue(Pair(false, ""))
+            characterVoiceMutex.withLock {
+                if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock
+                val success = vitsHelper.init(
+                    bv2Dir = vitsDir,
+                    bertDir = character.bertDir,
+                    language = character.language,
+                    targetSpeakerId = character.speakerId,
+                )
+                if (characterSwitchGuard.isCurrent(generation, character.id)) {
+                    _loadVITSModelLiveData.emit(
+                        if (success) VITSLoadStatus.STATE_SUCCESS
+                        else VITSLoadStatus.STATE_FAILED
+                    )
+                    loadingUILiveData.postValue(Pair(false, ""))
+                }
+            }
         }
     }
 
@@ -307,10 +370,10 @@ class ChatActivityViewModel : ViewModel() {
     }
 
     private fun consolidateMemoryInBackground() {
-        val characterName = currentCharacter?.name ?: return
+        val characterStorageKey = currentCharacter?.storageKey ?: return
         val snapshot = chatSession?.snapshot() ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            memoryConsolidator.onTurnCompleted(characterName, snapshot)
+            memoryConsolidator.onTurnCompleted(characterStorageKey, snapshot)
             // 事实可能变了，让下一轮重新读库
             memoryContributor.invalidate()
         }
@@ -334,7 +397,13 @@ class ChatActivityViewModel : ViewModel() {
      *   已经收到的片段一并留下 —— 用户能看出「答到一半断了」，而不是这轮凭空消失。
      * @return null 表示这一轮失败了（错误已经 emit 给 UI），调用方应该跳过后面的翻译和合成。
      */
-    private suspend fun streamChatRequest(input: String, messageId: Long): ChatResult? {
+    private suspend fun streamChatRequest(
+        input: String,
+        messageId: Long,
+        characterStorageKey: String,
+        characterId: String,
+        generation: Long,
+    ): ChatResult? {
         val session = requireSession()
         val buffer = StringBuilder()
         var result: ChatResult? = null
@@ -344,23 +413,27 @@ class ChatActivityViewModel : ViewModel() {
                 when (delta) {
                     is ChatDelta.TextDelta -> {
                         buffer.append(delta.text)
-                        _chatContentUIFlow.emit(
-                            ChatDialogContentUIState(
-                                isFromMe = false,
-                                chatContent = buffer.toString(),
-                                isStreaming = true,
+                        if (characterSwitchGuard.isCurrent(generation, characterId)) {
+                            _chatContentUIFlow.emit(
+                                ChatDialogContentUIState(
+                                    isFromMe = false,
+                                    chatContent = buffer.toString(),
+                                    isStreaming = true,
+                                )
                             )
-                        )
+                        }
                     }
 
                     is ChatDelta.Completed -> {
                         result = ChatResult(delta.message, delta.usage, delta.finishReason)
-                        _chatContentUIFlow.emit(
-                            ChatDialogContentUIState(
-                                isFromMe = false,
-                                chatContent = delta.message.text.trim(),
+                        if (characterSwitchGuard.isCurrent(generation, characterId)) {
+                            _chatContentUIFlow.emit(
+                                ChatDialogContentUIState(
+                                    isFromMe = false,
+                                    chatContent = delta.message.text.trim(),
+                                )
                             )
-                        )
+                        }
                     }
 
                     // 思考过程和工具调用当前不上屏
@@ -369,21 +442,23 @@ class ChatActivityViewModel : ViewModel() {
             }
         } catch (e: Throwable) {
             Log.e(TAG, "chat request failed", e)
-            historyStore.failAssistant(messageId, buffer.toString())
-            _chatContentUIFlow.emit(
-                ChatDialogContentUIState(
-                    isFromMe = false,
-                    errorMsg = ChatErrorMessages.describe(ChatWaifuApplication.context, e),
+            historyStore.failAssistant(characterStorageKey, messageId, buffer.toString())
+            if (characterSwitchGuard.isCurrent(generation, characterId)) {
+                _chatContentUIFlow.emit(
+                    ChatDialogContentUIState(
+                        isFromMe = false,
+                        errorMsg = ChatErrorMessages.describe(ChatWaifuApplication.context, e),
+                    )
                 )
-            )
-            chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+            }
             return null
         }
         if (result == null) {
             // 流正常结束但没有 Completed（provider 只发了 text 就断流）。
             // 不收尾的话这行会永远停在 STREAMING。
             Log.w(TAG, "stream ended without Completed delta")
-            historyStore.failAssistant(messageId, buffer.toString())
+            historyStore.failAssistant(characterStorageKey, messageId, buffer.toString())
         }
         return result
     }
@@ -402,20 +477,30 @@ class ChatActivityViewModel : ViewModel() {
         }
     }
 
-    private suspend fun generateAndPlaySound(needPlayText: String?) {
-        val character = currentCharacter
-        if (character == null || !character.hasVoice) {
-            chatStatusLiveData.postValue(ChatStatus.DEFAULT)
-            return
-        }
-        // speakerId 不再每次传：它在 loadVitsModel() 里就随模型一起设好了，
-        // 一个 SoundGenerateHelper 实例同时只服务一个角色
-        val isSuccess = vitsHelper.generateAndPlay(text = needPlayText) { pcm, sampleRate ->
-            lipsValueHandler.sendLipsValues(pcm, sampleRate)
-        }
-        Log.d(TAG, "generate sound $isSuccess")
-        if (chatStatusLiveData.value == ChatStatus.GENERATE_SOUND) {
-            chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+    private suspend fun generateAndPlaySound(
+        needPlayText: String?,
+        character: CharacterModel,
+        generation: Long,
+    ) {
+        characterVoiceMutex.withLock {
+            if (!characterSwitchGuard.isCurrent(generation, character.id)) return
+            if (!character.hasVoice) {
+                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+                return
+            }
+            // init 和推理共用同一把锁，切角色不能在旧语音推理中途替换模型或 speaker。
+            val isSuccess = vitsHelper.generateAndPlay(text = needPlayText) { pcm, sampleRate ->
+                if (characterSwitchGuard.isCurrent(generation, character.id)) {
+                    lipsValueHandler.sendLipsValues(pcm, sampleRate)
+                }
+            }
+            Log.d(TAG, "generate sound $isSuccess")
+            if (
+                characterSwitchGuard.isCurrent(generation, character.id) &&
+                chatStatusLiveData.value == ChatStatus.GENERATE_SOUND
+            ) {
+                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
+            }
         }
     }
 

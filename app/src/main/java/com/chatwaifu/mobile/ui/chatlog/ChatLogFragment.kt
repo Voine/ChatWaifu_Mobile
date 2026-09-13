@@ -32,7 +32,7 @@ class ChatLogFragment : Fragment() {
                             activityViewModel.openDrawer()
                         },
                         externalModelList = activityViewModel.initModelResultLiveData.value
-                            ?.map { it.name }
+                            ?.map { it.storageKey }
                             .orEmpty()
                     )
                 }

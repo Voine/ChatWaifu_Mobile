@@ -61,13 +61,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
-import com.chatwaifu.chat.ChatProviderFactory
-import com.chatwaifu.chat.core.ProviderId
 import com.chatwaifu.mobile.R
-import com.chatwaifu.mobile.data.chat.ChatProviderSettings
-import com.chatwaifu.mobile.data.chat.ProviderForm
+import com.chatwaifu.chat.core.ProviderId
+import com.chatwaifu.mobile.data.chat.ProviderProfile
 
 /**
  * Description: Setting Page
@@ -80,7 +77,8 @@ fun SettingContentScaffold(
     settingUIState: SettingUIState,
     modifier: Modifier = Modifier,
     onNavIconPressed: () -> Unit = { },
-    onSave: (SettingUIData?) -> Unit = {},
+    onSave: () -> Unit = {},
+    onTestConnection: () -> Unit = {},
 ) {
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
@@ -92,7 +90,7 @@ fun SettingContentScaffold(
                 onNavIconPressed = onNavIconPressed,
                 externalActions = {
                     OutlinedButton(
-                        onClick = { onSave(settingUIState.convertState2Data()) },
+                        onClick = onSave,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         ),
@@ -115,7 +113,7 @@ fun SettingContentScaffold(
                 .padding(paddingValues),
             color = MaterialTheme.colorScheme.background
         ) {
-            SettingContent(settingUIState)
+            SettingContent(settingUIState, onTestConnection)
         }
     }
 }
@@ -123,6 +121,7 @@ fun SettingContentScaffold(
 @Composable
 fun SettingContent(
     settingUIState: SettingUIState,
+    onTestConnection: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -130,7 +129,18 @@ fun SettingContent(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ChatProviderSection(settingUIState)
+        ModelSettingsSection(settingUIState.modelSettings, onTestConnection)
+        ItemTitle(stringResource(id = R.string.setting_memory_model))
+        SettingEditText(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            initValue = settingUIState.memoryModel,
+            hint = stringResource(id = R.string.setting_memory_model_hint),
+            singleLine = true,
+        ) {
+            settingUIState.memoryModel = it.trim()
+        }
         DividerItem(modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
         SettingSwitch(
             switchName = stringResource(id = R.string.setting_title_translate_switch),
@@ -185,112 +195,6 @@ fun SettingContent(
         ) {
             settingUIState.darkModeSwitch = it
         }
-    }
-}
-
-/**
- * 聊天基座配置：选一个 provider，再填它自己的 key / 地址 / 模型。
- *
- * 每个基座的配置是**分开存**的（[ChatProviderSettings]），切回来不用重填。
- * 代理地址不再是一个独立开关 —— 它就是 OpenAI 兼容基座的 Base Url。
- */
-@Composable
-private fun ChatProviderSection(settingUIState: SettingUIState) {
-    val descriptors = ChatProviderFactory.descriptors()
-    val selectedId = ProviderId.fromKey(settingUIState.activeProvider)
-        ?: ChatProviderSettings.DEFAULT_PROVIDER
-    val selected = descriptors.first { it.id == selectedId }
-
-    ItemTitle(stringResource(id = R.string.setting_title_chat_provider))
-    descriptors.forEach { descriptor ->
-        val isSelected = descriptor.id == selectedId
-        OutlinedButton(
-            onClick = { settingUIState.activeProvider = descriptor.id.key },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                },
-                contentColor = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            ),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(text = descriptor.displayName, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    text = if (descriptor.implemented) {
-                        descriptor.summary
-                    } else {
-                        stringResource(id = R.string.setting_provider_not_implemented)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
-
-    // key(): SettingEditText 内部用 rememberSaveable 存草稿，不加 key 换了基座还显示上一个的值
-    key(selectedId) {
-        val form = settingUIState.formOf(selectedId)
-
-        ItemTitle(stringResource(id = R.string.setting_title_provider_key))
-        SettingEditText(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            initValue = form.apiKey,
-            hint = stringResource(id = R.string.setting_provider_key_hint),
-            singleLine = true,
-        ) {
-            settingUIState.updateForm(selectedId) { current -> current.copy(apiKey = it.trim()) }
-        }
-
-        ItemTitle(stringResource(id = R.string.setting_title_provider_base_url))
-        SettingEditText(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            initValue = form.baseUrl,
-            hint = selected.defaultBaseUrl.orEmpty(),
-            singleLine = true,
-        ) {
-            settingUIState.updateForm(selectedId) { current -> current.copy(baseUrl = it.trim()) }
-        }
-
-        ItemTitle(stringResource(id = R.string.setting_title_provider_model))
-        SettingEditText(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            initValue = form.model,
-            // 提示里给默认模型，同时暗示可以手填清单外的模型名（本地模型必须手填）
-            hint = selected.models.firstOrNull()?.id.orEmpty(),
-            singleLine = true,
-        ) {
-            settingUIState.updateForm(selectedId) { current -> current.copy(model = it.trim()) }
-        }
-    }
-
-    // 记忆抽取模型。刻意放在 provider 区块**外面**：它不按基座分开存，
-    // 抽取复用当前 provider 的连接，只换 model 名
-    ItemTitle(stringResource(id = R.string.setting_memory_model))
-    SettingEditText(
-        modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentHeight(),
-        initValue = settingUIState.memoryModel,
-        hint = stringResource(id = R.string.setting_memory_model_hint),
-        singleLine = true,
-    ) {
-        settingUIState.memoryModel = it.trim()
     }
 }
 
@@ -482,12 +386,7 @@ fun SettingContentScaffoldPreviewDark() {
  * Setting UI Render State
  */
 class SettingUIState(data: SettingUIData) {
-    var activeProvider by mutableStateOf(data.activeProvider)
-
-    /** 每个基座一份表单，切换基座不会互相覆盖。 */
-    private val providerForms = mutableStateMapOf<String, ProviderForm>().apply {
-        putAll(data.providerForms)
-    }
+    val modelSettings = ModelSettingsState(data.activeProvider, data.providerProfiles)
 
     var translateSwitch by mutableStateOf(data.translateSwitch)
     var translateAppId by mutableStateOf(data.translateAppId)
@@ -498,16 +397,10 @@ class SettingUIState(data: SettingUIData) {
     var darkModeSwitch by mutableStateOf(data.darkModeSwitch)
     var memoryModel by mutableStateOf(data.memoryModel)
 
-    fun formOf(id: ProviderId): ProviderForm = providerForms[id.key] ?: ProviderForm()
-
-    fun updateForm(id: ProviderId, transform: (ProviderForm) -> ProviderForm) {
-        providerForms[id.key] = transform(formOf(id))
-    }
-
     fun convertState2Data(): SettingUIData {
         return SettingUIData(
-            activeProvider = activeProvider,
-            providerForms = providerForms.toMap(),
+            activeProvider = modelSettings.activeProvider,
+            providerProfiles = modelSettings.allProfiles(),
             translateSwitch = translateSwitch,
             translateAppId = translateAppId,
             translateAppKey = translateAppKey,
@@ -525,8 +418,8 @@ class SettingUIState(data: SettingUIData) {
  */
 @Immutable
 data class SettingUIData(
-    var activeProvider: String = ChatProviderSettings.DEFAULT_PROVIDER.key,
-    var providerForms: Map<String, ProviderForm> = emptyMap(),
+    var activeProvider: ProviderId = ProviderId.OPENAI_COMPAT,
+    var providerProfiles: Map<ProviderId, ProviderProfile> = emptyMap(),
     var translateSwitch: Boolean = true,
     var translateAppId: String = "",
     var translateAppKey: String = "",

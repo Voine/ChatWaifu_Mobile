@@ -28,6 +28,9 @@ enum class ProviderId(val key: String) {
 
     /** 端内推理。 */
     LOCAL("local"),
+
+    /** 局域网内的 OpenAI-compatible 服务；协议复用，配置与云端完全隔离。 */
+    LOCAL_NETWORK("local_network"),
     ;
 
     companion object {
@@ -40,6 +43,7 @@ enum class ProviderId(val key: String) {
  * [com.chatwaifu.chat.ChatProviderFactory]。
  */
 data class ProviderConfig(
+    @Transient
     val apiKey: String? = null,
 
     /**
@@ -54,11 +58,28 @@ data class ProviderConfig(
     val timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
 
     /** 额外请求头，用于代理鉴权、Azure 的 `api-key` 之类的特殊情况。 */
+    @Transient
     val extraHeaders: Map<String, String> = emptyMap(),
 
     /** 端内模型的落地路径等，provider 自解释。 */
     val localModelPath: String? = null,
 ) {
+    override fun toString(): String = buildString {
+        append("ProviderConfig(apiKey=")
+        append(if (apiKey == null) "null" else "******")
+        append(", baseUrl=")
+        append(if (baseUrl == null) "null" else "<configured>")
+        append(", model=")
+        append(model)
+        append(", timeoutSeconds=")
+        append(timeoutSeconds)
+        append(", extraHeaders=")
+        append(extraHeaders.keys)
+        append(", localModelPath=")
+        append(localModelPath)
+        append(')')
+    }
+
     companion object {
         /**
          * 100 秒，沿用改造前 ChatGPTNetService 的取值。

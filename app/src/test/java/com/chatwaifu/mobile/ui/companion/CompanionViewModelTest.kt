@@ -258,7 +258,7 @@ class CompanionViewModelTest {
         viewModel.onEvent(CompanionEvent.DraftChanged("hello"))
         viewModel.onEvent(CompanionEvent.Submit)
         runCurrent()
-        viewModel.setCharacter("New character")
+        viewModel.setCharacter("imported:test", "New character")
         responses.emit(CompanionResponseEvent.Reply("stale"))
         runCurrent()
 

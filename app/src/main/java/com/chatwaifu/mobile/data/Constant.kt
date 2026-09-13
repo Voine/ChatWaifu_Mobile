@@ -12,6 +12,7 @@ object Constant {
     const val SAVED_TRANSLATE_KEY = "saved_translate_key"
     const val SAVED_STORE = "saved_store"
     const val SAVED_CHAT_NAME = "saved_chat_name"
+    const val SAVED_CURRENT_CHARACTER_ID = "saved_current_character_id"
     const val SAVED_YUUKA_SETTING = "saved_yuuka_setting"
     const val SAVED_AMADEUS_SETTING = "saved_amadeus_setting"
     const val SAVED_ATRI_SETTING = "saved_atri_setting"
@@ -33,6 +34,13 @@ object Constant {
     const val SAVED_PROVIDER_SUFFIX_KEY = "_key"
     const val SAVED_PROVIDER_SUFFIX_BASE_URL = "_base_url"
     const val SAVED_PROVIDER_SUFFIX_MODEL = "_model"
+    const val SAVED_PROVIDER_SUFFIX_STREAMING = "_streaming"
+    const val SAVED_PROVIDER_SUFFIX_TEMPERATURE = "_temperature"
+    const val SAVED_PROVIDER_SUFFIX_MAX_TOKENS = "_max_tokens"
+    const val SAVED_PROVIDER_SUFFIX_TIMEOUT = "_timeout"
+    const val SAVED_PROVIDER_SUFFIX_RUNTIME = "_runtime"
+    const val SAVED_PROVIDER_SUFFIX_CONTEXT_LENGTH = "_context_length"
+    const val SAVED_PROVIDER_CONFIG_VERSION = "saved_provider_config_version"
 
     /**
      * 老配置（[SAVED_CHAT_KEY] + [SAVED_USE_CHATGPT_PROXY_URL]）是否已经搬到新结构。
