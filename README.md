@@ -1,4 +1,11 @@
 # ChatWaifu_Mobile
+
+## Companion UI 开发交接
+
+前台角色陪伴界面 V0.1 的施工方案、跨机器环境准备及接手步骤见
+**[施工与跨机器交接文档](docs/companion-ui-construction-plan.md)**。
+当前仅完成规划；接手 Copilot 请先读该文档，再按未完成批次开始 Phase 1。
+
 ## 年轻人的第一个移动版老婆聊天器（雾
 ## 简介
 Android 手机版的 ChatGPT 二次元聊天器。\

@@ -4,6 +4,14 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 
 初版写于 2023 年初（GPT-3.5 刚发布），2023 年后基本停止维护，2026 年重新开始迭代。当前开发分支 `feature/v2.0.0`。
 
+## Companion UI 施工入口
+
+下一轮前台 UI 改造的跨机器交接文档是 **[docs/companion-ui-construction-plan.md](docs/companion-ui-construction-plan.md)**。
+接手此任务时先完整阅读它和文中指定的设计包，再从第 10 节第一个未完成批次施工；
+默认只做 Phase 1 的四态前台壳与隔离 Mock，不直接进入真实链路接线。
+本文档记录环境准备、源码落点、验收标准和续接状态，不需要原 Copilot 对话。
+当前是规划完成，尚未实施；实际进度以后以施工文档第 12 节为准。
+
 ## 技术栈
 
 - Kotlin + Jetpack Compose（UI 全部 Compose，但外壳仍是 Activity + Fragment + Navigation 混合架构）

@@ -1,0 +1,26 @@
+{
+  "name": "Live2D AI Companion Design Pack",
+  "version": "0.1",
+  "core_states": [
+    "Idle",
+    "InputExpanded",
+    "Speaking",
+    "HistoryOpen"
+  ],
+  "implementation": "Native Android + Compose overlay + existing C++ Live2D renderer",
+  "source_of_truth": "Markdown specs",
+  "generated_files": [
+    "README_DESIGN.md",
+    "agent/COPILOT_TASK.md",
+    "references/history_sheet.png",
+    "references/home_idle.png",
+    "references/home_input.png",
+    "references/home_speaking.png",
+    "references/overview.png",
+    "specs/ARCHITECTURE.md",
+    "specs/DESIGN_NOTES.md",
+    "specs/IMPLEMENTATION_PLAN.md",
+    "specs/INTERACTION_SPEC.md",
+    "specs/UI_SPEC.md"
+  ]
+}
