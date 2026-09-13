@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.Constant
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -23,14 +25,27 @@ internal class CharacterRepositoryImpl(
 ) : CharacterRepository {
 
     private val installer by lazy { BuiltInModelInstaller(context, storage, sp) }
+    private val installMutex = Mutex()
 
     override suspend fun loadCharacters(): List<CharacterModel> = withContext(Dispatchers.IO) {
-        installer.ensureInstalled()
-        storage.listInstalled()
-            .map { storage.toCharacterModel(it) }
-            // 内置的排前面，同组按名字排，保证列表顺序稳定
-            .sortedWith(compareBy({ it.source.ordinal }, { it.name }))
+        installMutex.withLock {
+            installer.ensureInstalled()
+            storage.listInstalled()
+                .map { storage.toCharacterModel(it) }
+                // 内置的排前面，同组按名字排，保证列表顺序稳定
+                .sortedWith(compareBy({ it.source.ordinal }, { it.name }))
+        }
     }
+
+    override suspend fun loadCharactersForDisplay(): List<CharacterModel> =
+        withContext(Dispatchers.IO) {
+            installMutex.withLock {
+                installer.ensureVisualsInstalled()
+                storage.listInstalled()
+                    .map { storage.toCharacterModel(it) }
+                    .sortedWith(compareBy({ it.source.ordinal }, { it.name }))
+            }
+        }
 
     override suspend fun getCharacter(name: String): CharacterModel? = withContext(Dispatchers.IO) {
         storage.readMeta(name)?.let { storage.toCharacterModel(it) }

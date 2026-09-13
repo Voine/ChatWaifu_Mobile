@@ -67,6 +67,12 @@ class ChatHistoryStore(
         return stored.mapNotNull { it.toCoreMessage(providerId) }
     }
 
+    /** 读取 UI 历史；与模型上下文不同，这里保留带部分文本的 `FAILED` 记录。 */
+    suspend fun loadDisplayHistory(characterName: String): List<ChatLogEntry> {
+        currentCharacterId = characterName
+        return repository.getRecentChatLog(currentCharacterId, limit = HISTORY_LIMIT)
+    }
+
     suspend fun appendUser(
         text: String,
         source: MessageSource = MessageSource.TYPED,
@@ -96,6 +102,28 @@ class ChatHistoryStore(
         model = model,
         allowBlankText = true,
     )
+
+    /** 更新同一条 `STREAMING` 占位行，使 Room 始终保存当前已收到的完整片段。 */
+    suspend fun updateStreamingAssistant(
+        messageId: Long,
+        partialText: String,
+        providerId: String?,
+        model: String?,
+    ) {
+        if (messageId == ChatLogEntry.NO_ID || currentCharacterId.isEmpty()) return
+        repository.updateChatLog(
+            ChatLogEntry(
+                id = messageId,
+                characterId = currentCharacterId,
+                role = ChatLogRole.ASSISTANT,
+                text = partialText,
+                timeline = System.currentTimeMillis(),
+                providerId = providerId,
+                model = model,
+                status = MessageStatus.STREAMING,
+            )
+        )
+    }
 
     /** 把 [beginAssistant] 占的那行补成最终内容。[messageId] 无效时退化成直接插入。 */
     suspend fun finishAssistant(

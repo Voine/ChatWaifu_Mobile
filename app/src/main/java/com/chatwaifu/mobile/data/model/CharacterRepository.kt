@@ -17,6 +17,12 @@ interface CharacterRepository {
      */
     suspend fun loadCharacters(): List<CharacterModel>
 
+    /**
+     * 仅准备角色展示所需的 Live2D 文件，不安装共享声库。
+     * 用于不允许初始化 TTS 或正式聊天链路的隔离演示。
+     */
+    suspend fun loadCharactersForDisplay(): List<CharacterModel>
+
     /** 按名字取单个角色，不存在返回 null */
     suspend fun getCharacter(name: String): CharacterModel?
 

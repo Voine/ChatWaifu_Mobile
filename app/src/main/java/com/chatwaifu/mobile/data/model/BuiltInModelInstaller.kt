@@ -71,7 +71,9 @@ internal class BuiltInModelInstaller(
         names.forEachIndexed { index, name ->
             // 版本没变且已经解好了就跳过，这是省掉几百 MB 重拷的关键分支
             val existing = storage.readMeta(name)
-            if (!versionChanged && existing != null) {
+            val visualReady = existing != null &&
+                File(storage.live2dDir(name), existing.live2dEntryFileName).isFile
+            if (!versionChanged && visualReady) {
                 result += existing
                 return@forEachIndexed
             }
@@ -89,12 +91,103 @@ internal class BuiltInModelInstaller(
 
         // 有失败的就不落版本号，下次启动会重试，避免半成品被永久当成「已安装」
         if (versionChanged && allSucceeded) {
+            sp.edit()
+                .putInt(Constant.SAVED_BUILT_IN_MODEL_VERSION, Constant.BUILT_IN_MODEL_VERSION)
+                .putInt(
+                    Constant.SAVED_BUILT_IN_VISUAL_MODEL_VERSION,
+                    Constant.BUILT_IN_MODEL_VERSION
+                )
+                .apply()
+        }
+        return result
+    }
+
+    /**
+     * 只解出 Live2D 展示资源。不会访问或复制 BV2/BERT assets，也不会把角色标记为有声。
+     */
+    fun ensureVisualsInstalled(): List<ModelMeta> {
+        val assets = context.assets
+        val names = assets.list(Constant.LIVE2D_BASE_PATH)?.toList().orEmpty()
+        if (names.isEmpty()) return emptyList()
+
+        val installedVersion = sp.getInt(Constant.SAVED_BUILT_IN_VISUAL_MODEL_VERSION, -1)
+        val versionChanged = installedVersion != Constant.BUILT_IN_MODEL_VERSION
+        val fullInstallCurrent =
+            sp.getInt(Constant.SAVED_BUILT_IN_MODEL_VERSION, -1) == Constant.BUILT_IN_MODEL_VERSION
+        val result = mutableListOf<ModelMeta>()
+        var allSucceeded = true
+        names.forEach { name ->
+            val existing = storage.readMeta(name)
+            val visualReady = existing != null &&
+                File(storage.live2dDir(name), existing.live2dEntryFileName).isFile
+            // 完整安装已经是当前版本时必须保留原 meta 的 hasVits/speakerId，
+            // 不能让纯展示入口把已有角色降级成无声角色。
+            if ((!versionChanged || fullInstallCurrent) && visualReady) {
+                result += existing
+                return@forEach
+            }
+            val meta = if (existing == null) {
+                install(assets, name, speakerId = 0, hasVoice = false)
+            } else {
+                refreshVisuals(assets, existing)
+            }
+            if (meta != null) result += meta else allSucceeded = false
+        }
+        if (versionChanged && allSucceeded) {
             sp.edit().putInt(
-                Constant.SAVED_BUILT_IN_MODEL_VERSION,
+                Constant.SAVED_BUILT_IN_VISUAL_MODEL_VERSION,
                 Constant.BUILT_IN_MODEL_VERSION
             ).apply()
         }
         return result
+    }
+
+    private fun refreshVisuals(assets: AssetManager, existing: ModelMeta): ModelMeta? {
+        val staged = File(storage.stagingRoot, "${existing.name}-visual")
+        val backup = File(storage.stagingRoot, "${existing.name}-visual-backup")
+        val target = storage.live2dDir(existing.name)
+        if (staged.exists()) FileUtils.deleteDirectory(staged)
+        if (backup.exists()) {
+            if (!target.exists()) {
+                if (!backup.renameTo(target)) {
+                    Log.e(TAG, "restore ${existing.name} visual backup failed")
+                    return null
+                }
+            } else {
+                FileUtils.deleteDirectory(backup)
+            }
+        }
+
+        return try {
+            copyAssetDir(
+                assets,
+                "${Constant.LIVE2D_BASE_PATH}/${existing.name}",
+                staged,
+            )
+            val entry = staged.list()?.firstOrNull { it.endsWith(MODEL3_SUFFIX) }
+                ?: throw IllegalStateException("${existing.name} has no $MODEL3_SUFFIX")
+            if (target.exists() && !target.renameTo(backup)) {
+                throw IllegalStateException("backup existing Live2D directory failed")
+            }
+            if (!staged.renameTo(target)) {
+                if (backup.exists()) backup.renameTo(target)
+                throw IllegalStateException("commit refreshed Live2D directory failed")
+            }
+            existing.copy(live2dEntryFileName = entry).also {
+                storage.writeMeta(existing.name, it)
+            }
+                .also {
+                    if (backup.exists()) FileUtils.deleteDirectory(backup)
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "refresh ${existing.name} visual failed", e)
+            if (staged.exists()) FileUtils.deleteDirectory(staged)
+            if (backup.exists()) {
+                if (target.exists()) FileUtils.deleteDirectory(target)
+                backup.renameTo(target)
+            }
+            null
+        }
     }
 
     private fun install(

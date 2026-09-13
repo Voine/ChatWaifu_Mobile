@@ -167,4 +167,32 @@
 
     <string name="sample_very_long_str">example contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample content</string>
     <string name="title_activity_text">TextActivity</string>
+    <string name="companion_chat">对话</string>
+    <string name="companion_interact">互动</string>
+    <string name="companion_vision">视觉</string>
+    <string name="companion_more">更多</string>
+    <string name="companion_history">对话记录</string>
+    <string name="companion_status_idle">陪伴中</string>
+    <string name="companion_status_thinking">正在思考</string>
+    <string name="companion_status_speaking">正在说话</string>
+    <string name="companion_status_error">连接暂时中断</string>
+    <string name="companion_thinking">正在准备回复…</string>
+    <string name="companion_idle_greeting">晚上好。想和我说点什么吗？</string>
+    <string name="companion_scroll_for_more">上下滑动阅读完整内容</string>
+    <string name="companion_input_title">和角色说话</string>
+    <string name="companion_input_hint">说点什么……</string>
+    <string name="companion_close_input">关闭输入</string>
+    <string name="companion_microphone_mock">麦克风（演示中不录音）</string>
+    <string name="companion_history_empty">还没有演示对话</string>
+    <string name="companion_history_expand">展开对话记录</string>
+    <string name="companion_history_collapse">收起对话记录</string>
+    <string name="companion_history_close">关闭对话记录</string>
+    <string name="companion_renderer_loading">正在准备 Live2D 角色…</string>
+    <string name="companion_renderer_failed">角色暂时无法显示</string>
+    <string name="companion_retry">重试</string>
+    <string name="companion_tts_unavailable">语音暂时不可用，仍可继续文字聊天</string>
+    <string name="companion_tts_failed">语音播放失败，文字回复已保留</string>
+    <string name="companion_response_incomplete">回复意外中断，请重试</string>
+    <string name="companion_history_previous">历史</string>
+    <string name="companion_open_existing">进入原功能</string>
 </resources>

@@ -406,15 +406,20 @@ Pop-Location
 
 | 批次 | 状态 | 依赖 | 施工与退出条件 |
 |---|---|---|---|
-| P0 基线 | 待开始 | 无 | 阅读最新代码；记录 HEAD/环境；恢复缺失 AAR；构建现有工程，区分环境故障与代码故障 |
-| P1-A 宿主与状态 | 待开始 | P0 | 提取最小宿主；独立 debug 入口；状态模型/Mock；无 Key 到达真实角色或明确占位 |
-| P1-B Idle/Input | 待开始 | P1-A | 局部主题、当前发言、浮动动作、草稿/IME、返回处理；两态稳定往返 |
-| P1-C Speaking/History | 待开始 | P1-B | 可取消模拟播报；双高度历史与滚动；覆盖层不停止角色、不丢运行状态 |
-| P1-D 收口 | 待开始 | P1-C | 错误/空态、大字体、触控、隔离与生命周期测试；debug/release 构建；更新交接状态 |
-| Phase 1 验收门 | 待开始 | P1-D | 第 11 节关键项通过；若缺真机，只能报告部分完成，不进入 Phase 2 |
-| P2-A 文本与历史 | 未授权开始 | Phase 1 + 用户确认 | 单一业务来源、稳定快照、流式显示、历史分页与失败记录 |
-| P2-B 语音 | 未授权开始 | P2-A | 实际播放事件、ASR 权限/断连/取消、忙碌门禁与错误 |
-| P2-C 正式入口 | 未授权开始 | P2-B | 恢复角色、准备态、无 Key 可看角色、次级导航及旧数据回归 |
+| P0 基线 | 已完成 | 无 | 阅读最新代码；记录 HEAD/环境；恢复缺失 AAR；构建现有工程，区分环境故障与代码故障 |
+| P1-A 宿主与状态 | 已完成 | P0 | 提取最小宿主；独立 debug 入口；状态模型/Mock；无 Key 到达真实角色或明确占位 |
+| P1-B Idle/Input | 已完成 | P1-A | 局部主题、当前发言、浮动动作、草稿/IME、返回处理；两态稳定往返 |
+| P1-C Speaking/History | 已完成 | P1-B | 可取消模拟播报；双高度历史与滚动；覆盖层不停止角色、不丢运行状态 |
+| P1-D 收口 | 已完成 | P1-C | 错误/空态、大字体、触控、隔离与生命周期测试；debug/release 构建；更新交接状态 |
+| P1.5-A 输入与 Idle | 已完成 | P1-D | 输入改为 IME 上沿轻量条；底部操作缩小并区分主次；debug/release 构建通过 |
+| P1.5-B 对白与字体 | 已完成 | P1.5-A | 对白高度随内容增长且设上限；保留角色名分区；系统信息使用现有无衬线字体；debug/release 构建通过 |
+| P1.5-C 历史玻璃层 | 已完成 | P1.5-B | 保留 60%/96% 双高度；深蓝灰半透明层与紧凑消息块；debug/release 构建通过 |
+| Phase 1 验收门 | 部分完成（真机余项保留） | P1-D | 自动化与构建已通过；API 36 已验证首次 IME 展开稳定，其余第 11 节设备交互与生命周期项仍待验证 |
+| P2-M 最小真实链路 | 已完成（debug Companion 入口） | Phase 1 + 用户确认 | 现有 provider/Room/翻译/BV2 接入；明确六态、重试与忙碌门禁；API 37 arm64 虚拟设备冒烟 |
+| P2.1 实时表现基础 | 已完成 | P2-M | 现有 provider 的文本 delta 增量上屏/落同一 STREAMING 行；AudioTrack marker 精确完成、取消与过期回调隔离 |
+| P2-A 文本与历史 | 部分完成 | P2.1 | 流式片段、最终/失败状态和 DB 消息 ID 已接；历史分页及正式 runtime 复用仍待做 |
+| P2-B 语音 | 部分完成（TTS） | P2.1 | BV2、口型、精确播放完成与取消已接；ASR 未做 |
+| P2-C 正式入口 | 未开始 | P2-B + 用户确认 | 恢复角色、准备态、无 Key 可看角色、次级导航及旧数据回归 |
 | P3/P4 | 范围外 | 独立需求 | 行为编排/后台陪伴另行设计 |
 
 不需要再问用户是否允许开始已经要求的 Phase 1 施工；
@@ -459,19 +464,19 @@ PowerShell 在仓库根目录：
 
 - [ ] 四态可手动进入并退出，进入方式写入第 12 节。
 - [ ] 主页仅当前发言，无全量历史瀑布流；角色仍为视觉主体。
-- [ ] 无 API Key、拒绝录音授权也可演示；不弹无关权限请求。
+- [x] 无 API Key、拒绝录音授权也可演示；不弹无关权限请求。
 - [ ] 真实 Live2D 成功显示；占位只能覆盖缺资源场景，不能替代此项。
 - [ ] 角色不可用时错误可见，可重试/离开，输入与历史仍能操作。
-- [ ] 输入弹出时 Surface 不因 UI 根布局 IME padding 被缩成半屏；关键面部尽量可见。
+- [x] 输入弹出时 Surface 不因 UI 根布局 IME padding 被缩成半屏；关键面部尽量可见。
 - [ ] 历史初始高度在可用高度的 55%–65%，可展开；长历史独立滚动。
 - [ ] 开关历史不触发 native stop/reload；帧更新继续；手势不穿透。
 - [ ] 返回顺序正确，草稿保留，关闭历史显示最新运行状态。
 - [ ] 长发言有完整阅读入口，空列表/长单条/大字体均不遮挡退出和发送。
 - [ ] 系统栏、刘海、键盘、手势导航均可用；按钮有无障碍标签与足够触摸区域。
 - [ ] 导航往返、前后台、View/Activity 重建不重复持有 native 单例，不持续黑屏。
-- [ ] 模拟无网络、无录音、无真实音频、无聊天/记忆写入；退出取消模拟任务。
+- [x] 模拟无网络、无录音、无真实音频、无聊天/记忆写入；退出取消模拟任务。
 - [ ] 正式旧入口和设置/角色/模型管理/记忆页面仍可访问。
-- [ ] 新增测试通过，debug/release 均可构建，release 无演示入口。
+- [x] 新增测试通过，debug/release 均可构建，release 无演示入口。
 
 真机建议覆盖 API 29 与 35/36 的可用设备，小屏手机、大字体；
 大屏/横向窗口用来检查稳健性，不借此重做整套自适应产品设计。
@@ -490,12 +495,270 @@ PowerShell 在仓库根目录：
 
 当前记录：
 
-- 最后完成批次：仅规划落文档。
-- 下一批次：P0，先准备环境与基线；随后 P1-A。
-- 实际新增/修改的应用源码：无。
-- 已执行验证：无 Android 构建、无真机验证。
-- 已知环境缺项：原 worktree 的 BV2 子模块/AAR 未准备；新机器重新检查。
-- 产品侧阻塞决定：Phase 1 暂无；Phase 2 尚未授权开始。
+- 最后完成批次：P2.1 实时表现基础；流式文本和 AudioTrack 精确完成通知已接入，
+  并完成 API 37 arm64 虚拟设备验证。
+- 下一批次：停止施工；P2-C、ASR、历史分页及 Phase 3 均需用户另行授权。
+- 实际新增/修改的应用源码：`ui/companion/` 状态、ViewModel、宿主与屏幕入口；
+  `src/debug` 演示 Activity/Mock/真实 adapter/manifest；模型仓库准备路径；
+  `ChatFragment` 改用共用宿主。
+- 产品侧阻塞决定：最小 Phase 2 范围已完成；正式入口、ASR、流式 UI、历史分页、
+  AudioTrack 精确完成通知及 Phase 3 均不在本批范围。
+
+### 2026-09-13 / P0 基线
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：仅本施工文档。
+- 实现选择与偏离原方案的理由：无实现偏离。确认本机 Android 37 平台目录名为
+  `android-37.0`，不是检查脚本最初假定的 `android-37`；AGP 可正常识别。
+- 调试入口和四态操作步骤：本批次尚未新增入口。
+- 验证命令及结果：`./gradlew :app:compileDebugKotlin`，成功；JDK 17.0.20、
+  CMake 4.1.2、NDK 28.2.13676358、arm64 BV2 子模块 `a45fd76` 与
+  `2.0.0-a45fd76` 六个本地 AAR 均已就绪。
+- 设备/API、场景与观察：未连接设备；仅完成宿主机和编译基线。
+- 未覆盖项 / 阻塞原因：尚未做 UI、真机、lint 或 release 验证。
+- 下一批次及第一个动作：P1-A；拆分仅准备 Live2D 展示资源的仓库入口，
+  避免 Mock 演示安装或初始化 BV2/ASR/正式聊天链路。
+
+### 2026-09-13 / P1-A 宿主与状态
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：新增 `ui/companion/CompanionUiState.kt`、
+  `CompanionViewModel.kt`、`CharacterRendererHost.kt`、`CompanionScreen.kt`；
+  新增 `src/debug/.../CompanionDemoActivity.kt`、`CompanionMockDriver.kt` 和 debug manifest；
+  修改 `Constant.kt`、`CharacterRepository.kt`、`CharacterRepositoryImpl.kt`、
+  `BuiltInModelInstaller.kt`、`ChatFragment.kt`。
+- 实现选择与偏离原方案的理由：采用 debug-only 第二 launcher Activity，避免经过
+  `ChatActivity.mainLoop()`；宿主仍是同一 GLSurfaceView/JNI 生命周期适配器，正式
+  `ChatFragment` 同步复用。新增 `loadCharactersForDisplay()`，只解 Live2D，不碰共享
+  BV2/BERT；这是检查原 `loadCharacters()` 后确认必须做的隔离。
+- 调试入口和四态操作步骤：debug 安装后从桌面选择 `Companion UI Demo`；本批仅提供
+  角色、对话和历史入口骨架，完整四态操作在 P1-C 记录。
+- 验证命令及结果：`./gradlew :app:compileDebugKotlin`，成功。
+- 设备/API、场景与观察：未连接设备；真实 Live2D 显示和生命周期仍待真机验证。
+- 未覆盖项 / 阻塞原因：覆盖层仍是临时骨架；输入、Speaking、历史面板尚未施工。
+- 下一批次及第一个动作：P1-B；实现冷色半透明 Idle 覆盖层、可读当前发言和
+  独立消费 IME/navigation bar inset 的输入层。
+
+### 2026-09-13 / P1-B Idle/Input
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：新增 `CompanionOverlay.kt`、`CompanionInput.kt`；重写
+  `CompanionScreen.kt`；修改 `CompanionUiState.kt`、`CompanionViewModel.kt` 和
+  `strings.xml`。
+- 实现选择与偏离原方案的理由：使用半透明实色面板和局部上下渐变，不对
+  GLSurfaceView 做实时 blur；输入层自身消费 `navigationBarsPadding`/`imePadding`，
+  renderer 根层尺寸不随 IME padding 改变。
+- 调试入口和四态操作步骤：进入 `Companion UI Demo` 即 Idle；点“对话”或当前发言
+  进入 InputExpanded；返回键先关闭输入并保留草稿。
+- 验证命令及结果：`./gradlew :app:compileDebugKotlin`，成功。
+- 设备/API、场景与观察：未连接设备；键盘不压缩 Surface 的结论来自布局边界，
+  仍需真机观察关键面部位置。
+- 未覆盖项 / 阻塞原因：Speaking 指示和历史双高度面板尚未施工。
+- 下一批次及第一个动作：P1-C；增加可取消 Mock 回复的 Speaking 指示，
+  实现可在 60% 与安全区全高间切换且独立滚动的历史覆盖层。
+
+### 2026-09-13 / P1-C Speaking/History
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：新增 `CompanionHistorySheet.kt`；修改
+  `CompanionScreen.kt`、`CompanionOverlay.kt`、debug `CompanionDemoActivity.kt`
+  和 `strings.xml`。
+- 实现选择与偏离原方案的理由：Material 默认半展开锚点不能保证目标比例，采用页面局部
+  显式双锚点（安全可用高度 60% / 96%），支持把手点击和上下拖动；未引入通用弹层框架。
+  Mock 回复由 ViewModel scope 内可取消 Flow 驱动，历史层只改变 Compose overlay。
+- 调试入口和四态操作步骤：Idle 点“对话”进入 InputExpanded；提交任意非空文本后
+  依次进入 Thinking、Speaking、Idle；点右上历史进入 HistoryOpen，点击/拖动把手切换
+  60% 与全高，返回或关闭按钮退出。输入 `/error` 可进入可恢复模拟错误。
+- 验证命令及结果：`./gradlew :app:compileDebugKotlin`，成功。
+- 设备/API、场景与观察：未连接设备；锚点比例和手势仍需设备验证。
+- 未覆盖项 / 阻塞原因：自动化测试、renderer 可见错误面板、最终 debug/release/lint
+  验证尚未完成。
+- 下一批次及第一个动作：P1-D；修正视觉-only 安装与已有完整模型共存的边界，
+  增加状态/取消测试、错误可操作 UI，并执行最终构建和 lint。
+
+### 2026-09-13 / P1-D 收口与 Phase 1 自动化验收
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：新增 `app/src/test/.../CompanionViewModelTest.kt`；修改
+  `BuiltInModelInstaller.kt`、`CharacterRepositoryImpl.kt`、`CharacterRendererHost.kt`、
+  `CompanionInput.kt`、`CompanionHistorySheet.kt`、`CompanionOverlay.kt`、
+  `app/build.gradle`、`gradle/libs.versions.toml` 和 `strings.xml`。
+- 实现选择与偏离原方案的理由：模型准备在仓库单例内用 Mutex 串行化，视觉更新仅原子
+  替换 `live2d/` 并保留完整声库 meta，且保留崩溃恢复 backup；从演示进入原功能前显式
+  pause/stop/destroy 旧宿主再启动 `ChatActivity`，避免两个 Activity 争用 Native 单例。
+  输入和历史面板消费全屏触控，避免事件穿透到 GLSurfaceView。
+- 调试入口和四态操作步骤：安装 debug APK 后选择 `Companion UI Demo`；启动为 Idle；
+  点当前发言或“对话”进入 InputExpanded；提交非空文本，经约 0.7 秒进入 Speaking，
+  约 2.6 秒后回 Idle；任意时刻点右上历史进入 HistoryOpen，点击或上下拖动把手切换
+  60%/96% 高度。输入 `/error` 验证错误后恢复输入和草稿；“更多”进入原功能。
+- 验证命令及结果：
+  `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:assembleRelease`
+  成功；新增 5 个测试全部通过；lint 0 error / 199 个历史 warning，新增 companion 路径
+  无 warning；debug APK 359MB、release APK 332MB；合并后的 debug manifest 含
+  `CompanionDemoActivity`，release manifest 不含该 Activity；`git diff --check` 通过。
+- 设备/API、场景与观察：`adb devices -l` 无连接设备，本轮没有真机或模拟器 UI 观察。
+- 未覆盖项 / 阻塞原因：真实 Live2D 首帧、API 29 与 35/36、IME/手势导航/刘海、
+  大字体和小屏布局、历史拖动、前后台与 Activity 重建、正式旧入口导航回归均需
+  arm64 设备验证；因此第 11.2 节其余设备相关项保持未勾选。
+- 下一批次及第一个动作：Phase 1 验收门；在 arm64 设备安装
+  `app/build/outputs/apk/debug/app-debug.apk`，按上述四态步骤逐项核对第 11.2 节。
+  未经用户明确授权不得开始 Phase 2。
+
+### 2026-09-13 / Phase 1 真机 IME 缺陷修复
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：修改 `app/src/debug/AndroidManifest.xml`，为
+  `CompanionDemoActivity` 显式声明 `android:windowSoftInputMode="adjustResize"`。
+- 实现选择与偏离原方案的理由：运行时确认 Activity 未显式配置时被系统解析为
+  `adjustPan`，首次 IME 从 0 变为实际 inset 前先平移整个窗口；GLSurfaceView 尺寸没有变化。
+  仅修正 debug 演示 Activity 的窗口策略，不改 Compose 层级、Insets、焦点时序或视觉设计。
+- 调试入口和四态操作步骤：强制停止并重新启动 `Companion UI Demo`，首次从 Idle 点“对话”
+  进入 InputExpanded，再关闭并重复打开。
+- 验证命令及结果：`./gradlew :app:assembleDebug` 成功；合并 manifest 包含
+  `adjustResize`；安装 APK 后 `dumpsys window windows` 显示
+  `sim={adjust=resize forwardNavigation}`。
+- 设备/API、场景与观察：arm64 真机 24129PN74C / API 36；首次及后续展开 IME 时
+  Live2D 未再整页上移，仅输入控件移动到键盘上方。
+- 未覆盖项 / 阻塞原因：仍未覆盖 API 29、小屏/大字体、历史拖动、前后台与 Activity 重建、
+  正式旧入口导航回归等 Phase 1 真机验收项。
+- 下一批次及第一个动作：继续 Phase 1 arm64 真机验收；不得进入 Phase 2。
+
+### 2026-09-13 / Phase 1.5 Visual Polish
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：修改 `CompanionInput.kt`、`CompanionOverlay.kt`、
+  `CompanionHistorySheet.kt` 和本施工文档；未修改 renderer、JNI/C++、业务链路或角色列表。
+- 实现选择与偏离原方案的理由：删除输入态的大标题和双层纵向面板，改为只响应 IME inset
+  的单行半透明输入条；关闭按钮保留 48dp 点击区但缩小图标并降低 alpha。Idle 四个动作保留
+  48dp 点击区，视觉圆形缩为 38–42dp，仅“对话”保留较高对比度。对白面板不设固定高度，
+  短句包裹内容，长句自然增长到 172dp 后内部滚动；角色名继续独立成段，并以低透明分隔线
+  保留 Galgame 对白层级。历史仍使用原 60%/96% 高度和拖动逻辑，只替换为深蓝灰半透明底、
+  低 alpha 边框及更紧凑的消息块。系统状态、操作标签、历史标题和时间显式使用项目现有
+  `FontFamily.SansSerif`，未新增字体资源或依赖。
+- 调试入口和四态操作步骤：安装 debug APK 后进入 `Companion UI Demo`；Idle 点“对话”
+  检查 IME 上沿输入条；关闭后点右上历史检查半高玻璃层，原把手点击/拖动仍切换双高度。
+- 验证命令及结果：每组修改后均分别执行
+  `./gradlew :app:assembleDebug :app:assembleRelease`，三次均成功；`git diff --check`
+  通过。
+- 设备/API、场景与观察：arm64 真机 24129PN74C / API 36；Idle 中角色与当前对白仍为主体，
+  四个操作视觉尺寸和非主操作对比度均降低；首次 InputExpanded 仅输入条移动到 IME 上方，
+  无大标题且角色上半身完整可见；HistoryOpen 半高状态可透过深蓝灰层感知背景角色。
+- 布局/性能风险：未增加 blur、PixelCopy、图片采样或新动画，只有透明色、尺寸和字体样式
+  调整，无新增持续渲染负担。长对白达到 172dp 后仍依赖内部滚动；极端字体缩放可能减少
+  首屏可见行数。输入条在超大字体或三行草稿时会向上增长，但 renderer 根尺寸不随之改变。
+  仓库没有内置字体文件，`FontFamily.SansSerif` 会尊重 OEM/用户系统字体替换；API 36 真机
+  启用了系统手写字体，因此无法在不新增字体资源的前提下保证这些文案始终呈现固定字形。
+- 未覆盖项 / 阻塞原因：尚未真机覆盖超长对白、三行输入、长历史独立滚动、96% 历史高度、
+  API 29、小屏、系统超大字体和横向/大屏窗口。
+- 下一批次及第一个动作：继续 Phase 1 真机验收；未经用户明确授权不得开始 Phase 2。
+
+### 2026-09-13 / P2-M 最小真实聊天链路
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：新增 debug-only
+  `app/src/debug/java/com/chatwaifu/mobile/ui/companion/CompanionRealResponseDriver.kt`；
+  修改 debug `CompanionDemoActivity.kt`，以及 main 中的 `CompanionViewModel.kt`、
+  `CompanionUiState.kt`、`CompanionScreen.kt`、`CompanionInput.kt`、
+  `CompanionOverlay.kt`、`strings.xml` 和 `CompanionViewModelTest.kt`；
+  修改 `VITS/.../SoundPlayHandler.kt`，使终止时丢弃排队 PCM、释放轨道并退出工作线程；
+  `app/build.gradle` 同时停止向构建日志打印 `local.properties` 密钥值。
+- 实现选择与偏离原方案的理由：本批只接 debug Companion Demo，未替换正式
+  `ChatActivityViewModel` 或导航入口。真实 adapter 复用 `ChatProviderFactory`、
+  `ChatSession`、`ChatHistoryStore`、百度翻译、`SoundGenerateHelper` 和
+  `LipsValueHandler`，以保持现有网络/TTS 实现不变；这不同于第 7.1 节最终架构所要求的
+  “Companion VM 只消费正式 runtime”，因此只能视为最小接线，不是 P2-C 正式迁移。
+  Activity 配置重建时保留同一 ViewModel 会话：只按角色名重新挂载新 renderer，不重复
+  `setCharacter/prepare`，避免清空草稿、错误、历史或取消进行中的请求。
+- 真实数据流：`CompanionInput` → `CompanionViewModel` →
+  `CompanionRealResponseDriver` → `ChatProviderFactory/ChatSession.send()` →
+  `ChatHistoryStore`；最终 assistant 文本上屏后，可选百度翻译，再进入
+  `SoundGenerateHelper.generateAndPlay()` 与 `LipsValueHandler`。provider 内部仍按流读取，
+  但本批只把最终文本交给 Companion UI，没有逐 delta 上屏。
+- UI 状态与错误：支持 Idle、InputExpanded、Thinking、Speaking、HistoryOpen、Error；
+  非空提交只追加一次 user，活动请求期间拒绝重复提交。聊天失败保留原 user 并提供重试；
+  重试复用同一 UI/Room user 轮次，新建 assistant 占位。取消或异常会把 Room
+  `STREAMING` 行收尾为 `FAILED`。翻译失败回退原文继续 TTS；TTS 失败保留 assistant
+  文本和历史，以轻提示回 Idle。
+- TTS 边界：现有 `SoundGenerateHelper` 没有 AudioTrack 硬件播放完成回调。本批按每段
+  PCM 样本数/实际采样率累计预计播放结束时间后退出 Speaking，覆盖了多段排队，但不满足
+  第 7.2 节要求的精确最后样本完成语义；完整 P2-B 仍需在现有播放层补正式通知。
+- 验证命令及结果：
+  `./gradlew :app:testDebugUnitTest --tests 'com.chatwaifu.mobile.ui.companion.CompanionViewModelTest' :app:assembleDebug :app:assembleRelease`
+  成功；重复提交、失败重试、TTS 降级、历史恢复和切角色取消等测试通过。
+- 设备/API、场景与观察：arm64 虚拟设备
+  `sdk_gphone16k_arm64` / API 37。当前已配置 OpenAI 云端请求真实到达 provider，
+  但账户额度耗尽，只完成 Thinking → 可重试 Error 验证。成功路径使用临时本机
+  OpenAI-compatible SSE 端点经 `adb reverse` 验证同一 provider 流解析、Room 持久化、
+  assistant 上屏、BV2 44100Hz 两段 PCM/口型、Speaking → Idle 与 History；临时端点、
+  端口映射和设备配置随后均已清理。截图位于 `screen_shot/p2/virtual-thinking.png`、
+  `virtual-error.png`、`virtual-speaking.png`、`virtual-idle-after-tts.png` 和
+  `virtual-history.png`。
+- 布局/性能风险：未修改 renderer/JNI/C++。聊天、Room、翻译和 native TTS 串在同一请求
+  互斥区内，避免退出时提前释放资源，但长 TTS 期间不会并发下一轮。配置重建会重新加载
+  角色清单和 renderer，不会重建业务会话。虚拟设备首次出现 Android 16KB page-size
+  compatibility 警告，属于已有 native 库兼容风险。
+- 未覆盖项 / 阻塞原因：未用有效额度完成真实云端成功回复；未做逐字流式 UI、历史分页/
+  数据库稳定 ID、进程恢复、无声库设备路径、多角色切换、AudioTrack 精确完成回调、ASR、
+  正式入口或 API 29 真机回归。Phase 1 其余真机项也不因本次虚拟设备冒烟而自动完成。
+- 下一批次及第一个动作：停在 Phase 2；如用户授权继续，先决定完整 P2-A 是复用正式
+  runtime 还是提升当前 adapter，再补流式快照和数据库稳定 ID。不得自行进入 P2-C 或
+  Phase 3。
+
+### 2026-09-13 / P2.1 实时表现基础
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`f5506ba` / 未提交。
+- 实际新增与修改文件：修改 `VITS/.../SoundPlayHandler.kt`、
+  `VITS/.../SoundGenerateHelper.kt`、`app/.../utils/ChatHistoryStore.kt`、
+  `CompanionRealResponseDriver.kt`、`CompanionUiState.kt`、`CompanionViewModel.kt`
+  和 `CompanionViewModelTest.kt`；未修改 VITS native 推理、Live2D renderer 或 JNI/C++。
+- AudioTrack 实现：每轮 TTS 分配独立 playback id，PCM 仍按 BV2 逐句生成并依次写入同一个
+  MODE_STREAM AudioTrack。所有 PCM 写消息之后排入 End；End 以实际累计 frame 设置
+  `setNotificationMarkerPosition`，并读取一次 `playbackHeadPosition` 关闭“设置 marker 前
+  已经播完”的竞态。尚未播完时只等待 `OnPlaybackPositionUpdateListener`，没有轮询、
+  样本时长 delay 或固定超时；continuation 与 playback id 一次性结算，旧 track 回调必须
+  同时匹配当前 track 和当前轮次。
+- 取消与释放：页面退出、ViewModel 清理和切角色先调用独立 `cancel()`，立即停止当前
+  AudioTrack 并使其 playback id 失效；native 单句推理不被修改，推理返回后通过
+  `ensureActive()` 阻止继续入队。提前取消的 tombstone 会由对应 Begin 消费；
+  尚未被 Handler 消费的 completion 另行登记，release 时也会结算，避免悬挂或过期完成。
+  工作线程退出前清空 PCM/marker 消息，下一轮使用新 track 和新 id。native 资源关闭改由
+  独立 IO cleanup Job 等待请求互斥锁，不再从 Activity/ViewModel 生命周期回调
+  `runBlocking` 主线程；进入旧页面时异步等待该 Job 完成后再启动，避免资源交叠。
+- 流式文本：继续使用 `ChatSession.send()` 的原始 `ChatDelta.TextDelta`，没有第二套网络。
+  每个 delta 累加成当前完整片段，经 `CompanionResponseEvent.Streaming` 更新 utterance
+  及同一条 UI history item，同时 `ChatHistoryStore.updateStreamingAssistant()` 覆盖
+  `beginAssistant()` 创建的同一条 Room `STREAMING` 行。Completed 后以原
+  `finishAssistant()` 写完整 message/usage/thinking 并进入 Speaking；TTS 只处理完整文本。
+  失败或取消以最后片段收尾为 `FAILED`；provider 已 Completed 后的最终 Room `OK` 写入放在
+  `NonCancellable` 区间，assistant 占位行本身也在受保护区内创建，整轮 `finally` 会兜底
+  标记 `FAILED`，关闭取消发生在插入、请求和最终持久化各阶段时遗留 STREAMING 的窗口。
+- 历史恢复：Companion 展示历史改读原始 `ChatLogEntry`，使用数据库 id，并保留有文本的
+  FAILED 记录；模型上下文仍走原 `load()`，继续过滤 FAILED/STREAMING，二者职责不混用。
+- 自动化验证：
+  `./gradlew :app:testDebugUnitTest --tests 'com.chatwaifu.mobile.ui.companion.CompanionViewModelTest' :app:assembleDebug :app:assembleRelease`
+  成功，新增覆盖多次 Streaming 只更新一个 assistant item、首块到达后仍为 Thinking、
+  完整 Reply 才进入 Speaking、流式失败保留部分文本，以及切角色触发播放取消；
+  `git diff --check` 通过。
+- 设备/API、场景与观察：arm64 虚拟设备
+  `sdk_gphone16k_arm64` / API 37。临时 OpenAI-compatible SSE 每 2 秒发送一段，
+  UI 依次显示“こんにちは。”→“こんにちは。リアルタイムで”→完整句，
+  HistoryOpen 中同一 assistant 消息也原位增长。44100Hz BV2 生成两段 PCM 后，
+  日志记录 `frames=155648 head=153549` 时仍保持 Speaking，约 92ms 后 marker 到达，
+  仅记录一次 completion 并回 Idle；第二轮同样只完成一次。
+- 取消验证：在下一轮 TTS 播放中退出页面，未收到该轮 marker completion，也未发生崩溃；
+  重新进入后新 SoundPlayHandler 的 playback id 从独立轮次开始并正常完成，证明旧回调
+  未污染新会话。最终实现再次覆盖了 native 推理期间返回桌面：Activity 未等待推理完成、
+  无 ANR/崩溃，数据库状态统计为 `FAILED=1 / OK=13 / STREAMING=0`。临时 SSE、
+  `adb reverse` 和 SharedPreferences 已恢复/清理。
+- 截图：`screen_shot/p21/virtual-stream-1.png`、
+  `virtual-stream-2.png`、`virtual-history-stream-1.png`、
+  `virtual-history-stream-2.png`、`virtual-speaking.png`、
+  `virtual-idle-after-marker.png`。
+- 未覆盖项 / 风险：当前没有连接物理真机，因此精确完成、取消和流式 UI 的运行验证仅覆盖
+  API 37 arm64 Virtual Device；仍需物理设备核对不同 Audio HAL、蓝牙/有线输出切换及来电/
+  音频焦点中断。Room 当前每个文本 delta 都更新一次，长回复的写入频率后续可在不改变
+  最终权威状态的前提下做合并节流；本批未做历史分页、ASR 或正式入口迁移。
+- 下一批次及第一个动作：按用户要求停止，不进入 Phase 3。
 
 每完成一批在本节追加：
 

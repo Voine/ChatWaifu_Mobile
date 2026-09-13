@@ -56,6 +56,7 @@ object Constant {
 
     /** 已解出的内置模型版本，和 [BUILT_IN_MODEL_VERSION] 比对决定要不要重解 */
     const val SAVED_BUILT_IN_MODEL_VERSION = "saved_built_in_model_version"
+    const val SAVED_BUILT_IN_VISUAL_MODEL_VERSION = "saved_built_in_visual_model_version"
 
     /**
      * 内置模型资源版本，**改动 assets 里的内置模型时手动 +1**。

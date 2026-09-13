@@ -24,6 +24,7 @@ import com.chatwaifu.mobile.ChatActivityViewModel
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.common.ChatDialogContentUIState
+import com.chatwaifu.mobile.ui.companion.CharacterRendererHost
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import kotlinx.coroutines.CoroutineScope
@@ -42,9 +43,9 @@ class ChatFragment : Fragment() {
     private val fragmentViewModel:  ChatFragmentViewModel by viewModels()
 
     private var live2DView: GLSurfaceView? = null
+    private var rendererHost: CharacterRendererHost? = null
     @Volatile
     private var enableTouch: Boolean = false
-    private var _live2dLoadInterface: JniBridgeJava.Live2DLoadInterface? = null
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreateView(
@@ -52,25 +53,21 @@ class ChatFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        live2DView = GLSurfaceView(inflater.context).apply {
-            setOnTouchListener(View.OnTouchListener { v, event ->
+        rendererHost = CharacterRendererHost(
+            activity = requireActivity(),
+            onLoadDone = ::onLoadModelDone,
+            onLoadError = { showToast(it) },
+            onTouch = { v, event ->
                 if (enableTouch) {
-                    return@OnTouchListener onLive2DViewTouchEventHandler(v, event)
+                    onLive2DViewTouchEventHandler(v, event)
+                } else {
+                    false
                 }
-                return@OnTouchListener false
-            })
+            },
+        )
+        live2DView = rendererHost!!.view.apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
-
-        initLive2D(live2DView!!)
-
-        _live2dLoadInterface = object : JniBridgeJava.Live2DLoadInterface {
-            override fun onLoadError() {}
-            override fun onLoadOneMotion(motionGroup: String?, index: Int, motionName: String?) {}
-            override fun onLoadOneExpression(expressionName: String?, index: Int) {}
-            override fun onLoadDone() {onLoadModelDone()}
-        }
-        JniBridgeJava.setLive2DLoadInterface(_live2dLoadInterface)
 
         return ComposeView(inflater.context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -155,14 +152,6 @@ class ChatFragment : Fragment() {
         }
     }
 
-    private fun initLive2D(renderGLView: GLSurfaceView) {
-        JniBridgeJava.SetActivityInstance(requireActivity())
-        JniBridgeJava.SetContext(requireContext())
-        renderGLView.setEGLContextClientVersion(2)
-        renderGLView.setRenderer(GLRenderer())
-        renderGLView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
-    }
-
     private fun onLive2DViewTouchEventHandler(v: View?, event: MotionEvent?): Boolean {
         Log.d(TAG, "receive touch event $event")
         return fragmentViewModel.handleTouchEvent(event, v?.width, v?.height)
@@ -177,7 +166,7 @@ class ChatFragment : Fragment() {
 
     override fun onStart() {
         super.onStart()
-        JniBridgeJava.nativeOnStart()
+        rendererHost?.onStart()
         val character = activityViewModel.currentCharacter
         if (character == null) {
             showToast("no character selected...")
@@ -189,20 +178,13 @@ class ChatFragment : Fragment() {
             showToast("cant find $jsonFileName...")
             return
         }
-        JniBridgeJava.nativeProjectChangeTo(
-            character.live2dDir + File.separator,
-            jsonFileName
-        )
-        if (character.name == Constant.LOCAL_MODEL_AMADEUS) {
-            //fix kurisu live2d bug..
-            JniBridgeJava.needRenderBack(false)
-            JniBridgeJava.nativeApplyExpression("fix")
-        }
+        rendererHost?.setCharacter(character)
     }
 
     override fun onDestroyView() {
         live2DView = null
-        JniBridgeJava.setLive2DLoadInterface(null)
+        rendererHost?.release()
+        rendererHost = null
         activityViewModel.lipsValueHandler.destroyContext()
         fragmentViewModel.unbindSherpa(requireContext())
         super.onDestroyView()
@@ -210,18 +192,17 @@ class ChatFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        live2DView?.onResume()
+        rendererHost?.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        live2DView?.onPause()
-        JniBridgeJava.nativeOnPause()
+        rendererHost?.onPause()
     }
 
     override fun onStop() {
         super.onStop()
-        JniBridgeJava.nativeOnStop()
+        rendererHost?.onStop()
     }
 
     override fun onDestroy() {

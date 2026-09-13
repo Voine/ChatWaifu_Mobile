@@ -125,6 +125,8 @@ dependencies {
     implementation libs.androidx.lifecycle.viewmodel.compose
     debugImplementation libs.compose.ui.test.manifest
     debugImplementation libs.compose.ui.tooling
+    testImplementation libs.junit
+    testImplementation libs.kotlinx.coroutines.test
 }
 
 def readLocalProperties(String key) {
@@ -137,6 +139,6 @@ def readLocalProperties(String key) {
         println(e.getMessage())
         return ""
     }
-    println("read local key...$key value is $result")
+    println("read local key...$key")
     return result
 }

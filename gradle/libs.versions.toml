@@ -68,6 +68,7 @@ gson = "2.14.0"
 # 1.9.0 → 1.10.2：Coil 3.x 全线依赖 coroutines 1.10.2，不抬的话解析结果会是
 # 「声明 1.9.0 实际拿到 1.10.2」这种最难查的状态。显式跟上，让 catalog 说的是真话。
 kotlinx-coroutines = "1.10.2"
+junit = "4.13.2"
 material = "1.14.0"          # 终于从 1.9.0-beta01 挪到正式版
 # okhttp 停在 4.12.0：这是 retrofit 3.0.0 自己依赖的版本。okhttp 5.x 已发布，但它把
 # MediaType / RequestBody 等一批 API 做了 Kotlin 化重构，属于独立的迁移动作，不在基座这轮。
@@ -137,6 +138,8 @@ bertvits2-text-preprocess = { module = "com.chatwaifu.bv2:text-preprocess", vers
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 # coroutines-android 而不是 -core：前者额外带 Dispatchers.Main 的 Android 实现
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+junit = { module = "junit:junit", version.ref = "junit" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }

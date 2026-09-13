@@ -11,6 +11,9 @@ import com.example.textpreprocess.preprocess.LANGUAGE_EN
 import com.example.textpreprocess.preprocess.LANGUAGE_JP
 import com.example.textpreprocess.preprocess.LANGUAGE_MIX_ZH_EN
 import com.example.textpreprocess.preprocess.LANGUAGE_ZH
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 
 /**
@@ -41,6 +44,8 @@ class SoundGenerateHelper(val context: Context) {
 
     private var speakerId = 0
     private var language = LANGUAGE_JP
+    @Volatile
+    private var activePlaybackId = NO_PLAYBACK
 
     /** 从 config.json 读出来，喂给 AudioTrack 和口型时长估算。日文底模是 44100。 */
     var sampleRate = DEFAULT_SAMPLE_RATE
@@ -127,7 +132,7 @@ class SoundGenerateHelper(val context: Context) {
      *
      * @param forwardResult 每句的 PCM + 采样率，转给口型驱动。采样率必须一起给 ——
      *   老实现里口型时长按写死的 22050 估算，44100 的模型会算出两倍长的动画。
-     * @return 有任何一句成功出声就算成功
+     * @return 有音频生成且最后一帧已由 AudioTrack 播放完成时返回 true
      */
     suspend fun generateAndPlay(
         text: String?,
@@ -140,21 +145,45 @@ class SoundGenerateHelper(val context: Context) {
         val sentences = splitSentences(text.orEmpty())
         if (sentences.isEmpty()) return false
 
+        val playbackId = soundHandler.beginPlayback().also { activePlaybackId = it }
         var anySucceeded = false
-        for (sentence in sentences) {
-            val pcm = try {
-                inferOne(sentence)
-            } catch (e: Throwable) {
-                // 单句失败不该让整段回复哑掉，继续下一句
-                Log.e(TAG, "infer failed for \"$sentence\"", e)
-                null
+        try {
+            for (sentence in sentences) {
+                currentCoroutineContext().ensureActive()
+                val pcm = try {
+                    inferOne(sentence)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    // 单句失败不该让整段回复哑掉，继续下一句
+                    Log.e(TAG, "infer failed for \"$sentence\"", e)
+                    null
+                }
+                currentCoroutineContext().ensureActive()
+                if (pcm == null || pcm.isEmpty()) continue
+                soundHandler.sendSound(playbackId, pcm)
+                forwardResult(pcm, sampleRate)
+                anySucceeded = true
             }
-            if (pcm == null || pcm.isEmpty()) continue
-            soundHandler.sendSound(pcm)
-            forwardResult(pcm, sampleRate)
-            anySucceeded = true
+            if (!anySucceeded) {
+                soundHandler.cancelPlayback(playbackId)
+                return false
+            }
+            return soundHandler.awaitPlaybackComplete(playbackId)
+        } catch (e: CancellationException) {
+            soundHandler.cancelPlayback(playbackId)
+            throw e
+        } catch (e: Throwable) {
+            soundHandler.cancelPlayback(playbackId)
+            throw e
+        } finally {
+            if (activePlaybackId == playbackId) activePlaybackId = NO_PLAYBACK
         }
-        return anySucceeded
+    }
+
+    /** 立即停止当前 AudioTrack 轮次；不会销毁或中断仍在执行的 native 推理。 */
+    fun cancelPlayback() {
+        activePlaybackId.takeIf { it != NO_PLAYBACK }?.let(soundHandler::cancelPlayback)
     }
 
     private suspend fun inferOne(sentence: String): FloatArray? {
@@ -236,6 +265,7 @@ class SoundGenerateHelper(val context: Context) {
 
         /** config.json 读不出采样率时的兜底。日文底模实际是 44100。 */
         private const val DEFAULT_SAMPLE_RATE = 44100
+        private const val NO_PLAYBACK = 0L
 
         private const val MAX_SENTENCE_CHARS = 60
         private val SENTENCE_ENDINGS = charArrayOf(
