@@ -872,3 +872,72 @@ PowerShell 在仓库根目录：
 交付报告必须分开写“已实现”“已验证”“仍未验证”。
 对只有代码没有设备结果的项不要勾选真机验收完成。
 无需另建重复规划文件，把实际落点和剩余任务更新到这里，确保再次换机器仍能接续。
+
+### 2026-09-17 / Phase 2.7 Persona / Voice Profile Shell
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`c003ad7` / 未提交。
+- 实际新增与修改文件：新增 `data/model/profile/`（`PersonaProfile.kt`、`VoiceProfile.kt`、
+  `VoiceSpeakerCatalog.kt`、`CharacterProfileRepository.kt`、
+  `CharacterProfileRepositoryImpl.kt`）、`ui/modelmanager/CharacterProfileState.kt`、
+  `CharacterProfileContent.kt`、`CharacterProfileHost.kt` 和
+  `test/.../CharacterProfileTest.kt`；修改 `ChatActivityViewModel.kt`、`Constant.kt`、
+  `ModelProvider.kt`、`ModelStorage.kt`、`ModelManagerViewModel.kt`、
+  `ModelManagerContent.kt`、`ModelManagerFragment.kt`、`ChannelListFragment.kt`、
+  `strings.xml`。未改 ChatCore、Live2D renderer、JNI/C++、BV2/VITS 推理核心和 Room schema。
+- 数据边界：`CharacterPackage` 仍只引用 profile ID。**Persona 文本没有搬家**，仍在
+  `SAVED_*_SETTING` / `saved_system_prompt_<名字>`；**speaker 仍以 meta.json 为权威**。
+  profile 侧只额外存展示名（`saved_persona_name_<id>` / `saved_voice_name_<id>`，
+  等于默认值时不落盘）。因此没有引入新存储层，也没有第二个真相源。
+- 迁移：profile ID 由稳定角色 ID 确定性派生（`persona:<id>` / `voice:<id>`），在
+  `ModelStorage.migrateMetadata` 里补齐并原子回写，重复读取不换 ID，所以**幂等且不需要
+  版本号**。`behaviorProfileId` 刻意不补，否则详情页会把「尚未配置」显示成已配置。
+- Persona 与 Session：保存只落盘，不热改运行中的 `ChatSession`；沿用现有
+  `rebuildChatSession(preserveHistory = false)` 语义，新建 Session 时才读最新 persona。
+  页面文案显式写明「下一次新对话生效」。解析永远针对传入角色，缺 persona 返回
+  `isEmpty` 的 profile 而不是 null，不存在继承上一个角色。
+- Voice 与 BV2：`VoiceProfile` 不持有 native runtime。speaker 列表由
+  `VoiceSpeakerCatalog` 读声库 `config.json` 的 `spk2id`（共享目录和导入角色自带目录同构，
+  共用一份解析）。保存 speaker 走既有 `updateSpeakerId` 写 meta.json，加载仍是
+  `loadVitsModel` → `SoundGenerateHelper.init`。没有加音量/语速——当前 wrapper 不暴露，
+  高级项只说明「无可调参数」。
+- 试听：复用 Activity 那份正在服务聊天的 `SoundGenerateHelper`，和正式播报共用同一把
+  `characterVoiceMutex` + generation token，不写历史、不建 Session、不碰记忆。
+  **只允许当前角色**（BV2 loader 是进程级单例，非当前角色要重载模型，属超范围重构），
+  非当前角色置灰并说明原因。首次进入时声库可能未装，复用同一个 `initVoiceModel` 懒加载；
+  用户从未选过角色时为其开一轮闸门（此刻没有会话/播报可被污染），已有别的角色在跑则拒绝。
+  重复点击 = 停止；退出页面（`onStop` / 返回 / 关详情）停止试听，且**只在真的在试听时**
+  才发停止事件，避免关详情顺手掐掉正在播报的回复。
+- 施工中修掉的两个自身缺陷：① 试听挂起会堵死事件收集器导致「停止」永远收不到，
+  改为另起协程；② 未保存确认原本只在 Composable 局部状态里判，**返回键会绕过它**
+  （真机实测丢过改动），已把 dirty 闸门移进 ViewModel（`requestLeaveProfile`），
+  返回键和页内箭头走同一入口，并加了回归测试。
+- 顺带清理：详情页那三行改成真实 profile 摘要后，`character_default` /
+  `character_configured` / `character_not_configured` 三个字符串无引用，已删除。
+- 自动化与构建验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug
+  :app:assembleRelease` 全部成功，共 48 个 JVM 测试（新增 14 个：迁移幂等、
+  旧 voice metadata 保留、profile 不含推理配置、dirty 判定、非法 speaker fallback、
+  声库读不到时只读、无语音禁用试听、非当前角色禁用试听、详情摘要与路由、
+  返回键 dirty 闸门在共享 state 上）；lint 0 error / 219 warning
+  （基线 216，净增 3 = 2 条 `UseKtx`，与工程既有 7 处 `sp.edit().apply()` 同一写法）；
+  debug APK 378MB / release 349MB；`git diff --check` 通过。
+- 设备/API、场景与观察：arm64 虚拟设备 `sdk_gphone16k_arm64` / API 37
+  （物理真机 24129PN74C 因 MIUI `INSTALL_FAILED_USER_RESTRICTED` 无法安装，本轮未覆盖）。
+  已验证：详情页三行新结构（人格/语音可点、表现不可点）；人格页载入存量内置设定、
+  编辑后保存按钮才可用、保存落到 `saved_atri_setting`、保存后回到不可用；
+  语音页读出日文底模 4 个 speaker 且 ATRI 命中 0、语言=日语、来源=内置共享声库；
+  试听完整跑通（日志可见 44100Hz init、OpenJTalk、BERT 编码、MNN 推理、
+  `playback complete: id=1 frames=143360` 精确 marker），播放中按钮显示「停止播放」；
+  切 speaker 到 2 保存后 meta.json 变为 `speakerId:2` 且带上两个 profile ID、
+  无 `behaviorProfileId`；force-stop 重启后人格文本与 speaker=2 均保持；
+  Amadeus 显示自己的人格（命运石之门）和 speaker=1，无 ATRI 串入，试听置灰并提示
+  「只有当前角色可以试听」；未保存时按返回键弹确认，选「放弃」后
+  `saved_amadeus_setting` 未被写入；全程 `saved_active_chat_provider` 与
+  `saved_provider_openai_compat_key` 未变。截图在 `screen_shot/p27/`。
+- 未覆盖项 / 阻塞原因：无物理真机（MIUI 限制 USB 安装）；未准备可公开提交的合法导入 ZIP，
+  所以「导入角色自带声库」「单 speaker 只读」「config.json 损坏只读」三条路径只由
+  单元测试和代码路径覆盖；未做 Persona 与真实 LLM 回复的端到端观察（本轮用的是 dummy
+  key）；Behavior/表现系统按要求完全未动。
+- 下一批次及第一个动作：按要求停在 Phase 2.7，不进入 Phase 3。若后续授权 Behavior，
+  只沿 `behaviorProfileId` 扩展，并沿用本轮的「profile 是引用层、不搬存量存储」原则；
+  若要支持非当前角色试听，先解决 BV2 loader 进程级单例（多实例或装载/回滚），
+  那是独立一批 TTS 工作。

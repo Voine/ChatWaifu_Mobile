@@ -18,12 +18,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
@@ -54,6 +57,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.data.model.CharacterAvailability
@@ -77,6 +81,7 @@ fun ModelManagerContent(
     onCloseDetail: () -> Unit = {},
     onSetCurrent: (CharacterModel) -> Unit = {},
     onDelete: (CharacterModel) -> Unit = {},
+    profileActions: CharacterProfileActions = CharacterProfileActions(),
 ) {
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
@@ -116,13 +121,34 @@ fun ModelManagerContent(
                     onOpenDetail = onOpenDetail,
                 )
             } else {
-                CharacterDetail(
-                    character = selected,
-                    isCurrent = selected.id == uiState.currentCharacterId,
-                    onBack = onCloseDetail,
-                    onSetCurrent = { onSetCurrent(selected) },
-                    onDelete = { onDelete(selected) },
-                )
+                when (uiState.detailRoute) {
+                    CharacterDetailRoute.DETAIL -> CharacterDetail(
+                        character = selected,
+                        isCurrent = selected.id == uiState.currentCharacterId,
+                        personaSummary = uiState.personaSummary,
+                        voiceSummary = uiState.voiceSummary,
+                        onBack = onCloseDetail,
+                        onSetCurrent = { onSetCurrent(selected) },
+                        onDelete = { onDelete(selected) },
+                        onOpenPersona = profileActions.openPersona,
+                        onOpenVoice = profileActions.openVoice,
+                    )
+
+                    CharacterDetailRoute.PERSONA -> uiState.personaEditor?.let { editor ->
+                        PersonaContent(
+                            state = editor,
+                            confirmDiscard = uiState.confirmDiscardPersona,
+                            actions = profileActions,
+                        )
+                    }
+
+                    CharacterDetailRoute.VOICE -> uiState.voiceEditor?.let { editor ->
+                        VoiceContent(
+                            state = editor,
+                            actions = profileActions,
+                        )
+                    }
+                }
             }
             if (uiState.loading) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -309,9 +335,13 @@ private fun ImportCharacterCard(enabled: Boolean, onClick: () -> Unit) {
 private fun CharacterDetail(
     character: CharacterModel,
     isCurrent: Boolean,
+    personaSummary: String?,
+    voiceSummary: String?,
     onBack: () -> Unit,
     onSetCurrent: () -> Unit,
     onDelete: () -> Unit,
+    onOpenPersona: () -> Unit,
+    onOpenVoice: () -> Unit,
 ) {
     var confirmDelete by remember(character.id) { mutableStateOf(false) }
     Column(
@@ -369,23 +399,22 @@ private fun CharacterDetail(
                         }
                     ),
                 )
-                DetailRow(
-                    stringResource(R.string.character_voice),
-                    stringResource(
-                        if (character.hasVoice) R.string.character_default
-                        else R.string.character_not_configured
-                    ),
+                // 人格 / 语音是可进入的真实配置页；表现只展示状态，
+                // Behavior 系统不在这一阶段的范围里，所以刻意不可点
+                NavigableDetailRow(
+                    label = stringResource(R.string.character_persona),
+                    value = personaSummary
+                        ?: stringResource(R.string.character_persona_none),
+                    onClick = onOpenPersona,
                 )
-                DetailRow(
-                    stringResource(R.string.character_persona),
-                    stringResource(
-                        if (character.personaProfileId != null) R.string.character_configured
-                        else R.string.character_default
-                    ),
+                NavigableDetailRow(
+                    label = stringResource(R.string.character_voice),
+                    value = voiceSummary ?: stringResource(R.string.voice_none_name),
+                    onClick = onOpenVoice,
                 )
                 DetailRow(
                     stringResource(R.string.character_behavior),
-                    stringResource(R.string.character_not_configured),
+                    stringResource(R.string.character_behavior_wip),
                 )
                 if (character.availability != CharacterAvailability.AVAILABLE) {
                     Text(
@@ -482,6 +511,41 @@ private fun DetailRow(label: String, value: String) {
             fontFamily = FontFamily.SansSerif,
         )
         Text(value, color = Color.White, fontFamily = FontFamily.SansSerif)
+    }
+}
+
+/** 可进入下一级的行。末尾的 chevron 是「这里能点」的唯一提示，别去掉。 */
+@Composable
+private fun NavigableDetailRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = Color.White.copy(alpha = 0.58f),
+            fontFamily = FontFamily.SansSerif,
+        )
+        Text(
+            value,
+            color = Color.White,
+            fontFamily = FontFamily.SansSerif,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 180.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Icon(
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = null,
+            tint = CharacterAccent.copy(alpha = 0.75f),
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 

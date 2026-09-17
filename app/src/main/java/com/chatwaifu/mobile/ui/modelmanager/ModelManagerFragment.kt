@@ -68,11 +68,15 @@ class ModelManagerFragment : Fragment() {
                         is ModelManagerEvent.CurrentChanged ->
                             activityViewModel.selectCharacter(event.character)
 
-                        ModelManagerEvent.ConfigSaved ->
-                            showToast(resources.getString(R.string.model_manager_saved))
                     }
                 }
             }
+
+            val profileActions = rememberCharacterProfileActions(
+                uiState = uiState,
+                viewModel = fragmentViewModel,
+                activityViewModel = activityViewModel,
+            )
 
             ChatWaifu_MobileTheme {
                 ModelManagerContent(
@@ -87,6 +91,7 @@ class ModelManagerFragment : Fragment() {
                     onOpenDetail = fragmentViewModel::openDetail,
                     onCloseDetail = fragmentViewModel::closeDetail,
                     onSetCurrent = fragmentViewModel::setCurrent,
+                    profileActions = profileActions,
                 )
             }
         }
@@ -95,6 +100,12 @@ class ModelManagerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         fragmentViewModel.refresh()
+    }
+
+    /** 离开页面（切 Fragment / 退到后台）必须停试听，声音不能跟着用户走。 */
+    override fun onStop() {
+        super.onStop()
+        fragmentViewModel.stopPreview()
     }
 }
 

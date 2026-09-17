@@ -55,6 +55,17 @@ object Constant {
     const val SAVED_SYSTEM_PROMPT_PREFIX = "saved_system_prompt_"
 
     /**
+     * Persona / Voice profile 的**展示名**，key 是前缀 + 稳定角色 ID。
+     *
+     * 只存名字：人格文本仍在 [SAVED_SYSTEM_PROMPT_PREFIX] / [SAVED_YUUKA_SETTING] 那套老 key，
+     * speaker 仍在 meta.json。Phase 2.7 刻意没有把它们搬家 ——
+     * profile 是引用层，不是新的存储层，存量数据一个字节都不用迁。
+     * 名字等于默认值时不落盘，所以 displayName 变化后不会被陈旧的名字盖住。
+     */
+    const val SAVED_PERSONA_NAME_PREFIX = "saved_persona_name_"
+    const val SAVED_VOICE_NAME_PREFIX = "saved_voice_name_"
+
+    /**
      * 记忆抽取专用模型。**空 = 跟随主模型**。
      *
      * 只存 model，不存 key / base_url —— 抽取复用当前 provider 的连接，

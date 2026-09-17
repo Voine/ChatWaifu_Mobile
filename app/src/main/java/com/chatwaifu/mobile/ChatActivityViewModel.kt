@@ -104,6 +104,16 @@ class ChatActivityViewModel : ViewModel() {
     private val characterSwitchGuard = CharacterSwitchGuard()
     private val characterVoiceMutex = Mutex()
 
+    /**
+     * [vitsHelper] 里当前装着谁的声库。
+     *
+     * BV2 的 loader 是进程级单例，`modelReady` 只在 helper 内部私有，所以这里记一份：
+     * 试听要知道「现在能不能直接推理」，不然就得靠调用方保证 [loadVitsModel] 先跑过 ——
+     * 而进程刚起来时它只在用户显式选角色后才跑，从角色详情直接进语音页是没跑过的。
+     * 只在 [characterVoiceMutex] 里读写。
+     */
+    private var loadedVoiceCharacterId: String? = null
+
     private val vitsHelper: SoundGenerateHelper by lazy {
         SoundGenerateHelper(ChatWaifuApplication.context)
     }
@@ -341,12 +351,7 @@ class ChatActivityViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             characterVoiceMutex.withLock {
                 if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock
-                val success = vitsHelper.init(
-                    bv2Dir = vitsDir,
-                    bertDir = character.bertDir,
-                    language = character.language,
-                    targetSpeakerId = character.speakerId,
-                )
+                val success = initVoiceModel(character)
                 if (characterSwitchGuard.isCurrent(generation, character.id)) {
                     _loadVITSModelLiveData.emit(
                         if (success) VITSLoadStatus.STATE_SUCCESS
@@ -356,6 +361,69 @@ class ChatActivityViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    /**
+     * 语音设置页的试听。**复用正在服务聊天的那一份 [vitsHelper]**，
+     * 因此只允许试听**当前角色**：BV2 的声学模型是进程级单例（`setBertVITS2ModelPath`
+     * 直接改的就是那个 loader），给非当前角色试听就得重载模型，回来还要再载回去——
+     * 那是 TTS 多实例化的重构，不在这一阶段的范围里。
+     *
+     * 走和正式播报同一把 [characterVoiceMutex] + 同一套 generation token，所以
+     * 试听和聊天 TTS 不会串音，切角色时迟到的试听结果会被闸掉。
+     * 不写聊天历史、不建 [ChatSession]、不碰记忆和 Live2D 动作，
+     * 只额外驱动口型（让用户看得出是这个角色在说话）。
+     *
+     * @return true 表示播完了；false 表示没有语音 / 模型未就绪 / 已被切角色闸掉
+     */
+    suspend fun previewVoice(character: CharacterModel, text: String): Boolean {
+        if (!character.hasVoice) return false
+        // 用户可以在从未进过聊天页时就打开语音页（角色列表 → 详情 → 语音），
+        // 这时闸门还没为任何角色开过轮次。此刻进程里没有会话、没有播报、
+        // 没有待落库的结果可被污染，所以为它开一轮是安全的；
+        // 之后真正 selectCharacter 会再开新一轮，把这一轮作废。
+        val generation = characterSwitchGuard.currentToken(character.id)
+            ?: if (currentCharacter == null) {
+                characterSwitchGuard.begin(character.id)
+            } else {
+                // 已经有别的角色在跑了：不抢它的闸门，直接拒绝试听
+                return false
+            }
+        return characterVoiceMutex.withLock {
+            if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock false
+            // 用户可以从角色详情直接进语音页，这时声库可能还没装过（进程刚起来、
+            // 或者刚在别的角色上装的那一份）。走和正式链路同一个 init，不另开一条路。
+            if (loadedVoiceCharacterId != character.id && !initVoiceModel(character)) {
+                return@withLock false
+            }
+            if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock false
+            vitsHelper.generateAndPlay(text = text) { pcm, sampleRate ->
+                if (characterSwitchGuard.isCurrent(generation, character.id)) {
+                    lipsValueHandler.sendLipsValues(pcm, sampleRate)
+                }
+            }
+        }
+    }
+
+    /**
+     * 装载 [character] 的声库。**必须在 [characterVoiceMutex] 里调** ——
+     * 正式链路和试听共用这一个入口，切角色不能在旧推理中途换掉模型或 speaker。
+     */
+    private suspend fun initVoiceModel(character: CharacterModel): Boolean {
+        val vitsDir = character.vitsDir ?: return false
+        val success = vitsHelper.init(
+            bv2Dir = vitsDir,
+            bertDir = character.bertDir,
+            language = character.language,
+            targetSpeakerId = character.speakerId,
+        )
+        loadedVoiceCharacterId = character.id.takeIf { success }
+        return success
+    }
+
+    /** 试听页退出 / 重复点击时立刻停掉当前 AudioTrack 轮次。 */
+    fun stopVoicePreview() {
+        vitsHelper.cancelPlayback()
     }
 
     /**

@@ -2,6 +2,8 @@ package com.chatwaifu.mobile.data.model
 
 import android.content.Context
 import android.util.Log
+import com.chatwaifu.mobile.data.model.profile.PersonaProfile
+import com.chatwaifu.mobile.data.model.profile.VoiceProfile
 import com.chatwaifu.vits.utils.SoundGenerateHelper
 import com.chatwaifu.vits.utils.file.FileUtils
 import com.google.gson.Gson
@@ -70,6 +72,14 @@ internal class ModelStorage(private val context: Context) {
                 name = storageKey,
                 displayName = meta.displayName.ifBlank { meta.name.ifBlank { storageKey } },
                 source = source.name,
+                // Profile ID 从稳定角色 ID 确定性派生，所以补齐是幂等的：重复读取
+                // 不会换 ID，也不需要为 Phase 2.7 单独存一个迁移版本号。
+                // behaviorProfileId 刻意不补 —— 表现系统还没实现，补了会让详情页
+                // 把「尚未配置」显示成「已配置」。
+                personaProfileId = meta.personaProfileId?.ifBlank { null }
+                    ?: PersonaProfile.idFor(stableId),
+                voiceProfileId = meta.voiceProfileId?.ifBlank { null }
+                    ?: VoiceProfile.idFor(stableId),
             )
         }
     }

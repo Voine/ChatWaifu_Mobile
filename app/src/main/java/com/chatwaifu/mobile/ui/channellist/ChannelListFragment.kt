@@ -27,6 +27,7 @@ import com.chatwaifu.mobile.data.VITSLoadStatus
 import com.chatwaifu.mobile.ui.modelmanager.ModelManagerContent
 import com.chatwaifu.mobile.ui.modelmanager.ModelManagerEvent
 import com.chatwaifu.mobile.ui.modelmanager.ModelManagerViewModel
+import com.chatwaifu.mobile.ui.modelmanager.rememberCharacterProfileActions
 import com.chatwaifu.mobile.ui.modelmanager.toMessage
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
@@ -74,10 +75,17 @@ class ChannelListFragment : Fragment() {
                             )
                         is ModelManagerEvent.CurrentChanged ->
                             activityViewModel.selectCharacter(event.character)
-                        ModelManagerEvent.ConfigSaved -> Unit
+                        // profile 事件是独立的 CharacterProfileEvent，
+                        // 由 rememberCharacterProfileActions 消费，不走这条流
                     }
                 }
             }
+
+            val profileActions = rememberCharacterProfileActions(
+                uiState = uiState,
+                viewModel = characterViewModel,
+                activityViewModel = activityViewModel,
+            )
 
             ChatWaifu_MobileTheme {
                 Box(
@@ -99,6 +107,7 @@ class ChannelListFragment : Fragment() {
                         onCloseDetail = characterViewModel::closeDetail,
                         onSetCurrent = characterViewModel::setCurrent,
                         onDelete = characterViewModel::delete,
+                        profileActions = profileActions,
                     )
 
                     val loadVitsResult by activityViewModel.loadVITSModelLiveData
@@ -126,6 +135,12 @@ class ChannelListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         checkPermission()
         characterViewModel.refresh()
+    }
+
+    /** 离开页面必须停试听，声音不能跟着用户走到聊天页。 */
+    override fun onStop() {
+        super.onStop()
+        characterViewModel.stopPreview()
     }
 
     private fun checkPermission() {
