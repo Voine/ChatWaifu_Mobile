@@ -1,7 +1,9 @@
 package com.chatwaifu.mobile.ui.companion
 
+import android.Manifest
 import android.os.Bundle
 import android.content.Intent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -18,9 +20,37 @@ import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import kotlinx.coroutines.launch
 
 class CompanionDemoActivity : AppCompatActivity() {
+    /**
+     * 麦克风权限。**权限属于 UI/platform 层** —— 只有 Activity 能弹系统对话框，
+     * 所以 AsrEngine 和 AsrCompanionVoiceInput 都不碰它，结果通过
+     * [CompanionEvent.VoicePermissionResult] 回给状态机。
+     */
+    private val recordPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        companionViewModel.onEvent(
+            CompanionEvent.VoicePermissionResult(
+                granted = granted,
+                // 拒绝后 shouldShowRequestPermissionRationale 仍为 true 表示还能再问；
+                // 为 false 就是「不再询问」，只能引导去系统设置
+                canAskAgain = granted || shouldShowRequestPermissionRationale(
+                    Manifest.permission.RECORD_AUDIO
+                ),
+            )
+        )
+    }
+
     private val companionViewModel: CompanionViewModel by viewModels {
         CompanionViewModel.factory(
             responseDriverFactory = { CompanionRealResponseDriver(applicationContext) },
+            voiceInputFactory = {
+                AsrCompanionVoiceInput(
+                    context = applicationContext,
+                    permissionRequester = {
+                        recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
+                )
+            },
         )
     }
 
@@ -117,6 +147,8 @@ class CompanionDemoActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        // 进后台必须停录音：麦克风不能在用户离开页面后继续开着
+        companionViewModel.onEvent(CompanionEvent.CancelVoiceInput)
         if (!rendererReleased) rendererHost.onStop()
         super.onStop()
     }

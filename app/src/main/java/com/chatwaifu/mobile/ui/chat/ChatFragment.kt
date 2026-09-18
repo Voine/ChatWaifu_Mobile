@@ -1,6 +1,8 @@
 package com.chatwaifu.mobile.ui.chat
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.util.Log
@@ -9,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -17,6 +20,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chatwaifu.live2d.GLRenderer
 import com.chatwaifu.live2d.JniBridgeJava
@@ -41,6 +45,13 @@ class ChatFragment : Fragment() {
     }
     private val activityViewModel: ChatActivityViewModel by activityViewModels()
     private val fragmentViewModel:  ChatFragmentViewModel by viewModels()
+
+    /** 老聊天页的麦克风权限。用到时才申请，见 onRecordStart 那处注释。 */
+    private val recordPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) showToast(getString(R.string.asr_error_permission))
+    }
 
     private var live2DView: GLSurfaceView? = null
     private var rendererHost: CharacterRendererHost? = null
@@ -124,7 +135,16 @@ class ChatFragment : Fragment() {
                             fragmentViewModel.resetModel()
                         },
                         onRecordStart = {
-                            fragmentViewModel.onRecordStart()
+                            // 权限改成「用到时才申请」（启动页不再无理由预申请）。
+                            // 没授予就只弹申请，这一次按下不录音 —— 系统对话框期间
+                            // 用户的手指已经不在按钮上了
+                            if (hasRecordPermission()) {
+                                fragmentViewModel.onRecordStart()
+                            } else {
+                                recordPermissionLauncher.launch(
+                                    Manifest.permission.RECORD_AUDIO
+                                )
+                            }
                         },
                         onRecordEnd = {
                             fragmentViewModel.onRecordEnd{ result ->
@@ -144,6 +164,12 @@ class ChatFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         fragmentViewModel.bindSherpa(requireContext())
     }
+
+    private fun hasRecordPermission(): Boolean =
+        ContextCompat.checkSelfPermission(
+            requireContext(),
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
 
     private fun onLoadModelDone() {
         CoroutineScope(Dispatchers.Main).launch{

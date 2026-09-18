@@ -235,6 +235,20 @@
     <string name="voice_advanced">高级</string>
     <string name="voice_advanced_empty">当前推理引擎没有可调的音量 / 语速参数。</string>
     <string name="voice_preview_text">こんにちは、これは音声のテストです。</string>
+
+    <string name="asr_error_permission">需要麦克风权限才能使用语音输入</string>
+    <string name="asr_error_model_unavailable">语音识别模型不可用</string>
+    <string name="asr_error_init_failed">语音识别初始化失败</string>
+    <string name="asr_error_audio_record">无法开始录音，麦克风可能被其他应用占用</string>
+    <string name="asr_error_recognition">语音识别出错，请再试一次</string>
+    <string name="asr_error_timeout">录音时间过长，已自动停止</string>
+    <string name="asr_error_not_prepared">语音识别尚未就绪，请稍候</string>
+    <string name="asr_error_unknown">语音识别失败</string>
+    <string name="companion_status_listening">聆听中</string>
+    <string name="companion_voice_listening">正在听…</string>
+    <string name="companion_voice_start">语音输入</string>
+    <string name="companion_voice_stop">结束录音</string>
+    <string name="companion_voice_cancel">取消录音</string>
     <string name="model_manager_importing">Importing… %1$d%%</string>
     <string name="model_manager_validating">Validating archive…</string>
     <string name="model_manager_import_done">%1$s imported</string>
@@ -277,7 +291,6 @@
     <string name="companion_input_title">和角色说话</string>
     <string name="companion_input_hint">说点什么……</string>
     <string name="companion_close_input">关闭输入</string>
-    <string name="companion_microphone_mock">麦克风（演示中不录音）</string>
     <string name="companion_history_empty">还没有演示对话</string>
     <string name="companion_history_expand">展开对话记录</string>
     <string name="companion_history_collapse">收起对话记录</string>
