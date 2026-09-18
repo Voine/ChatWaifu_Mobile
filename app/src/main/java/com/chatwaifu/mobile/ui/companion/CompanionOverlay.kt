@@ -443,6 +443,7 @@ private fun CompanionAction(
 @Composable
 private fun runtimeLabel(runtime: CompanionRuntimeState): String = when (runtime) {
     CompanionRuntimeState.IDLE -> stringResource(R.string.companion_status_idle)
+    CompanionRuntimeState.LISTENING -> stringResource(R.string.companion_status_listening)
     CompanionRuntimeState.THINKING -> stringResource(R.string.companion_status_thinking)
     CompanionRuntimeState.SPEAKING -> stringResource(R.string.companion_status_speaking)
     CompanionRuntimeState.ERROR -> stringResource(R.string.companion_status_error)

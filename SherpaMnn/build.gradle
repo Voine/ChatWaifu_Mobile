@@ -1,0 +1,48 @@
+plugins {
+    alias libs.plugins.android.library
+}
+
+android {
+    namespace = 'com.k2fsa.sherpa.mnn'
+    compileSdk libs.versions.compileSdk.get().toInteger()
+
+    defaultConfig {
+        minSdk libs.versions.minSdk.get().toInteger()
+        consumerProguardFiles "consumer-rules.pro"
+        ndk {
+            // 和工程其余部分一致，只出 arm64：libMNN.so 和 libsherpa-mnn-jni.so
+            // 都是现场交叉编译出来的，没有 v7a 产物
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+        targetCompatibility JavaVersion.toVersion(libs.versions.jvmTarget.get())
+    }
+    buildFeatures {
+        aidl = true
+    }
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+    lint {
+        targetSdk libs.versions.targetSdk.get().toInteger()
+    }
+    testOptions {
+        targetSdk libs.versions.targetSdk.get().toInteger()
+    }
+}
+
+dependencies {
+    implementation libs.kotlinx.coroutines.android
+    implementation libs.androidx.core.ktx
+}

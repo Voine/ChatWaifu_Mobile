@@ -60,6 +60,18 @@ android {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
+        jniLibs {
+            // libMNN.so 有两份：BV2 的 AAR 带一份（TTS 用，MNN_SEP_BUILD=ON，
+            // Express 拆在 libMNN_Express.so 里），SherpaMnn 带一份（ASR 用，
+            // SEP_BUILD=OFF 的合并版）。两者导出符号集不同，**不能互相替代** ——
+            // sherpa-mnn-jni 需要的 9 个 Express 符号不在 BV2 那份的 libMNN.so 里。
+            //
+            // 它们跑在不同进程（TTS 在主进程、ASR 在 :sherpa），各自 dlopen 自己的那份，
+            // 所以运行时不冲突；这里只是让打包阶段别因为同名而失败。
+            // 取 SherpaMnn 那份（符号是另一份的超集，TTS 侧仍从 libMNN_Express.so
+            // 取它需要的 Express 符号）。
+            pickFirsts += 'lib/arm64-v8a/libMNN.so'
+        }
     }
     namespace = 'com.chatwaifu.mobile'
 }
@@ -85,7 +97,7 @@ dependencies {
     implementation project(":Translate")
     implementation project(":Log")
     implementation project(":Lipsync")
-    implementation project(':Sherpa')
+    implementation project(':SherpaMnn')
     // 12 个文件直接 import kotlinx.coroutines，原先靠 lifecycle 的传递依赖
     implementation libs.kotlinx.coroutines.android
     implementation libs.androidx.core.ktx

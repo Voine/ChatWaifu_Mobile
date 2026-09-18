@@ -941,3 +941,85 @@ PowerShell 在仓库根目录：
   只沿 `behaviorProfileId` 扩展，并沿用本轮的「profile 是引用层、不搬存量存储」原则；
   若要支持非当前角色试听，先解决 BV2 loader 进程级单例（多实例或装载/回滚），
   那是独立一批 TTS 工作。
+
+### 2026-09-17 / Phase 2.8 Voice Input + ASR Abstraction
+
+- 起始 HEAD / 完成 commit（未提交写“未提交”）：`c003ad7` / 未提交（含 Phase 2.7 改动）。
+- 实际新增与修改文件：新增 app 侧 `data/asr/`（`AsrEngine.kt`、`AsrEvent.kt`、`AsrConfig.kt`、
+  `AudioFocusGate.kt`、`AsrProvider.kt`、`LegacyPushToTalkRecorder.kt`、
+  `sherpa/SherpaNcnnAsrEngine.kt`）、`ui/companion/CompanionVoiceInput.kt`、
+  `AsrCompanionVoiceInput.kt`，测试 `CompanionVoiceInputTest.kt`、`AsrEngineContractTest.kt`；
+  新增 Sherpa 侧 `ISherpaSessionCallback.aidl`、`SherpaAsrErrorCodes.kt`；
+  重写 `SherpaHelper.kt`、`SherpaService.kt`、扩展 `ISherpaAidlInterface.aidl`；
+  修改 `CompanionUiState.kt`、`CompanionViewModel.kt`、`CompanionInput.kt`、
+  `CompanionScreen.kt`、`CompanionOverlay.kt`、debug `CompanionDemoActivity.kt`、
+  `ChatFragmentViewModel.kt`、`ChatFragment.kt`、`ChannelListFragment.kt`、`strings.xml`。
+  **未改 native/C++、`SherpaNcnn` 的 JNI 签名、LLM/TTS/Live2D/Behavior 和 Room schema。**
+- 原始数据流（改造前）：`ChatFragment` → `ChatFragmentViewModel` 自己持 `ServiceConnection` +
+  `ISherpaAidlInterface` → `:sherpa` 进程 `SherpaHelper`（AudioRecord 16k/mono/PCM16 在这一侧）
+  → 20ms 一帧 `decodeSamples` → 结果只累积进内部 `results`，`finishRecord` 才一次性回传。
+  **recognizer 每 20ms 就有 `text` 和 `isEndpoint()`，但 partial 能力在 AIDL 层被丢掉了。**
+- 抽象边界的关键判断：**AIDL 是进程边界，不是能力边界。** `AsrEngine` 放在 app 的 data 层，
+  `SherpaNcnnAsrEngine` 是唯一知道 AIDL / `:sherpa` / 错误码的地方。AudioRecord 继续留在
+  `:sherpa` 进程（没有引入 `AudioInputSource`）—— 跨进程回传 PCM 只会多一次拷贝，
+  而 ncnn 像是进程独享资源，按「不要为了架构漂亮强行拆一层」保持最小改动。
+- AIDL 扩展（只改 Kotlin 和 aidl，不动 native）：新增 `prepare()` 返回错误码、
+  `startSession/stopSession/cancelSession` 和带 sessionId 的 `ISherpaSessionCallback`
+  （partial / endpoint / final / error / ended）。老的 `initSherpa/startRecord/finishRecord`
+  保留给旧聊天页，语义不变。错误跨进程只过 int（`SherpaAsrErrorCodes`）——
+  ncnn 异常信息里带模型绝对路径，不该出现在 UI 上。
+- `SherpaHelper` 三处修正：模型从 `init{}` 里的同步构造改成可失败的懒加载 `prepare()`
+  （原来在 Binder 线程读上百 MB 权重且失败只能崩）；解码循环实时发 partial；
+  取消和正常停止分开（原来 `stopRecord` 无条件回调结果，没有 cancel 语义）。
+  `activeSessionId` 用 CAS，新 session 一来就把旧的顶掉，旧循环下一帧退出。
+- Companion 状态机：`Idle → 点麦克风 →（无权限则先申请）→ PREPARING → LISTENING`；
+  partial 覆盖写进**同一个 draft**（不拼接、不产生 history、不写 Room）；
+  `FinalResult` 落到可编辑草稿并停在 INPUT，**不自动发送**（识别可能出错，用户要有一次
+  修改机会）；`EndpointReached` 只当信号，不自动停也不自动发。再次点麦克风 = 正常停止，
+  只有这一种交互，没有叠长按手势。
+- TTS/ASR 切换：`AsrEngine` 不知道 TTS 存在。Companion 在 `startVoiceInput` 里发现
+  runtime 是 SPEAKING 就先 `responseDriver.cancel()` + 取消 responseJob 再录音，
+  复用 Phase 2.1 的取消语义，没重构 TTS。`AudioFocusGate` 只做最小实现
+  （`GAIN_TRANSIENT_EXCLUSIVE`），它是给外部应用的协作信号，不当内部互斥锁用。
+- 生命周期与隔离：session id 单调递增 + `currentSessionId` 双重校验，
+  取消/被顶掉之后迟到的 partial/final 一律丢弃。`callbackFlow` 的 `awaitClose` 覆盖
+  collector 取消（页面退出/切角色/ViewModel 清理）；`cancelBlocking()` 走独立 scope，
+  因为 `onCleared()` 时 `viewModelScope` 已经取消。`onStop()` 也停录音。
+  切角色和 `releaseConversation()` 都先 `teardownVoiceInput()`。
+- 权限：**权限逻辑不在 engine 里**。`ChannelListFragment` 启动页的无理由预申请已删除，
+  改成用到时才申请：Companion 由 Activity 的 `RequestPermission` launcher 发起、
+  结果经 `VoicePermissionResult` 回状态机；永久拒绝（`shouldShowRequestPermissionRationale`
+  为 false）显示「请在系统设置中开启」。旧聊天页也补了同样的按下时申请。
+- 未来换 MNN：新写 `MnnAsrEngine : AsrEngine` 并把 `AsrProvider.isImplemented(MNN)`
+  改成 true 即可，**Companion UI / 状态机 / 权限流程 / 录音生命周期 / ChatSession 接线
+  都不用改**。`AsrProvider.create` 对未实现类型抛 `NotImplementedError` 而不是回落到
+  Sherpa（悄悄回落会让「以为换了引擎」的 bug 极难发现）。UI/ViewModel 里没有任何
+  `if (engine == SHERPA)`；这条约束由 `AsrEngineContractTest` 用反射守着。
+- 自动化与构建验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease`
+  成功，共 71 个 JVM 测试（新增 23：partial 只更新 draft 不建 history、final 落可编辑草稿
+  不自动发送、endpoint 不自作主张、取消后迟到结果不写 UI、连点只开一个 session、
+  再次点击正常停止、切角色/页面退出取消录音、Speaking 时点麦克风先停 TTS、
+  权限缺失只申请不录音、永久拒绝提示去设置、ASR 错误不进 ERROR 态也不写 history、
+  录音中提交先停 session、无语音宿主不崩，外加 8 条接口边界约束）；
+  lint 0 error / 220 warning（新增/改动文件 0 warning）；debug 378MB / release 349MB；
+  `git diff --check` 通过。顺带删掉两个失去引用的字符串（`companion_microphone_mock`）。
+- 设备/API、场景与观察：arm64 虚拟设备 `sdk_gphone16k_arm64` / API 37
+  （物理真机 24129PN74C 因 MIUI `INSTALL_FAILED_USER_RESTRICTED` 无法安装，
+  用户明确指示本轮只用模拟器）。已验证：撤销权限后点麦克风**才**弹系统对话框
+  （启动页不再预申请）；选 Don't allow 显示「需要麦克风权限才能使用语音输入」且不录音；
+  授权后点麦克风 → `:sherpa` 进程按需拉起、日志 `sherpa model prepared`、
+  AudioRecord 启动、UI 显示「聆听中」+「正在听…」脉冲点 + 取消录音 + 麦克风图标变停止；
+  停止后空 final 显示「没有听到内容，请再试一次」并回 Idle；取消后草稿清空、无提示；
+  录音中按 Home 后 `dumpsys audio` 的 `rec stop` 立即出现；连点 5 次麦克风后
+  `rec start`/`rec stop` **各 5 次完全配对**、全程复用同一个 `riid:55 session:49`，
+  没有并发 session；Room 只有 1 条 USER + 1 条 FAILED assistant（来自一次误触发送，
+  顺带验证了 transcript → CompanionInput → ChatSession → Thinking 这一段真的通），
+  其余纯 ASR 轮次一行未写。截图在 `screen_shot/p28/`。
+- 未覆盖项 / 阻塞原因：**partial transcript 的真实文本未观察** —— 模拟器麦克风只有静音，
+  仓库里也没有可用的测试音频，所以 `AsrEvent.PartialResult` 的实际内容、
+  长静音 endpoint 触发、以及「TTS 播放中点麦克风」的听觉验证都只有单元测试覆盖，
+  需要有真实麦克风的设备补。MIUI 限制导致本轮无物理设备。
+  离线性未专门断网验证（Sherpa 全本机，无网络代码路径）。
+- 下一批次及第一个动作：按要求停在 Phase 2.8，不进入下一阶段。若后续授权，
+  建议先在有麦克风的设备上补 partial/endpoint/TTS 冲突的真实验证，再考虑 MNN ASR；
+  MNN 只需实现 `AsrEngine` 并翻转 `AsrProvider.isImplemented`。

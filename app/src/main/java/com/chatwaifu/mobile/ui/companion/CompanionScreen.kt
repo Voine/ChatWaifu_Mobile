@@ -20,12 +20,13 @@ fun CompanionScreen(
     onEvent: (CompanionEvent) -> Unit,
     renderer: @Composable () -> Unit,
 ) {
-    BackHandler(enabled = state.overlay != CompanionOverlayState.NONE) {
+    BackHandler(enabled = state.overlay != CompanionOverlayState.NONE || state.voice.busy) {
         onEvent(
-            if (state.overlay == CompanionOverlayState.HISTORY) {
-                CompanionEvent.DismissHistory
-            } else {
-                CompanionEvent.DismissInput
+            when {
+                // 录音中按返回先取消录音，否则面板关了麦克风还在开着
+                state.voice.busy -> CompanionEvent.CancelVoiceInput
+                state.overlay == CompanionOverlayState.HISTORY -> CompanionEvent.DismissHistory
+                else -> CompanionEvent.DismissInput
             }
         )
     }
@@ -57,10 +58,12 @@ fun CompanionScreen(
                 enabled = true,
                 submitEnabled = state.runtime != CompanionRuntimeState.THINKING &&
                     state.runtime != CompanionRuntimeState.SPEAKING,
+                voice = state.voice,
                 onDraftChanged = { onEvent(CompanionEvent.DraftChanged(it)) },
                 onSubmit = { onEvent(CompanionEvent.Submit) },
                 onDismiss = { onEvent(CompanionEvent.DismissInput) },
-                onMicrophone = { onEvent(CompanionEvent.Vision) },
+                onMicrophone = { onEvent(CompanionEvent.ToggleVoiceInput) },
+                onCancelVoice = { onEvent(CompanionEvent.CancelVoiceInput) },
             )
         }
         AnimatedVisibility(

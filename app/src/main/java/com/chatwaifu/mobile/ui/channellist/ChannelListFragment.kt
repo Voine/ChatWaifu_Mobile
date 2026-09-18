@@ -31,7 +31,6 @@ import com.chatwaifu.mobile.ui.modelmanager.rememberCharacterProfileActions
 import com.chatwaifu.mobile.ui.modelmanager.toMessage
 import com.chatwaifu.mobile.ui.showToast
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
-import com.chatwaifu.vits.utils.permission.PermissionUtils
 
 class ChannelListFragment : Fragment() {
 
@@ -133,7 +132,6 @@ class ChannelListFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        checkPermission()
         characterViewModel.refresh()
     }
 
@@ -141,15 +139,6 @@ class ChannelListFragment : Fragment() {
     override fun onStop() {
         super.onStop()
         characterViewModel.stopPreview()
-    }
-
-    private fun checkPermission() {
-        if (!PermissionUtils.checkNetPermission(requireActivity())) {
-            PermissionUtils.requestNetPermission(requireActivity())
-        }
-        if (!PermissionUtils.checkRecordPermission(requireActivity())) {
-            PermissionUtils.requestRecordPermission(requireActivity())
-        }
     }
 
     companion object {

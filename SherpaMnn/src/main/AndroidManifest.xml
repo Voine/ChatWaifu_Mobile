@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          和老的 Sherpa-ncnn 一样跑在独立进程：ASR 的 native 上下文（现在是 MNN）
+          像是进程独享资源，而且让它和主进程的 BV2 TTS 各自持有自己的 MNN 运行时
+          更不容易互相影响。只由本应用通过显式 Intent bindService，不导出。
+        -->
+        <service
+            android:name=".SherpaMnnService"
+            android:enabled="true"
+            android:process=":sherpa"
+            android:exported="false" />
+    </application>
+
+</manifest>
