@@ -9,6 +9,39 @@
 
 ---
 
+## 进度总览（2026-10-16 盘点，HEAD `3911955`）★新会话先看这一节
+
+> **这是全工程进度的唯一权威入口。** 之前几次长会话的进度散落在各专项文档里，
+> 新会话一度误判成「Companion UI 尚未实施」从头规划。以后每完成一批，**先改这张表**，
+> 再去专项文档写细节。
+
+| 任务 | 状态 | 细节在哪 |
+|---|---|---|
+| Companion 前台（Phase 1 ~ 2.8 + T1 转正） | ✅ 完成，`CompanionActivity` 是正式前台，debug 入口已删 | `companion-ui-construction-plan.md` 第 12 节 |
+| T2 按句流水线（首声 38~43s → 18~23s，模拟器） | ✅ 完成 | 本文 T2 |
+| T3 翻译并入流水线 | ✅ 完成（选项 C） | 本文 T3 |
+| T4 Anthropic / Gemini provider | ✅ 完成，四家真实网关联调过 | `chat-core.md` |
+| T5 记忆 L1 日记 / 分层回忆 / 时间感 / 三类事实 / 长程评测 | ✅ 完成（DB v7） | `memory.md` 第七~九节 |
+| T6 多模态入口 | ✅ 完成（2026-10-16）：图片 / 视频 / 音频 / PDF 全有入口，按模型能力 gate，换模型后历史重放自动降级 | 本文 T6、`media-pipeline.md` |
+| Companion 历史分页 + 流式写库节流 | ✅ 完成（2026-10-16） | `companion-ui-construction-plan.md` 第 12 节 |
+| T7 真机验证 | ❌ 未做，全部验收都在模拟器 `CW_API36_4k` + JVM 联调 | 本文 T7 |
+| **Live2D 表演力（表情 / 动作 / 情绪 / 真实口型）** | 🔒 **刻意留白**，所有者在单独调研，**不要碰** | 本文前提 2、第 5 节 |
+
+**还能继续优化、且不碰表演课题的余项**（按建议顺序）：
+
+1. T7 真机验证（被小米机的「USB 安装」开关挡着，需要所有者在手机上操作）
+2. 记忆在设备上的端到端：`memory.md` 第九节三条手动验证；遗忘打分按 7.8 节暂缓
+3. **BV2 遇到英文 / markdown 符号会抛 `IndexOutOfBounds`，长回复里还有一次 native 崩溃**（2026-10-16 实测，见施工日志），属 TTS 前处理，需单独排查
+4. 技术债（第 3 节），不专门清 lint
+
+**测试现状**：21 个 JVM 测试文件（app 15 / ChatCore 5 / VITS 1），159 个用例；
+联调用例无 `ATHENAI_KEY` 时跳过。**0 个 instrumentation 测试。**
+
+**已过时、仅作历史参考的文档**：`project-handoff.md`（停在 2026-09-13 / Phase 2.6）、
+`companion-ui-construction-plan.md` 第 1~11 节（最初的 Phase 1 规划）。
+
+---
+
 ## 0. 这份路线图的前提（**非常重要，决定了很多取舍**）
 
 以下四条是项目所有者明确拍板的，**不要自行推翻，也不要"顺手照顾一下"**：
@@ -48,7 +81,7 @@
 | 端内 TTS（BV2+MNN） | 完成 | `VITS` 模块 |
 | 聊天存储 / 多模态管线 / 记忆 L0+L2 | 完成 | `Log` 模块 / `data/attachment/` / `data/memory/` |
 
-### 核心矛盾：**做好的东西用户摸不到**
+### 核心矛盾：**做好的东西用户摸不到**（2026-10-14 已由 T1 解决，以下为当时的记录）
 
 这是当前最大的问题，比任何缺失的功能都严重：
 
@@ -64,8 +97,8 @@
 ### 已知的、本路线图会处理的问题
 
 - **首声延迟**：`mainLoop()` 是「LLM 完整结束 → 翻译 → TTS」串行，长回复有数秒死寂（见 T2）
-- **Anthropic / Gemini / 端内 LLM 仍是 stub**：`chatStream` 抛 `NotImplementedError`（见 T4）
-- **记忆只有 L0 + L2**：L1 情节摘要、L3 检索未做（见 T5）
+- ~~Anthropic / Gemini 仍是 stub~~ → T4 已完成（2026-10-14）；端内 LLM 仍是 stub
+- ~~**记忆只有 L0 + L2**~~：T5 已补上 L1 日记和分层回忆
 - **翻译是必需的云依赖**：中文 LLM → 百度翻译 → 日语 TTS，每轮一次网络往返（见 T3）
 
 ---
@@ -79,6 +112,9 @@
 ---
 
 ### T1. 正式入口迁移：让 Companion 成为唯一前台 ★最高优先级
+
+> **状态（2026-10-14）：已完成**。完整一轮（流式 → BV2 出声 → 回 Idle）已在 4KB 页模拟器 `CW_API36_4k` 上验过。
+> 交接记录见 `companion-ui-construction-plan.md` 第 12 节末条。下面是原始规格，保留作对照。
 
 **目标**：删除老的 Fragment 聊天 UI，Companion 成为正式包的真实入口。
 
@@ -161,6 +197,14 @@ app/src/debug/.../CompanionDemoActivity  ← Companion 的唯一入口，debug-o
 
 ### T2. 首声延迟：按句流水线 ★体感收益最大
 
+> **状态（2026-10-15）：已完成**。`SoundGenerateHelper.openStream()` + `VoicePipeline`
+> （翻译和 TTS 各一个串行协程、Channel 串起来保序）+ `SentenceSplitter`（首句可在逗号处提前切）。
+> **实测（4KB 页模拟器 / Claude Haiku / 同一提示词各 3 次）**：首声从 **38~43s 降到 18~23s**，
+> 首 token 到首句只差 ~0.1s（改造前是「等整段回复 + 一次翻译往返」）。
+> 模拟器上这个绝对值没有意义（BV2 的 arm64 `.so` 走 ARM 翻译，单句推理 ~15s），
+> 真机应该短得多，但**相对提升是真的**。日志带 `CWLatency` tag。
+> 取消路径实测：播放中切角色，ATRI 那一轮立刻停、回到 Companion 后 Yuuka 重新装载并出声，无迟到音频。
+
 **目标**：用户说完话到听见第一个音的时间，从「完整 LLM 回复 + 翻译 + 首句推理」压到「首句 LLM + 首句翻译 + 首句推理」。
 
 **为什么重要**：对话式陪伴里"她多久开始说话"比"她说得多好"更影响体感。
@@ -215,6 +259,12 @@ generateAndPlaySound(needPlayText = translateText, ...)  // 整段喂给 BV2
 
 ### T3. 重新评估翻译环节 ★架构债，影响 T2
 
+> **状态（2026-10-15）：已决策 —— 选项 C（保留翻译，并进流水线）**。
+> 翻译不再是「整段一次网络往返」，而是流水线里的一级：按句、串行（并发恒为 1，
+> 不会被百度限流），返回空或失败就回落原文，句子不丢。翻译开关仍然是设置页的
+> `SAVED_USE_TRANSLATE`，关掉就整级跳过。选项 A / B（让 LLM 直接说日语 / 换中文声库）
+> 仍然开着，但不再是首声延迟的瓶颈，等表演课题那边定了再回头看。
+
 **目标**：决定「中文 LLM → 百度翻译 → 日语 TTS」这条链路要不要保留。
 
 **背景**：这是 2023 年"只有日语声库"的历史遗留。现在它导致：
@@ -242,6 +292,11 @@ generateAndPlaySound(needPlayText = translateText, ...)  // 整段喂给 BV2
 ---
 
 ### T4. 补齐 Provider：Anthropic / Gemini
+
+> **状态（2026-10-14）：已完成**。两家都在公司内网 AthenAI（LiteLLM 网关）上真实联调：流式、多轮、
+> 跨协议 snapshot/restore、错误 key → Auth 全部通过（`ChatCore/src/test/.../ProviderLiveTest`）。
+> Gemini 改走 `streamGenerateContent` 而不是 Interactions，理由见 `docs/chat-core.md`。
+> 设置页「连接测试」直接复用 `provider.chat()`，自动覆盖两家。
 
 **目标**：把两个 stub 实现掉。
 
@@ -271,6 +326,11 @@ generateAndPlaySound(needPlayText = translateText, ...)  // 整段喂给 BV2
 
 ### T5. 记忆 L1 / L3
 
+> **状态（2026-10-15）：已完成**。切段按时间 + 条数结合；回忆分层（常驻日记 → 关键词自动想起 →
+> 工具搜日记 / 读原文）；日记双方的话都记；顺带做了时间感和 Anthropic 显式缓存。
+> 设计与验证见 `docs/memory.md` 第七、九节。验收四条：日记进下一轮 system 区 ✓、
+> 按关键词召回（自动 + 工具）✓、记忆页可看可改日记 ✓、按角色隔离（工具校验归属，单测守着）✓。
+
 **目标**：补上情节摘要和检索。
 
 **为什么**：对陪伴类应用，"她记得我们上周聊过什么"是长期粘性的核心。
@@ -296,6 +356,12 @@ generateAndPlaySound(needPlayText = translateText, ...)  // 整段喂给 BV2
 ---
 
 ### T6. 多模态 UI 入口
+
+> **状态（2026-10-15）：图片链路已完成并实机验过**。输入条的「+」和「视觉」是同一个入口：
+> 系统照片选择器（`PickVisualMedia`，**不申请任何存储权限**）→ `ingestImage()` →
+> 待发送缩略图（可删）→ 随 `CompanionRequest.images` 发出 → `ChatSession.send(ChatMessage)`。
+> 能力 gate 按**选中的模型**算，不支持时给提示而不是打开选择器。
+> **2026-10-16 补齐**：「+」展开类型菜单（图片·视频 / 音频 / PDF），「视觉」直开相册（图片 + 视频）。
 
 **目标**：让已经建好的媒体管线真的能用。
 
@@ -328,7 +394,7 @@ generateAndPlaySound(needPlayText = translateText, ...)  // 整段喂给 BV2
 
 **目标**：把"只在模拟器验过"的结论换成真机结论。
 
-**背景**：到 2.8 为止，**几乎所有验收都在模拟器完成**。
+**背景**：到 2.8 为止，**几乎所有验收都在模拟器完成**。（2026-10-16 盘点：T1~T6 + 记忆第二轮仍然如此，本任务未开始。）
 开发机上的物理设备（小米 24129PN74C / MIUI）一直被
 `INSTALL_FAILED_USER_RESTRICTED` 挡住，需要在开发者选项里打开"USB 安装"。
 
@@ -359,8 +425,9 @@ adb shell setprop debug.chatwaifu.asr_wav ""
 
 | 债务 | 说明 | 建议 |
 |---|---|---|
-| **两份 `libMNN.so`** | BV2 的 AAR 带一份（`MNN_SEP_BUILD=ON`，Express 拆在 `libMNN_Express.so`），SherpaMnn 带一份（`SEP_BUILD=OFF` 合并版）。靠 `app/build.gradle` 的 `pickFirsts` 选了后者（符号超集）。**换 BV2 版本时必须重新验符号**，方法见下 | 中期考虑让 sherpa-mnn 也用 SEP_BUILD=ON，或说服 BV2 侧统一 |
+| **两份 `libMNN.so`** | BV2 的 AAR 带一份（`MNN_SEP_BUILD=ON`，Express 拆在 `libMNN_Express.so`），SherpaMnn 带一份（`SEP_BUILD=OFF` 合并版），**都编自 `Bert-VITS2-MNN/third_party/MNN`**。APK 里只能有一个同名文件，`pickFirsts` 选了后者（符号超集）—— **所以 TTS 和 ASR 运行时加载的其实是同一份 `libMNN.so`**（BV2 那份根本没进包），TTS 只额外从 `libMNN_Express.so` 取 Express 符号。**换 BV2 或重编 MNN 时必须重新验符号**，方法见下 | 中期考虑让 sherpa-mnn 也用 SEP_BUILD=ON，或说服 BV2 侧统一 |
 | `ChatWaifuApplication.context` 静态 Context | 多处直接引用而非注入 | 接 Hilt 时一并解决 |
+| **`libOVRLipSync.so` 未做 16KB 页对齐** | 2026-10-15 已修掉 `libMNN.so`（按第六节重编，16KB 页模拟器上 TTS / ASR 都验过）。**剩这一个**：Meta 的闭源预编译库，没源码不能重编。16KB 设备上 `liblipsync` 加载失败 → 口型整体不可用（连假动画也没有，`LipsValueHandler` 构造时就碰了 JNI），TTS / 对话不受影响 | 属于表演课题。可选：换 Meta 新版 SDK；或让 `liblipsync` 改 `dlopen` 懒加载 OVR，至少保住假动画 |
 | 无任何单元测试以外的测试 | 72 个 JVM 测试，0 个 instrumentation 测试 | T1 之后补关键路径的 UI 测试 |
 | `Log/schemas/2.json` 缺失 | 不影响构建，影响迁移测试 | 不考虑 1.0 兼容后，重要性下降 |
 | lint 220 warning | 历史存量，0 error | 不用专门清，别新增就行 |
@@ -433,8 +500,14 @@ mkdir -p $MNN/project/android/build_64 && cd $MNN/project/android/build_64
 cmake ../../../ -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
   -DCMAKE_BUILD_TYPE=Release -DANDROID_ABI=arm64-v8a -DANDROID_STL=c++_static \
   -DANDROID_NATIVE_API_LEVEL=android-29 -DMNN_LOW_MEMORY=ON -DMNN_SEP_BUILD=OFF \
-  -DCMAKE_INSTALL_PREFIX=. -DNATIVE_LIBRARY_OUTPUT=. -DNATIVE_INCLUDE_OUTPUT=.
+  -DCMAKE_INSTALL_PREFIX=. -DNATIVE_LIBRARY_OUTPUT=. -DNATIVE_INCLUDE_OUTPUT=.   -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON   "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 make -j8 && make install
+# ↑ 最后两个参数是 16KB 页对齐（Android 15+ / Google Play 要求），**不能省**：
+#   2026-09 那份没加，16KB 设备上 dlopen 直接拒，TTS 和 ASR 一起挂。
+# 放进 APK 前 strip（未 strip 是 70MB+）并确认对齐：
+#   llvm-strip --strip-unneeded libMNN.so
+#   llvm-readelf -lW libMNN.so | grep LOAD     # Align 列必须是 0x4000
+# 2026-10-15 那份：NDK 28.2.13676358（和 BV2 的 app_version.gradle 一致）、MNN 8d9f6131a
 
 # 2. 编 sherpa-mnn JNI（关掉用不到的 TTS/diarization，显著减体积）
 cd $MNN/apps/frameworks/sherpa-mnn

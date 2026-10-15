@@ -1,5 +1,9 @@
 # Live2D Companion UI V0.1 施工与跨机器交接
 
+> **2026-10-16 状态：Phase 1 ~ 2.8 与 T1 转正全部完成**，`CompanionActivity` 已是正式前台。
+> 全工程进度看 [`v2-roadmap.md`](v2-roadmap.md) 开头的「进度总览」；本文第 1~11 节是最初规划，
+> 第 10 节表格停在 T1 之前，第 12 节是逐批次施工日志（最新一条 2026-10-15）。
+>
 > 给接手 Copilot / AI 会话的第一指令：先读
 > [`docs/project-handoff.md`](project-handoff.md)，再读本文第 10、12 节和当前任务涉及的
 > 专项文档。本文前半部分保留最初 Phase 1 规划作为历史背景，实际进度以第 10、12 节为准。
@@ -420,8 +424,8 @@ Pop-Location
 | P2.5 Provider 与模型设置 | 已完成 | P2.1 + 用户确认 | 收敛现有 Provider 抽象；Cloud/Local Network/Embedded Local 配置隔离；连接测试、迁移、会话快照与模型设置页完成 |
 | P2.6 角色管理与角色包 | 已完成 | P2.5 + 用户确认 | 稳定 CharacterPackage ID、旧 storageKey 隔离、当前选择迁移、角色页/详情页、Persona 与迟到异步结果隔离 |
 | P2-A 文本与历史 | 部分完成 | P2.1 | 流式片段、最终/失败状态和 DB 消息 ID 已接；历史分页及正式 runtime 复用仍待做 |
-| P2-B 语音 | 部分完成（TTS） | P2.1 | BV2、口型、精确播放完成与取消已接；ASR 未做 |
-| P2-C 正式入口 | 未开始 | P2-B + 用户确认 | 恢复角色、准备态、无 Key 可看角色、次级导航及旧数据回归 |
+| P2-B 语音 | 已完成 | P2.1 | BV2、口型、精确播放完成与取消已接；ASR 在 Phase 2.8 接入 |
+| P2-C 正式入口 | 已完成（2026-10-14 / T1） | P2-B + 用户确认 | 恢复角色、准备态、无 Key 可看角色、次级导航及旧数据回归 |
 | P3/P4 | 范围外 | 独立需求 | 行为编排/后台陪伴另行设计 |
 
 不需要再问用户是否允许开始已经要求的 Phase 1 施工；
@@ -497,7 +501,9 @@ PowerShell 在仓库根目录：
 
 当前记录：
 
-- 最后完成批次：P2.6 角色管理与角色包；稳定 ID、legacy storageKey 边界、当前角色持久化、
+- **2026-10 起以 v2-roadmap.md 为准**。最后完成：T1 正式入口迁移（Companion 成为正式前台，
+  老聊天页与 `mainLoop()` 已删除），见本节末条记录。
+- （历史）P2.6 角色管理与角色包；稳定 ID、legacy storageKey 边界、当前角色持久化、
   角色管理/详情 UI、Persona 清空和异步切换隔离已接入，并完成 API 37 arm64 虚拟设备验证。
 - 下一批次：停止施工；Persona/Voice/Behavior 编辑器、Room/Memory identity 迁移、
   Embedded Local 真正推理、P2-C、ASR、历史分页及 Phase 3 均需用户另行授权。
@@ -1023,3 +1029,159 @@ PowerShell 在仓库根目录：
 - 下一批次及第一个动作：按要求停在 Phase 2.8，不进入下一阶段。若后续授权，
   建议先在有麦克风的设备上补 partial/endpoint/TTS 冲突的真实验证，再考虑 MNN ASR；
   MNN 只需实现 `AsrEngine` 并翻转 `AsrProvider.isImplemented`。
+
+### 2026-10-14 / T1 正式入口迁移（v2-roadmap）
+
+- 起始 HEAD / 完成 commit：`76605ea` / 未提交。
+- 实际新增与修改文件：
+  - **新增** `ui/companion/CompanionActivity.kt`（由 debug `CompanionDemoActivity` 提升，正式前台）、
+    `ui/companion/CompanionMenu.kt`（「更多」菜单 + 调整位置浮条）。
+  - **移动** `CompanionRealResponseDriver.kt` debug → main，并补上 `mainLoop()` 独有的
+    **L2 记忆巩固**（`MemoryConsolidator`，TTS 播报窗口 fire-and-forget；切角色时 reset + invalidate）。
+  - **重写** `ChatActivity`（二级页面宿主，按 intent 落到指定页，栈底返回 = 回 Companion）、
+    `ChatActivityViewModel`（删掉 `mainLoop()` 和整套 session / 翻译 / TTS 编排，
+    只剩当前角色、角色列表、抽屉、语音试听）。
+  - **删除** `ui/chat/*`、`ChannelListContent` / `ChannelListBean`、`ui/common/UserInput.kt`、
+    `ChatDialogContentUIState`、`ChatListSampleCode`、`SampleData`、`Conversation.kt` 里的
+    `ConversationContent`、`VITSLoadStatus`、`LegacyPushToTalkRecorder`、`nav_chat`、
+    `fragment_home.xml` / `fragment_chat_home.xml`、整个 `src/debug`（含 `CompanionMockDriver`，
+    它早已无引用）以及 19 条随之失去引用的字符串。
+  - 修改 `LoginActivity`（跳 Companion）、`ChannelListFragment`（选定角色 = 回 Companion）、
+    `ChatLogFragment`（跟随当前角色，不再写死 Yuuka）、`MemoryFragment` / `SettingFragment` /
+    `ModelManagerFragment`、抽屉（新增「返回陪伴」）、`CompanionUiState` / `ViewModel` / `Screen`、manifest。
+- 实现选择与理由：
+  - 选路线图的 (b)：保留 Flow 驱动的 driver，删 `mainLoop()`。
+  - **Companion ↔ 二级页面是「交棒」不是「压栈」**：Live2D renderer 和 BV2 loader
+    （`destroy_vits_loader()` 销毁的是全局那份）都是进程级单例。去二级页面前
+    Companion `awaitClosed()` 释放 TTS 再 finish；回来前 `ChatActivityViewModel.releaseVoice()`
+    释放试听那份再拉起 Companion。Companion 每次重建都按最新设置 / 当前角色 `prepare`，
+    所以设置页保存、角色切换、记忆编辑都不需要再回调谁。
+  - 试听因此不再限于「当前角色」：二级页面里没有对话在跑，可以给任意角色装声库；不驱动口型（没有 Live2D）。
+  - 老页面的模型摆位（`initTouch` / `saveTouch`）搬进 `CompanionActivity`：载入完成后应用已存位置；
+    「更多 → 调整角色位置」进入 `ADJUST` 覆盖层，**只有这一态**才把手势交给 `Live2DTouchManager`
+    （第五节第 6 条：平时不能误拖），「完成」落盘、「重置」回默认。沿用老 SP key，不迁移。
+  - `ModelManagerFragment` 保留但没有入口（抽屉里本来就没有），和「角色」页内容重复，未删以免扩大范围。
+- 验证命令及结果：`./gradlew test :app:assembleDebug :app:assembleRelease :app:lintDebug` 成功；
+  `grep -rn "ChatFragment\|ChannelListContent" app/src` 无结果；`git diff --check` 通过；
+  release manifest 只有 `LoginActivity` / `CompanionActivity` / `ChatActivity`。
+- 设备/API、场景与观察：**本机模拟器是 x86_64 `google_apis_playstore_ps16k` / API 37**
+  （靠 `libndk_translation` 跑 arm64）。release 包（复制一份用 debug keystore 签名后安装，
+  构建配置未改）：登录 → 直接进 Companion，Live2D + 四个操作；「更多」五项菜单；
+  角色 → 选 Yuuka「设为当前角色」→ 自动回 Companion 且 Live2D / 名字 / 历史换成 Yuuka；
+  聊天记录 / 记忆 / 设置均能进入、返回键回 Companion；记忆页跟随当前角色；
+  调整位置拖动生效，完成后冷启动位置仍保留；发一条消息 → 真实请求打到 OpenAI →
+  401 → 「API key is missing or invalid」+ 重试，状态机回 ERROR。
+- 未覆盖项 / 阻塞原因：
+  - **TTS 在本机模拟器起不来**：`libMNN.so` 4KB 对齐 + 16KB 页 x86 镜像，`dlopen` 报
+    `program alignment (4096) cannot be smaller than system page size (16384)`。
+    链路降级正确（「语音暂时不可用，仍可继续文字聊天」）。上一台机器用的是 arm64 镜像
+    `sdk_gphone16k_arm64` 能跑通，所以是本机镜像问题；但 **16KB 对齐本身是真问题**
+    （Android 15+ 新设备、Google Play 都要求），见 v2-roadmap 技术债。
+  - **完整一轮成功对话 + TTS 播放未验**：本机 `local.properties` 无 `CHAT_CPT_KEY`。
+  - 语音输入只验到入口存在，模拟器无真实麦克风（`debug.chatwaifu.asr_wav` 口子仍可用）。
+- 下一批次及第一个动作：在 arm64 镜像或真机上带有效 key 补一轮「流式 → TTS → Idle」，
+  然后开 T2（按句流水线）。
+
+### 2026-10-14 / T4 Provider 补齐 + 首次完整端到端（v2-roadmap）
+
+- 起始 HEAD / 完成 commit：`76605ea` / 未提交（和 T1 同一工作区）。
+- 实际新增与修改文件：
+  - **实现** `ChatCore/.../anthropic/AnthropicMessagesProvider.kt`（+ `AnthropicStreamParser`）、
+    `ChatCore/.../google/GeminiProvider.kt`（+ `GeminiStreamParser`）；`ChatProviderFactory` 两者标 `implemented`
+  - **新增** `ChatCore/src/test/`：两家的映射 / 流解析单测（17 个），`ProviderLiveTest`（4 个，无 key 自动跳过）
+  - **修** `StreamingHttpClient.close()`：`evictAll()` 关 TLS 是网络写，设置页连接测试在 Main 上 close
+    → `NetworkOnMainThreadException` 直接崩。**这是存量 bug**，以前没暴露是因为从没有连接测试真成功过
+- 联调环境：公司内网 **AthenAI**（LiteLLM 网关，`https://athenai.mihoyo.com/`），一个 key 打四种协议。
+  key 只放在 `local.properties`（gitignore，debug 包注入）和环境变量 `ATHENAI_KEY`（跑 LiveTest）；
+  已核对 tracked / untracked 文件均不含 key。**注意 `readLocalProperties` 是原样拼进 Java 源码的，
+  值必须带引号**：`CHAT_CPT_KEY="sk-..."`。
+- **BV2 起不来的原因与解法**：本机原 AVD 是 `google_apis_playstore_ps16k`（16KB 页），
+  `libMNN.so` 4KB 对齐，dlopen 直接拒。新建 AVD **`CW_API36_4k`**
+  （`system-images;android-36;google_apis;x86_64`，4KB 页，自带 `libndk_translation` 跑 arm64），
+  `bv2 model ready ... sr=44100`，TTS 正常出声。**以后在这台机器上验收用这个 AVD。**
+  16KB 对齐本身仍是真问题（记在 v2-roadmap 技术债）。
+- 验证（`CW_API36_4k` / API 36，debug 包）：
+  - 设置页 Claude / Gemini 填 AthenAI → 「测试连接」均显示**连接成功**
+  - Claude（`claude-haiku-4-5-20251001`）：Companion 发消息 → THINKING → 流式上屏 →
+    SPEAKING（BV2 日语出声 + 口型动画）→ 回 IDLE；Room 记 `anthropic` / 118+89 tokens / `OK`
+  - 切到 Gemini（`gemini-3.5-flash`）后要求「原样复述我在这个对话里发的第一条英文」→
+    准确复述 Claude 那一轮的用户消息：**跨协议历史经 Room → ChatSession 不断**
+  - ChatCore `ProviderLiveTest` 四协议全通过（流式 / 多轮记忆 / Claude→Gemini→GPT 接力 / 错误 key → Auth）
+  - `./gradlew test :app:assembleDebug :app:assembleRelease :app:lintDebug` 成功，lint 196 warning
+- 观察到的问题（未处理）：
+  - 没配百度翻译时回复原样送进日语声库 —— 中文回复会被日语模型硬读。这正是 T3 要决策的事
+  - Gemini 一句话回复也要 600+ output token（大头是思考），成本和首字延迟都比 Claude Haiku 高
+  - 模拟器上 BV2 走 ARM 翻译，`AudioTrack ... underrun` 偶发，真机性能另说
+- 下一批次及第一个动作：T2 按句流水线（首声延迟），可以直接在 `CW_API36_4k` 上量化。
+
+### 2026-10-15 / T2 按句流水线 + T3 翻译并入流水线 + T6 图片入口（v2-roadmap）
+
+- 起始 HEAD / 完成 commit：`d383a10` / 未提交。
+- 实际新增与修改文件：
+  - **新增** `VITS/.../SentenceSplitter.kt`（增量断句，首句可在逗号处提前切，千分位逗号不切）+ 10 个单测；
+    `app/.../VoicePipeline.kt`（翻译 / TTS 两级串行协程，Channel 保序）+ 7 个单测；
+    `CompanionAttachmentTest.kt`（8 个）
+  - **改** `SoundGenerateHelper`：新增 `openStream()` / `SpeechStream`，`generateAndPlay` 退成试听专用；
+    `CompanionRealResponseDriver` 改成 `channelFlow`（推理在子协程，普通 flow 不能跨协程 emit），
+    LLM delta 直接喂流水线；`CompanionViewModel` 新增 `VoiceStarted`（开口即 SPEAKING，之后的
+    流式文本不退回 THINKING）和图片导入 / 待发送 / 重试带图；输入条加「+」和缩略图，历史显示缩略图；
+    `CompanionActivity` 接 `PickVisualMedia`；`BaiduTranslateService` 修两个洞（纯标点输入
+    `substring(-1)` 崩溃、多行结果只取第一段）；`libs.versions.toml` 加 `coil-compose`
+- 实现选择与理由：
+  - 翻译和推理都**串行**：保序是硬要求，串行最简单，顺带把百度并发压到 1
+  - `VoicePipeline.cancel()` **等推理协程退出**再返回：BV2 推理不可中断，不等的话下一轮
+    会和残余推理同时碰进程级单例。单测用 `NonCancellable` 模拟这一点
+  - `ImagePicked` 传 `String` 不传 `Uri`：状态机不碰 platform 类型，JVM 单测里 `Uri` 是 stub
+  - 选图入口不置灰：不支持视觉的模型点了给提示，置灰了用户不知道为什么
+- 验证（`CW_API36_4k`，Claude Haiku via AthenAI）：
+  - **T2 首声**（同一提示词 4 句日语，各 3 次）：改造前 first_pcm 38.3 / 38.6 / 42.7s，
+    改造后 18.0 / 23.3 / 19.3s。首 token → 首句入队 <0.1s。模拟器上单句推理 ~15s（ARM 翻译），
+    后句推理慢于前句播放所以句间有欠载静音，真机待测
+  - 播放中「更多 → 角色 → 切 Yuuka」：旧轮次停播，回来后新角色正常装载，无迟到声音、无崩溃
+  - **T6**：照片选择器选 2.3MB PNG → 输入条出缩略图 → 发「这张图里有什么」→ 模型答出
+    「吉他、音箱、木头房间」→ Room 里 USER 行挂 1 条附件；**冷启动后**历史缩略图仍在，
+    追问「刚才那张图里有什么」模型仍能答（附件经 Room 重放进了上下文）；
+    切到 `deepseek-chat` 后点视觉只弹「当前模型不支持看图」；选 110MB 文件弹
+    「图片太大（110 MB），最大支持 100 MB」
+  - `./gradlew test :app:assembleDebug :app:assembleRelease :app:lintDebug` 成功：
+    120 个测试（4 个联调无 key 时跳过），lint 198 warning（新增 2 条 `UseKtx`，跟随现有风格未改）
+- 未覆盖项：音频 / 视频 / PDF 入口；真机上的首声绝对值；百度翻译本轮无 key 未实测（单测覆盖了
+  失败回落和保序）
+
+### 2026-10-16 / T6 余项（音频 / 视频 / PDF 入口）+ 历史分页 + 流式写库节流
+
+- 起始 HEAD / 完成 commit：`3911955` / 未提交。
+- 实际新增与修改文件：
+  - **新增** `CompanionAttachmentThumb.kt`（输入条和历史共用的缩略图：图 / 视频首帧 + 时长 / 音频·PDF 类型标签）；
+    `utils/ModelVisibility.kt`（按模型能力降级，纯函数）+ `ModelVisibilityTest`（5 个）
+  - **改** `CompanionUiState`：`PendingImage` → `PendingAttachment`（带 `AttachmentType`），`visionSupported` →
+    `AttachmentSupport(image/audio/doc)`；新增 `hasOlderHistory` / `loadingOlderHistory`、`ToggleAttachMenu` /
+    `PickAttachment` / `AttachmentPicked` / `LoadOlderHistory` 事件
+  - `CompanionViewModel`：类型菜单 + 按类型 gate、`PickRequest` 告诉宿主开哪个选择器、历史翻页（游标、去重、失败可重试）
+  - `CompanionRealResponseDriver`：`ingestAttachment` 整组（父 + 派生）记账与清理，导入后再校验类型和能力；
+    首屏历史 40 条（原来 200）、`loadOlderHistory`；流式回复写 Room 节流到 500ms 一次
+  - `ChatHistoryStore`：`load` / `toModelContents` 带 `accepts`，`displayAttachments` 取视频首帧，`loadOlderDisplayHistory`
+  - `CompanionActivity`：照片选择器改 `ImageAndVideo`，新增 SAF `OpenDocument`（`audio/*` / `application/pdf`），不申请存储权限
+  - `CompanionInput` / `CompanionHistorySheet`：类型菜单、通用缩略图；历史滑到顶自动翻页，打开时定位到最新一条
+- 实现选择与理由：
+  - 「视觉」和菜单里的「图片 / 视频」开同一个相册、不限定类型；音频 / PDF 限定类型，选错了拒绝并清文件
+  - 视频的 gate 跟随**看图**：发出去的是抽帧，音轨在收不了音频的模型下静默丢掉
+  - 收不了的历史附件**降级成占位文字**而不是丢：否则在 Gemini 下发过语音、换到 Claude 后每轮重放都会抛错
+  - 翻页游标用 Room 页里最老一条的 id，而不是 UI 过滤后的第一条（被滤掉的空行会被反复取回）
+  - 入口项不支持时变淡不隐藏，点了给提示（和原来图片按钮的约定一致）
+- 验证（`CW_API36_4k`，当前配置的 provider）：
+  - 「+」菜单展开，音频项变淡（当前模型不收音频）；PDF → SAF 只列出 PDF → 发「What is the secret word」→
+    模型答出 PDF 里的 `PINEAPPLE-42`
+  - 「视觉」→ 相册里出现视频 → 20 秒 mp4 导入成父行 + 12 个派生物，输入条缩略图是首帧 + `0:20` →
+    模型按帧逐条列出视频里的设置项
+  - 冷启动后历史里 PDF 标签和视频首帧仍在
+  - 分页：临时把页大小改成 10 装机，从最新一条往上滑，逐页加载到该角色最老的一条（id 37），验完改回 40
+  - `./gradlew test :app:assembleDebug :app:assembleRelease :app:lintDebug` 成功：159 个测试（6 个联调无 key 跳过），
+    lint 0 error / 197 warning（和改动前持平）
+- **顺带发现、不在本轮范围（未修）**：
+  1. BV2 推理遇到英文 / markdown（`**`、`-`、`Use mmap`）逐句抛 `IndexOutOfBoundsException: Index -1`，这些句子静音、
+     最终提示「语音播放失败，文字回复已保留」
+  2. 视频那轮的长日文回复播报中，进程在 `libMNN.so`（`MNN::Express::Variable::getInfo`）**native 崩溃**，回到桌面；
+     重开后数据完好。崩溃前一句是 `- TFS-Z：0.`。和 1 可能同源（异常句之后的推理状态），需要单独排查
+  3. 从相册返回时 Live2D 有几秒黑屏，之后恢复
+- 未覆盖项：音频附件的模型侧实测（当前 provider 不收音频，需要切 Gemini）；真机

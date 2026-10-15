@@ -19,7 +19,7 @@
 | 5 | 阶段 D：视频抽帧 + `chat_attachment` v4 | ✅ 完成 |
 | 6 | 本文档 + chat-storage.md / CLAUDE.md 订正 | ✅ 完成 |
 | — | **实机端到端验证** | ❌ 没做，见第八节 |
-| — | 附件 UI 入口（选文件、缩略图、进度条） | ❌ 没做，见第八节 |
+| — | 附件 UI 入口（选文件、缩略图、进度条） | ✅ 完成（T6，2026-10-15 图片 / 10-16 其余三种） |
 
 编译验证：`:Log:compileDebugKotlin` ✅、`:app:compileDebugKotlin` ✅、`assembleDebug` ✅。
 
@@ -232,19 +232,21 @@ GC 不用动——它是「遍历磁盘 ∖ 全库引用集合」，派生文件
 
 ## 八、待办
 
-1. **实机端到端验证**。整条管线只过了编译。要真机上跑的：
-   HEIC 导入、带 alpha 的 PNG、m4a 转码、mp3 直通、一个带音轨的 mp4 抽帧、
-   以及 **v3 → v4 迁移在老库上跑一遍**（v1 → v2 那次的验证同样还欠着，见 chat-storage.md）
-2. **附件 UI 入口**。管线通了但聊天页还没有「加图片」按钮。接线点：
-   `AttachmentProvider.ingest(context).ingest(characterId, uri)` → `Progress.Success.refs`
-   → `ChatHistoryStore.appendUser(text, attachmentRefs = ...)` → `uploadIfWorthwhile()`。
-   进度条直接用 `Progress.Working(percent, stage)`。这一步要加 `coil-compose`
-3. **`ChatSession.send()` 收附件**。现在只收 `String`，这是发送路径上最后一道缺口
+1. **未覆盖的格式分支**。图片链路已经实机验过（PNG 导入 → 发送 → 模型看得见 → 重启后缩略图还在）；
+   还欠：HEIC 导入、带 alpha 的 PNG、m4a 转码、mp3 直通、一个带音轨的 mp4 抽帧，
+   以及 **v3 → v4 迁移在老库上跑一遍**（v1 → v2 那次的验证同样还欠着，见 chat-storage.md）。
+   ~~音频 / 视频 / PDF 还没有 UI 入口~~ ✅（2026-10-16）：视频走照片选择器，音频 / PDF 走 SAF `OpenDocument`，都不申请存储权限
+2. ~~附件 UI 入口~~ ✅（2026-10-15，T6）。接线是
+   `CompanionEvent.Vision → CompanionActivity` 的 `PickVisualMedia` →
+   `CompanionResponseDriver.ingestImage()` → 待发送缩略图 → 随 `CompanionRequest.images` 发出。
+   三条硬规则都保住了：能力 gate 按**选中的模型**算（`capabilitiesFor`）、
+   体积闸门仍在读字节之前、只有派生行进上下文
+3. ~~`ChatSession.send()` 收附件~~ ✅（2026-10-15，T6）
 4. **`Log/schemas/2.json` 缺失**。目录里只有 `1.json` / `3.json` / `4.json`，
    而 chat-storage.md 声称 1/2/3 都入库了。不影响构建，但 Room 的迁移测试要用它
 5. **`AttachmentKind.DOC` 只受理 PDF**。docx/xlsx 要先自己解析成文本或图片，另一件事
-6. **原生视频输入**。等 Gemini provider 从 stub 变成实现之后再评估，
-   届时的选择是 `media3-transformer`（转封装 + 裁剪），不是 FFmpeg
+6. **原生视频输入**。Gemini provider 已经落地（T4），可以评估了：
+   `media3-transformer`（转封装 + 裁剪）给支持视频的基座直传原始视频，而不是抽帧
 
 明确**不在**范围内：
 
@@ -252,6 +254,20 @@ GC 不用动——它是「遍历磁盘 ∖ 全库引用集合」，派生文件
   适配流是另一个产品功能。判定规则简单化：`MediaExtractor` 打不开就拒绝
 - **realtime 语音对聊**。它是和 `ChatProvider` 并列的接口，不进这套存储（见 chat-storage.md 第一节）
 - **超时长音视频的截断**。截断会静默吃掉用户后半段的话，所以是明确拒绝 + 告知上限
+
+### 能力降级（2026-10-16）
+
+各家 provider 碰到不支持的内容块是**直接抛** `CapabilityUnsupported` 的，所以「发给模型」这一步按**当前模型**过滤
+（`ModelVisibility.degrade`，`ChatHistoryStore.load` / `toModelContents` 都走它）：
+
+- 收不了的用户附件换成一句占位文字（「这里附了一段音频，当前模型听不到」），每种每条一句。
+  不直接丢：只有附件的消息丢空会被整条跳过，打乱 user / assistant 交替
+- 视频：帧被拒 → 补一句视频占位；只有音轨被拒（Claude / OpenAI）→ 静默跳过，帧照发
+
+不做的话：在 Gemini 下发过一段语音，换到 Claude 后**每一轮**都会因为重放这段历史失败。
+
+UI 的入口同样按模型 gate（`AttachmentSupport`），视频跟随看图能力。
+导入后在 driver 里再校验一次类型和能力：SAF 的 mime 过滤只是建议，选择器开着时用户也可能去换了模型。
 
 ## 九、顺手记一笔
 

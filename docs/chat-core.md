@@ -68,8 +68,8 @@ ChatCore/src/main/java/com/chatwaifu/chat/
     JsonBuilders.kt         Gson JsonObject 的小工具 + extras 合并
     openai/OpenAIResponsesProvider.kt   ← 已落地
     compat/OpenAICompatProvider.kt      ← 已落地
-    anthropic/AnthropicMessagesProvider.kt ← stub（映射写在 KDoc）
-    google/GeminiProvider.kt               ← stub
+    anthropic/AnthropicMessagesProvider.kt ← 已落地（2026-10，T4）
+    google/GeminiProvider.kt               ← 已落地（2026-10，T4，走 generateContent）
     local/LocalLlmProvider.kt              ← stub
   ChatProviderFactory.kt    create(id, config) + descriptors()（给设置页用，不构造实例）
 ```
@@ -172,24 +172,58 @@ llama.cpp server、vLLM、LM Studio。它是**行为等价替换现状**的那�
 - **mid-stream 错误也是 HTTP 200**，必须解 `error` 事件而不是只看状态码
 - `resolveFinishReason()` 读 `incomplete_details.reason`，并检测 `output` 里有没有 `function_call`
 
-### 三个 stub
+### AnthropicMessagesProvider（2026-10 落地）
 
-`capabilities` / `availableModels` 填的是真值，`chatStream` 抛 `NotImplementedError`，
-**映射方案全写在类 KDoc 里**：
+`POST {base}/v1/messages`。SSE 解析拆成独立的 `AnthropicStreamParser`，能直接喂录下来的帧做单测。
 
-- `AnthropicMessagesProvider`：`x-api-key` + `anthropic-version: 2023-06-01`；`max_tokens` **必填**；
-  顶层 `system`；`thinking` 在 opus-5 / sonnet-5 / fable-5 上用 `{type:"adaptive"}`，
-  haiku-4-5 只能用 `{type:"enabled", budget_tokens>=1024}`；
-  `stop_reason=refusal` + `stop_details.category` → `ChatError.Refused`；
-  SSE 是 `message_start` / `content_block_start` / `content_block_delta` /
-  `content_block_stop` / `message_delta` / `message_stop` / `ping` / `error`
-- `GeminiProvider`：Interactions vs generateContent 的对照表；`store:false` 会同时关掉
-  链式和 background；role 是 `user` / **`model`**（不是 assistant）；
-  原生音频入出，将来可能直接替掉「翻译 + VITS」这一环
-- `LocalLlmProvider`：两条路——(a) 端内起 OpenAI 兼容 server，直接复用 `OpenAICompatProvider`
-  指到 `http://127.0.0.1:<port>/`；(b) 走 JNI（MNN / llama.cpp / MediaPipe）时用
-  `callbackFlow` + `awaitClose { nativeCancel() }`，此时 chat template 得在客户端渲染，
-  且可能要像 `:sherpa` 一样拆独立进程
+- 同时发 `x-api-key` 和 `Authorization: Bearer`：官方只认前者，LiteLLM 类网关两个都认
+- `max_tokens` **必填**，没给时兜 4096；顶层 `system`
+- `thinking`：OFF → `disabled`；其余 → `adaptive` + `output_config.effort`；
+  `claude-haiku-4*` 只能 `{type:"enabled", budget_tokens>=1024}`。开 thinking 时不发 temperature
+  （只允许 1），temperature 夹到 0..1
+- `ToolResult` 折进 user；**相邻同角色合并**（折叠后很容易出现两条 user 挨着，API 要求严格交替）
+- **thinking 签名跨 provider 不能重放**。`Thinking.opaque` 是各家共用字段，所以签名存成
+  `anthropic:<sig>`，回放时只发带这个前缀的；别家的 opaque 直接丢
+- `stop_reason`：`refusal` → `FinishReason.REFUSAL`，`model_context_window_exceeded` → 抛
+  `ContextOverflow`；流内 `error` 事件（HTTP 200）按 `error.type` 映射
+- 没收到 `message_stop` 就断流 → `ChatError.Network`（不能当正常结束）
+
+### GeminiProvider（2026-10 落地）
+
+`POST {base}/v1beta/models/{model}:streamGenerateContent?alt=sse`。
+
+- **没走 Interactions**（原计划是它）：客户端历史下它的卖点一个都用不上；
+  LiteLLM 网关对 `generateContent` 是原样透传、对 Interactions 是自己翻译一层；
+  第三方支持也更广。理由写在类 KDoc
+- 同时发 `x-goog-api-key` 和 `Authorization: Bearer`（AthenAI 只认 Bearer）
+- role 是 `user` / **`model`**；system 走 `system_instruction`
+- **Gemini 3.x 默认思考且思考 token 计入 `maxOutputTokens`**：实测 cap=200 时 195 个花在思考上、
+  回复被截断。所以 `reasoning == null` 时主动给 `thinkingLevel:"low"`；OFF 也只能映射到 low
+  （3.x Pro 不允许关）。**用户在设置页把 max tokens 设得很小时 Gemini 会出空回复**，
+  Companion 侧会提示「回复意外中断」而不是静默
+- `thoughtSignature` 存成 `gemini:<sig>`，回放时挂回该 assistant 消息的第一个文本 / functionCall part
+- 函数调用没有 id，用 `name#index` 造；`functionResponse` 靠这个 id 反查函数名
+- `promptFeedback.blockReason` → 抛 `ContentFiltered`；`SAFETY` 等 → `FinishReason.CONTENT_FILTER`
+
+### LocalLlmProvider（stub）
+
+两条路——(a) 端内起 OpenAI 兼容 server，直接复用 `OpenAICompatProvider`
+指到 `http://127.0.0.1:<port>/`；(b) 走 JNI（MNN / llama.cpp / MediaPipe）时用
+`callbackFlow` + `awaitClose { nativeCancel() }`，此时 chat template 得在客户端渲染，
+且可能要像 `:sherpa` 一样拆独立进程
+
+### 测试
+
+`ChatCore/src/test/`：
+- `AnthropicMessagesProviderTest` / `GeminiProviderTest`：请求映射 + 流解析（SSE 样本录自真实网关）
+- `ProviderLiveTest`：真实网络联调，**没有 `ATHENAI_KEY` 环境变量时整体跳过**。
+  四种协议各跑一轮流式、`ChatSession` 多轮记忆、**跨协议 snapshot/restore**
+  （Claude → Gemini → GPT 接力，历史不断）、错误 key → `ChatError.Auth`
+  ```
+  ATHENAI_KEY=sk-... ./gradlew :ChatCore:testDebugUnitTest --tests '*LiveTest'
+  ```
+  AthenAI 是公司内的 LiteLLM 网关（需内网），四种协议都原生支持，一个 key 全测完。
+  key 只走环境变量，**不要写进任何入库文件**
 
 ## 配置与密钥
 
@@ -238,6 +272,7 @@ saved_provider_migrated                          // 一次性迁移标记
 | 5 | 删除老 `ChatGPT` 模块 | ✅ 完成 |
 | 6 | Anthropic / Gemini / Local 三个 stub + 映射注释 | ✅ 完成 |
 | 7 | 本文档 + CLAUDE.md 订正 | ✅ 完成 |
+| 8 | Anthropic / Gemini 实现 + 单测 + 真实网关联调 | ✅ 完成（2026-10-14） |
 
 验证：`:ChatCore:compileDebugKotlin` ✅、`:app:compileDebugKotlin` ✅、
 `./gradlew assembleDebug` ✅（269 tasks，含 CMake native）。
@@ -251,14 +286,14 @@ saved_provider_migrated                          // 一次性迁移标记
    选 OpenAI 兼容基座。要验的点：流式气泡逐字出现 → `Completed` 后翻译 + VITS 出声 →
    Live2D 口型；连问三轮带指代的问题（验证 user 消息不再被丢弃）；填错 key 应弹 `Auth`
    而不是原始 JSON；切 provider 后历史不断
-2. **补 `AnthropicMessagesProvider`**。三个 stub 里它最值得先做（KDoc 里映射已经写全了）
+2. ~~补 `AnthropicMessagesProvider`~~ ✅（Gemini 一起做了）
 3. **`ChatSession.send()` 收附件**。存储层这一半已经做完（见
    [chat-storage.md](chat-storage.md)：附件表、`AttachmentStore`、按模型算的能力 gate、
    `upload()`），缺的是 `send()` 的签名还只收 `String`，以及聊天页的附件入口
 4. **流式分句提前合成**。现在 VITS 要等完整文本，`Completed` 之后才出声；
    按句切分可以让首句提前几秒
 5. **`reasoning` 档位进设置页**。`capabilities.reasoningLevels` 已经能 gate，UI 还没有
-6. `Gemini` / `LocalLlm` 两个 stub
+6. `LocalLlm` stub
 
 明确**不在**范围内：服务端会话（`previous_response_id` / `previous_interaction_id`）——
 Anthropic 没有这东西，客户端历史是必须的，服务端会话只能是纯优化；

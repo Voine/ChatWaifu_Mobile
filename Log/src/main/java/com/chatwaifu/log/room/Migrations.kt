@@ -181,5 +181,50 @@ internal object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    /**
+     * v5 → v6：新增 `memory_episode`（L1 情节摘要，见 docs/memory.md）。纯建表。
+     * 没有外键（消息区间不是引用，见 [MemoryEpisodeEntity]），没有 DEFAULT 列。
+     */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `memory_episode` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `characterId` TEXT NOT NULL,
+                    `startMessageId` INTEGER NOT NULL,
+                    `endMessageId` INTEGER NOT NULL,
+                    `startedAt` INTEGER NOT NULL,
+                    `endedAt` INTEGER NOT NULL,
+                    `summary` TEXT NOT NULL,
+                    `keywords` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_memory_episode_characterId_endMessageId` " +
+                    "ON `memory_episode` (`characterId`, `endMessageId`)"
+            )
+        }
+    }
+
+    /**
+     * v6 → v7：`memory_fact` 加 `subject`（USER / SELF / PROMISE）和 `dueAt`。
+     *
+     * 老行全是关于对方的事实，`DEFAULT 'USER'` 正好；`DEFAULT` 必须和实体上的
+     * `@ColumnInfo(defaultValue = "USER")` 一致（MIGRATION_3_4 那条教训）。
+     * UNIQUE 索引仍是 `(characterId, slot)`：三类共用槽位命名空间，抽取指令里让 slot 带前缀区分
+     */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `memory_fact` ADD COLUMN `subject` TEXT NOT NULL DEFAULT 'USER'")
+            db.execSQL("ALTER TABLE `memory_fact` ADD COLUMN `dueAt` INTEGER")
+        }
+    }
+
+    val ALL = arrayOf(
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+    )
 }

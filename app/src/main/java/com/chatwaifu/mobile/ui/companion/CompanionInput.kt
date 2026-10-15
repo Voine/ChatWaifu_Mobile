@@ -26,7 +26,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Audiotrack
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.Icon
@@ -52,6 +56,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.chatwaifu.mobile.R
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 fun CompanionInput(
@@ -60,6 +69,10 @@ fun CompanionInput(
     enabled: Boolean,
     submitEnabled: Boolean,
     voice: VoiceInputUiState,
+    attachments: AttachmentUiState,
+    onToggleAttachMenu: () -> Unit,
+    onPickAttachment: (AttachmentType) -> Unit,
+    onRemoveAttachment: (String) -> Unit,
     onDraftChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onDismiss: () -> Unit,
@@ -67,6 +80,8 @@ fun CompanionInput(
     onCancelVoice: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
+    // 只有附件没有字也能发
+    val canSend = draft.isNotBlank() || attachments.pending.isNotEmpty()
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(requestFocus) {
         if (requestFocus) {
@@ -102,6 +117,15 @@ fun CompanionInput(
                 AnimatedVisibility(voice.listening) {
                     ListeningBar(onCancel = onCancelVoice)
                 }
+                AnimatedVisibility(attachments.pending.isNotEmpty() || attachments.importing) {
+                    PendingAttachmentsRow(
+                        attachments = attachments,
+                        onRemove = onRemoveAttachment,
+                    )
+                }
+                AnimatedVisibility(attachments.pickerMenuOpen) {
+                    AttachMenu(support = attachments.support, onPick = onPickAttachment)
+                }
             Row(
                 modifier = Modifier.padding(start = 4.dp, top = 5.dp, end = 6.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -118,6 +142,22 @@ fun CompanionInput(
                         contentDescription = stringResource(R.string.companion_close_input),
                         modifier = Modifier.size(18.dp),
                         tint = Color.White.copy(alpha = 0.58f),
+                    )
+                }
+                // 展开类型菜单。模型什么附件都收不了时只给提示，不展开，
+                // 所以按钮本身不置灰（置灰了用户不知道为什么）
+                IconButton(
+                    onClick = onToggleAttachMenu,
+                    enabled = enabled && !attachments.importing,
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = stringResource(R.string.companion_add_attachment),
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White.copy(
+                            alpha = if (attachments.support.any) 0.76f else 0.38f,
+                        ),
                     )
                 }
                 TextField(
@@ -150,7 +190,7 @@ fun CompanionInput(
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        if (draft.isNotBlank() && enabled && submitEnabled) onSubmit()
+                        if (canSend && enabled && submitEnabled) onSubmit()
                     }),
                 )
                 // 同一个按钮：不在录音时开始，正在录音时停止。
@@ -174,7 +214,7 @@ fun CompanionInput(
                         },
                     )
                 }
-                if (draft.isNotBlank()) {
+                if (canSend) {
                     Surface(
                         modifier = Modifier.size(44.dp),
                         shape = CircleShape,
@@ -197,6 +237,119 @@ fun CompanionInput(
 }
 
 private val VoiceActiveTint = Color(0xFF8CBFFF)
+
+@Composable
+private fun PendingAttachmentsRow(
+    attachments: AttachmentUiState,
+    onRemove: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        attachments.pending.forEach { attachment ->
+            Box(Modifier.size(64.dp)) {
+                AttachmentThumb(attachment, size = 64.dp)
+                Surface(
+                    onClick = { onRemove(attachment.relPath) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(3.dp)
+                        .size(20.dp),
+                    shape = CircleShape,
+                    color = Color(0xCC10233D),
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.companion_remove_attachment),
+                        modifier = Modifier.padding(3.dp),
+                        tint = Color.White,
+                    )
+                }
+            }
+        }
+        if (attachments.importing) {
+            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = VoiceActiveTint,
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 「+」展开的一行类型选项。模型收不了的那种**不藏起来**而是变淡，
+ * 点了给提示——藏起来用户会以为这个 app 不支持发音频。
+ */
+@Composable
+private fun AttachMenu(
+    support: AttachmentSupport,
+    onPick: (AttachmentType) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AttachMenuItem(
+            Icons.Outlined.PhotoLibrary,
+            stringResource(R.string.companion_attach_image),
+            support.canAccept(AttachmentType.IMAGE),
+        ) { onPick(AttachmentType.IMAGE) }
+        AttachMenuItem(
+            Icons.Outlined.Audiotrack,
+            stringResource(R.string.companion_attach_audio),
+            support.canAccept(AttachmentType.AUDIO),
+        ) { onPick(AttachmentType.AUDIO) }
+        AttachMenuItem(
+            Icons.Outlined.PictureAsPdf,
+            stringResource(R.string.companion_attach_doc),
+            support.canAccept(AttachmentType.DOC),
+        ) { onPick(AttachmentType.DOC) }
+    }
+}
+
+@Composable
+private fun AttachMenuItem(
+    icon: ImageVector,
+    label: String,
+    available: Boolean,
+    onClick: () -> Unit,
+) {
+    val alpha = if (available) 0.86f else 0.36f
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White.copy(alpha = 0.08f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = Color.White.copy(alpha = alpha),
+            )
+            Text(
+                label,
+                modifier = Modifier.padding(start = 6.dp),
+                color = Color.White.copy(alpha = alpha),
+                style = MaterialTheme.typography.labelMedium,
+                fontFamily = FontFamily.SansSerif,
+            )
+        }
+    }
+}
 
 /**
  * 「正在听…」条。刻意不做音频可视化 —— 当前 ASR 链路不回传音量，

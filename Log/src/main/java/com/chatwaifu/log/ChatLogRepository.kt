@@ -34,6 +34,12 @@ interface ChatLogRepository {
     /** 往**更老**的方向翻页：取 [beforeId] 之前的 [limit] 条，返回时间正序。 */
     suspend fun getOlderChatLog(characterId: String, beforeId: Long, limit: Int): List<ChatLogEntry>
 
+    /** 往**更新**的方向取：[afterId] 之后的前 [limit] 条，时间正序。L1 切段用 */
+    suspend fun getChatLogAfter(characterId: String, afterId: Long, limit: Int): List<ChatLogEntry>
+
+    /** 闭区间 `[fromId, toId]` 的原文，时间正序。从 L1 摘要回到原话用 */
+    suspend fun getChatLogRange(characterId: String, fromId: Long, toId: Long): List<ChatLogEntry>
+
     /**
      * 订阅最近 [limit] 条，时间正序。写入后自动重发。
      *

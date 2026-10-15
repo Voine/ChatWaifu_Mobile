@@ -137,9 +137,21 @@ class StreamingHttpClient(
             ?: throw ChatError.Unknown("empty response body")
     }
 
+    /**
+     * 可以在任意线程调（包括主线程）。
+     *
+     * `evictAll()` 会关掉空闲的 TLS 连接，而关 TLS 要发 close_notify —— **这是网络写**，
+     * 在主线程上直接 `NetworkOnMainThreadException`。设置页的连接测试就是在
+     * `viewModelScope`（Main）的 finally 里 close 的，第一次连通成功就会崩。
+     * 所以把驱逐挪到 OkHttp 自己的 dispatcher 线程上做：shutdown 之后线程池不再接新请求，
+     * 但已提交的任务照常跑完。
+     */
     fun close() {
-        okHttpClient.dispatcher.executorService.shutdown()
-        okHttpClient.connectionPool.evictAll()
+        val executor = okHttpClient.dispatcher.executorService
+        runCatching { executor.execute { okHttpClient.connectionPool.evictAll() } }
+            // 已经 shutdown 过（重复 close），连接池也早就清过了
+            .onFailure { return }
+        executor.shutdown()
     }
 
     private interface Api {

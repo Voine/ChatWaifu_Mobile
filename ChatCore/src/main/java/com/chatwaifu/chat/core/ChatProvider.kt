@@ -26,11 +26,22 @@ interface ChatProvider {
 
     val capabilities: ProviderCapabilities
 
-    /** 静态模型清单，见 [ModelInfo]。 */
+    /** 静态模型清单，见 [ModelInfo]。**第一个就是默认模型**，见 [defaultModel]。 */
     val availableModels: List<ModelInfo>
 
-    /** [ChatRequest.model] 为 null 时用的模型。 */
+    /**
+     * [ChatRequest.model] 为 null 时用的模型。
+     *
+     * 默认取 [availableModels] 的第一个，**不要再单独写死一个字符串**：
+     * 以前清单和默认值是两处，清单换代了默认值没跟着改（`gpt-4o-mini` 在网关下线后，
+     * 不填模型名直接 404）。现在要换默认模型只需要调整清单顺序。
+     * 设置页的占位提示也是读清单第一个，两边因此天然一致。
+     *
+     * 清单为空（局域网 / 端内模型）时是空串，provider 应该**不下发 model 字段**，
+     * 交给服务端用它自己加载的那个模型。
+     */
     val defaultModel: String
+        get() = availableModels.firstOrNull()?.id.orEmpty()
 
     fun chatStream(request: ChatRequest): Flow<ChatDelta>
 

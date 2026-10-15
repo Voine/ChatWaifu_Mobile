@@ -126,9 +126,9 @@ class SoundGenerateHelper(val context: Context) {
     }
 
     /**
-     * 合成并播放。**按句切分逐句推理**，和老实现一样：BV2 单句 RTF≈0.36，
-     * 整段长回复一次性推完会让首字延迟很难看，而主循环已经串了
-     * LLM → 翻译 → TTS 三段等待。
+     * 合成并播放一整段文本（语音试听用）。按句切分逐句推理，第一句推完就开始播。
+     *
+     * 对话链路不走这里，走 [openStream]：它不等完整文本，LLM 每凑满一句就推一句。
      *
      * @param forwardResult 每句的 PCM + 采样率，转给口型驱动。采样率必须一起给 ——
      *   老实现里口型时长按写死的 22050 估算，44100 的模型会算出两倍长的动画。
@@ -138,45 +138,100 @@ class SoundGenerateHelper(val context: Context) {
         text: String?,
         forwardResult: (FloatArray, Int) -> Unit,
     ): Boolean {
-        if (!modelReady) {
-            Log.e(TAG, "model not ready, drop text")
-            return false
-        }
-        val sentences = splitSentences(text.orEmpty())
+        val sentences = SentenceSplitter.split(text.orEmpty())
         if (sentences.isEmpty()) return false
-
-        val playbackId = soundHandler.beginPlayback().also { activePlaybackId = it }
-        var anySucceeded = false
+        val stream = openStream(forwardResult) ?: return false
         try {
-            for (sentence in sentences) {
-                currentCoroutineContext().ensureActive()
-                val pcm = try {
-                    inferOne(sentence)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    // 单句失败不该让整段回复哑掉，继续下一句
-                    Log.e(TAG, "infer failed for \"$sentence\"", e)
-                    null
-                }
-                currentCoroutineContext().ensureActive()
-                if (pcm == null || pcm.isEmpty()) continue
-                soundHandler.sendSound(playbackId, pcm)
-                forwardResult(pcm, sampleRate)
-                anySucceeded = true
+            sentences.forEach { stream.speak(it) }
+            return stream.finish()
+        } finally {
+            stream.cancel()
+        }
+    }
+
+    /**
+     * 开一个**流式**播报轮次：句子陆续 [SpeechStream.speak] 进来，全部 PCM 排进同一个
+     * AudioTrack 轮次，最后 [SpeechStream.finish] 等真实播放完成。
+     *
+     * 和一次性 [generateAndPlay] 的区别只在「句子是陆续来的」：
+     * - 播放完成仍然按 marker 判（[SoundPlayHandler.awaitPlaybackComplete]），marker
+     *   在 finish 时才按**累计**写入帧数设置，所以陆续入队不影响完成语义
+     * - 后一句推得比前一句播得慢时，AudioTrack 会短暂欠载（静音一下）然后接着播，
+     *   这是推理速度决定的，不是 bug
+     *
+     * 同一时刻只能有一个活跃轮次：新开的轮次会让旧轮次的 PCM 被丢弃。
+     *
+     * @return null 表示模型没就绪
+     */
+    fun openStream(forwardResult: (FloatArray, Int) -> Unit): SpeechStream? {
+        if (!modelReady) {
+            Log.e(TAG, "model not ready, cannot open speech stream")
+            return null
+        }
+        val playbackId = soundHandler.beginPlayback().also { activePlaybackId = it }
+        return SpeechStream(playbackId, forwardResult)
+    }
+
+    inner class SpeechStream internal constructor(
+        private val playbackId: Long,
+        private val forwardResult: (FloatArray, Int) -> Unit,
+    ) {
+        @Volatile
+        private var closed = false
+
+        /** 是否已经有至少一句成功入队 */
+        var anyQueued = false
+            private set
+
+        /**
+         * 推理一句并排进播放队列。**阻塞在 native 推理上**，调用方放在 IO 线程。
+         * 单句失败只记日志、跳过，不让整段回复哑掉。
+         *
+         * native 推理本身不可中断：协程被取消后要等这一句推完才会在下面的
+         * ensureActive 抛出。调用方因此必须在**不可取消**的上下文里 join 推理协程，
+         * 否则下一轮可能和这一句的推理同时碰 BV2 的进程级单例。
+         */
+        suspend fun speak(sentence: String) {
+            if (closed || sentence.isBlank()) return
+            currentCoroutineContext().ensureActive()
+            val pcm = try {
+                inferOne(sentence)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Log.e(TAG, "infer failed for \"$sentence\"", e)
+                null
             }
-            if (!anySucceeded) {
-                soundHandler.cancelPlayback(playbackId)
+            currentCoroutineContext().ensureActive()
+            if (closed || pcm == null || pcm.isEmpty()) return
+            soundHandler.sendSound(playbackId, pcm)
+            forwardResult(pcm, sampleRate)
+            anyQueued = true
+        }
+
+        /**
+         * 不会再有新句子了：等已入队的 PCM 真正播完。
+         * @return 有音频且播放完成 true；一句都没推出来 / 被取消 / 播放失败 false
+         */
+        suspend fun finish(): Boolean {
+            if (closed) return false
+            if (!anyQueued) {
+                cancel()
                 return false
             }
-            return soundHandler.awaitPlaybackComplete(playbackId)
-        } catch (e: CancellationException) {
+            return try {
+                soundHandler.awaitPlaybackComplete(playbackId)
+            } finally {
+                closed = true
+                if (activePlaybackId == playbackId) activePlaybackId = NO_PLAYBACK
+            }
+        }
+
+        /** 立刻停播并丢弃队列。重复调用无害，finish 之后调用也无害。 */
+        fun cancel() {
+            if (closed) return
+            closed = true
             soundHandler.cancelPlayback(playbackId)
-            throw e
-        } catch (e: Throwable) {
-            soundHandler.cancelPlayback(playbackId)
-            throw e
-        } finally {
             if (activePlaybackId == playbackId) activePlaybackId = NO_PLAYBACK
         }
     }
@@ -206,30 +261,6 @@ class SoundGenerateHelper(val context: Context) {
         }
         modelReady = false
         Log.i(TAG, "cleared!")
-    }
-
-    /**
-     * 按句末标点切分，中日英通吃。
-     *
-     * 超过 [MAX_SENTENCE_CHARS] 的整块会被硬切 —— 没有标点的长串（模型偶尔会吐）
-     * 单次推理时间是线性增长的，不切会卡死几十秒。
-     */
-    private fun splitSentences(text: String): List<String> {
-        val result = mutableListOf<String>()
-        val buffer = StringBuilder()
-
-        fun flush() {
-            val chunk = buffer.toString().trim()
-            if (chunk.isNotEmpty()) result += chunk
-            buffer.clear()
-        }
-
-        for (ch in text) {
-            buffer.append(ch)
-            if (ch in SENTENCE_ENDINGS || buffer.length >= MAX_SENTENCE_CHARS) flush()
-        }
-        flush()
-        return result
     }
 
     /** 6 个 BV2 子模块按文件名后缀认领，和 BV2 自己的导出脚本命名保持一致 */
@@ -266,12 +297,6 @@ class SoundGenerateHelper(val context: Context) {
         /** config.json 读不出采样率时的兜底。日文底模实际是 44100。 */
         private const val DEFAULT_SAMPLE_RATE = 44100
         private const val NO_PLAYBACK = 0L
-
-        private const val MAX_SENTENCE_CHARS = 60
-        private val SENTENCE_ENDINGS = charArrayOf(
-            '。', '！', '？', '；', '\n',
-            '.', '!', '?', ';',
-        )
 
         /** BV2 的 assets 目录名约定，[languageDirName] 是它和 `LANGUAGE_*` 的唯一映射处 */
         fun languageDirName(language: Int): String? = when (language) {

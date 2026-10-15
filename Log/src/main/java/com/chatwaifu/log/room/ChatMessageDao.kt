@@ -110,6 +110,28 @@ internal interface ChatMessageDao {
         limit: Int,
     ): List<MessageWithAttachments>
 
+    /** [afterId] 之后的前 [limit] 条，时间正序。L1 切段从摘要游标往后取 */
+    @Transaction
+    @Query(
+        """
+        select * from chat_message
+        where characterId = :characterId and id > :afterId
+        order by id asc limit :limit
+        """
+    )
+    suspend fun loadAfter(characterId: String, afterId: Long, limit: Int): List<MessageWithAttachments>
+
+    /** 闭区间 [fromId, toId]，时间正序。从摘要回到原文 */
+    @Transaction
+    @Query(
+        """
+        select * from chat_message
+        where characterId = :characterId and id between :fromId and :toId
+        order by id asc
+        """
+    )
+    suspend fun loadRange(characterId: String, fromId: Long, toId: Long): List<MessageWithAttachments>
+
     @Query("delete from chat_message where characterId = :characterId")
     suspend fun deleteByCharacter(characterId: String)
 

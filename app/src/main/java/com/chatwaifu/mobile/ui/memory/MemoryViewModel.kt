@@ -3,13 +3,17 @@ package com.chatwaifu.mobile.ui.memory
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.chatwaifu.log.EpisodeRepository
+import com.chatwaifu.log.MemoryEpisode
 import com.chatwaifu.log.MemoryFact
 import com.chatwaifu.log.MemoryRepository
+import com.chatwaifu.log.room.RoomEpisodeRepository
 import com.chatwaifu.log.room.RoomMemoryRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -29,6 +33,7 @@ import kotlinx.coroutines.launch
 class MemoryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: MemoryRepository = RoomMemoryRepository(application)
+    private val episodes: EpisodeRepository = RoomEpisodeRepository(application)
 
     private val characterId = MutableStateFlow("")
 
@@ -39,9 +44,14 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<MemoryUiState> = characterId
         .flatMapLatest { id ->
-            if (id.isEmpty()) flowOf(emptyList()) else repository.observeFacts(id)
+            if (id.isEmpty()) {
+                flowOf(MemoryUiState())
+            } else {
+                combine(repository.observeFacts(id), episodes.observeEpisodes(id)) { facts, diary ->
+                    MemoryUiState(characterName = id, facts = facts, episodes = diary)
+                }
+            }
         }
-        .map { facts -> MemoryUiState(characterName = characterId.value, facts = facts) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MemoryUiState())
 
     fun bind(character: String?) {
@@ -85,6 +95,16 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
     fun togglePinned(fact: MemoryFact) =
         mutate { repository.setPinned(fact.id, !fact.pinned) }
 
+    /** 改 L1 日记。关键词不动——它是检索用的，用户改摘要措辞不该让回想失灵 */
+    fun updateEpisode(episode: MemoryEpisode, summary: String) {
+        val trimmed = summary.trim()
+        if (trimmed.isEmpty() || trimmed == episode.summary) return
+        mutate { episodes.updateSummary(episode.id, trimmed) }
+    }
+
+    /** 只删日记，不删原文；被删的那段不会被重新摘要（见 [EpisodeRepository.deleteById]） */
+    fun deleteEpisode(episode: MemoryEpisode) = mutate { episodes.deleteById(episode.id) }
+
     fun consumeEvent() {
         _events.value = null
     }
@@ -104,9 +124,11 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
 data class MemoryUiState(
     val characterName: String = "",
     val facts: List<MemoryFact> = emptyList(),
+    /** L1 日记，新的在前 */
+    val episodes: List<MemoryEpisode> = emptyList(),
 )
 
 sealed interface MemoryEvent {
-    /** 记忆被改写，聊天侧的 `FactMemoryContributor` 缓存要失效 */
+    /** 记忆被改写，聊天侧的 `MemoryBlockContributor` 缓存要失效 */
     data object Changed : MemoryEvent
 }

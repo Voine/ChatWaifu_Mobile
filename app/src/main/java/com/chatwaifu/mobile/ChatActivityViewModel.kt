@@ -1,416 +1,119 @@
 package com.chatwaifu.mobile
 
-import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chatwaifu.chat.ChatProviderFactory
-import com.chatwaifu.chat.core.ChatDelta
-import com.chatwaifu.chat.core.ChatOptions
-import com.chatwaifu.chat.core.ChatProvider
-import com.chatwaifu.chat.core.ChatResult
-import com.chatwaifu.chat.core.ChatSession
 import com.chatwaifu.mobile.application.ChatWaifuApplication
-import com.chatwaifu.mobile.data.Constant
-import com.chatwaifu.mobile.data.memory.FactMemoryContributor
-import com.chatwaifu.mobile.data.memory.LlmMemoryExtractor
-import com.chatwaifu.mobile.data.memory.MemoryConsolidator
-import com.chatwaifu.mobile.data.VITSLoadStatus
-import com.chatwaifu.mobile.data.chat.ChatProviderSettings
 import com.chatwaifu.mobile.data.model.CharacterModel
 import com.chatwaifu.mobile.data.model.CharacterRepository
-import com.chatwaifu.mobile.data.model.CharacterSwitchGuard
 import com.chatwaifu.mobile.data.model.ModelProvider
-import com.chatwaifu.mobile.ui.common.ChatDialogContentUIState
-import com.chatwaifu.mobile.utils.ChatErrorMessages
-import com.chatwaifu.mobile.utils.ChatHistoryStore
-import com.chatwaifu.mobile.utils.LipsValueHandler
-import com.chatwaifu.translate.ITranslate
-import com.chatwaifu.translate.baidu.BaiduTranslateService
 import com.chatwaifu.vits.utils.SoundGenerateHelper
-import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.File
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.resume
+import kotlinx.coroutines.withContext
 
 /**
- * Description: main view model
+ * Description: 二级页面宿主（[ChatActivity]）的共享状态。
+ *
+ * 2.0 起聊天本身归 Companion（`CompanionActivity` + `CompanionRealResponseDriver`），
+ * 这里**不再有对话链路**：以前的 `mainLoop()`（`while(true)` + continuation 唤醒）
+ * 和它那套 session / 翻译 / TTS 编排已经删掉。剩下的只有几个 Fragment 共用的东西：
+ * 当前角色、角色列表、抽屉开关，以及语音设置页的试听。
+ *
  * Author: Voine
- * Date: 2023/2/18
+ * Date: 2023/2/18（2026/10 收缩为二级页面宿主）
  */
 class ChatActivityViewModel : ViewModel() {
     companion object {
         private const val TAG = "ChatActivityViewModel"
     }
 
-    enum class ChatStatus {
-        DEFAULT,
-        FETCH_INPUT,
-        SEND_REQUEST,
-        TRANSLATE,
-        GENERATE_SOUND,
-    }
-
     val drawerShouldBeOpened = MutableLiveData<Boolean>()
-    val chatStatusLiveData = MutableLiveData<ChatStatus>().apply { value = ChatStatus.DEFAULT }
 
-    //使用 shared flow 为了解决数据倒灌的问题....
-    private val _loadVITSModelLiveData = MutableSharedFlow<VITSLoadStatus>()
-    val loadVITSModelLiveData = _loadVITSModelLiveData.asSharedFlow()
-    private val _chatContentUIFlow = MutableSharedFlow<ChatDialogContentUIState>()
-    val chatContentUIFlow = _chatContentUIFlow.asSharedFlow()
-
-    val generateSoundLiveData = MutableLiveData<Boolean>()
-    val initModelResultLiveData = MutableLiveData<List<CharacterModel>>()
-    val loadingUILiveData = MutableLiveData<Pair<Boolean, String>>()
-
-    /**
-     * 当前选中的角色。以前是 currentLive2DModelPath / currentLive2DModelName /
-     * currentVITSModelName 三个散装 String，调用方要自己保证它们同步。
-     */
-    @Volatile
-    var currentCharacter: CharacterModel? = null
-        private set
-
-    val currentCharacterName: String get() = currentCharacter?.displayName.orEmpty()
-    val currentCharacterStorageKey: String get() = currentCharacter?.storageKey.orEmpty()
-
-    var needTranslate: Boolean = true
-
-    private var inputFunc: ((input: String) -> Unit)? = null
-
-    private val providerSettings: ChatProviderSettings by lazy {
-        ChatProviderSettings(ChatWaifuApplication.context)
-    }
-
-    /**
-     * 当前基座和会话。会话持有客户端历史，所以切基座时**只重建 provider，历史照旧**
-     * （见 [rebuildChatSession]）—— 这是「历史放客户端」带来的直接好处。
-     */
-    private var chatProvider: ChatProvider? = null
-    private var chatSession: ChatSession? = null
-    private var sessionProviderKey: String? = null
-    private var sessionModel: String? = null
-    private val characterSwitchGuard = CharacterSwitchGuard()
-    private val characterVoiceMutex = Mutex()
-
-    /**
-     * [vitsHelper] 里当前装着谁的声库。
-     *
-     * BV2 的 loader 是进程级单例，`modelReady` 只在 helper 内部私有，所以这里记一份：
-     * 试听要知道「现在能不能直接推理」，不然就得靠调用方保证 [loadVitsModel] 先跑过 ——
-     * 而进程刚起来时它只在用户显式选角色后才跑，从角色详情直接进语音页是没跑过的。
-     * 只在 [characterVoiceMutex] 里读写。
-     */
-    private var loadedVoiceCharacterId: String? = null
-
-    private val vitsHelper: SoundGenerateHelper by lazy {
-        SoundGenerateHelper(ChatWaifuApplication.context)
-    }
     private val characterRepository: CharacterRepository by lazy {
         ModelProvider.repository(ChatWaifuApplication.context)
     }
-    val lipsValueHandler: LipsValueHandler by lazy {
-        LipsValueHandler()
-    }
-    private val sp: SharedPreferences by lazy {
-        ChatWaifuApplication.context.getSharedPreferences(
-            Constant.SAVED_STORE,
-            Context.MODE_PRIVATE
-        )
-    }
-    private val historyStore: ChatHistoryStore by lazy {
-        ChatHistoryStore(ChatWaifuApplication.context)
-    }
 
-    /** 注入 system 区的 L2 记忆块。见 docs/memory.md */
-    private val memoryContributor: FactMemoryContributor by lazy {
-        FactMemoryContributor(ChatWaifuApplication.context)
-    }
+    private val _currentCharacter = MutableStateFlow<CharacterModel?>(null)
+
+    /** 当前选中的角色。记忆页按它隔离；进程刚起来时由 init 从仓库恢复 */
+    val currentCharacter = _currentCharacter.asStateFlow()
+
+    private val _characters = MutableStateFlow<List<CharacterModel>>(emptyList())
+    val characters = _characters.asStateFlow()
+
+    private val _navigateHome = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** 角色页选定角色后回到 Companion。由 [ChatActivity] 收集，负责先释放 TTS 再跳转 */
+    val navigateHome = _navigateHome.asSharedFlow()
 
     /**
-     * 抽取器每次现取：它绑在当前 provider 上，切基座后不能再用旧的。
-     * provider 还没建好时返回 null，巩固器会安静跳过。
+     * 试听用的 TTS。**懒加载**：只有用户真的点了试听才初始化 BV2 loader，
+     * 否则从 Companion 进来看一眼设置就要白付一次模型装载。
      */
-    private val memoryConsolidator: MemoryConsolidator by lazy {
-        MemoryConsolidator(ChatWaifuApplication.context) {
-            chatProvider?.let { provider ->
-                LlmMemoryExtractor(
-                    provider = provider,
-                    modelOverride = sp.getString(Constant.SAVED_MEMORY_MODEL, null),
-                )
-            }
-        }
+    private val vitsHelper: SoundGenerateHelper by lazy {
+        SoundGenerateHelper(ChatWaifuApplication.context)
     }
-    private var translate: ITranslate? = null
+    private var vitsHelperCreated = false
+    private val voiceMutex = Mutex()
 
-    fun refreshAllKeys(rebuildSession: Boolean = true) {
-        if (rebuildSession) rebuildChatSession()
-        val translateAppId = sp.getString(Constant.SAVED_TRANSLATE_APP_ID, null)
-        val translateKey = sp.getString(Constant.SAVED_TRANSLATE_KEY, null)
-        needTranslate = sp.getBoolean(Constant.SAVED_USE_TRANSLATE, true)
-        setBaiduTranslate(translateAppId ?: return, translateKey ?: return)
-    }
+    /** [vitsHelper] 里当前装着谁的声库。只在 [voiceMutex] 里读写 */
+    private var loadedVoiceCharacterId: String? = null
 
-    /**
-     * 按当前设置重建 provider。历史会从旧会话里搬过去，切基座不断上下文。
-     */
-    private fun rebuildChatSession(preserveHistory: Boolean = true) {
-        val id = providerSettings.activeProviderId
-        val selection = providerSettings.selection(id)
-        val config = selection.providerConfig
-        val previous = chatSession
-
-        chatProvider?.close()
-        val provider = ChatProviderFactory.create(id, config)
-        chatProvider = provider
-        chatSession = ChatSession(
-            provider = provider,
-            systemPrompt = if (preserveHistory) {
-                previous?.systemPrompt
-                    ?: currentCharacter?.let {
-                        characterRepository.getSystemPrompt(it.storageKey)
-                    }
-            } else {
-                // null 明确表示该角色没有 persona，不能沿用上一角色的 system prompt。
-                currentCharacter?.let {
-                    characterRepository.getSystemPrompt(it.storageKey)
-                }
-            },
-            options = selection.sessionOptions,
-            memory = memoryContributor,
-        ).apply {
-            if (preserveHistory) previous?.let { restore(it.snapshot()) }
-        }
-        sessionProviderKey = id.key
-        sessionModel = config.model?.ifBlank { null } ?: provider.defaultModel
-        Log.d(TAG, "chat provider rebuilt: ${provider.displayName} / ${config.model ?: provider.defaultModel}")
-    }
-
-    private fun requireSession(): ChatSession =
-        chatSession ?: run { rebuildChatSession(); chatSession!! }
-
-    /** 落库时记的基座标识。thinking 签名跨基座不能重放，恢复历史时要靠它对齐。 */
-    private val activeProviderKey: String?
-        get() = sessionProviderKey
-
-    private val activeModel: String?
-        get() = sessionModel
-
-    fun mainLoop() {
+    init {
         viewModelScope.launch(Dispatchers.IO) {
-            // 上次进程被杀时留下的半截流式记录，收尾成 FAILED，
-            // 否则它们会永远停在 STREAMING、既不上屏也不参与上下文
-            historyStore.failDanglingStreams()
-            historyStore.gcAttachments()
-
-            while (true) {
-                chatStatusLiveData.postValue(ChatStatus.FETCH_INPUT)
-                val input = fetchInput()
-                val turnCharacter = currentCharacter ?: continue
-                val turnGeneration =
-                    characterSwitchGuard.currentToken(turnCharacter.id) ?: continue
-                val turnCharacterStorageKey = turnCharacter.storageKey
-                historyStore.appendUser(turnCharacterStorageKey, input)
-
-                chatStatusLiveData.postValue(ChatStatus.SEND_REQUEST)
-                // 先占一行 STREAMING 再发请求：流中途挂掉时历史里留下的是一条
-                // 标记为失败的半截回复，而不是凭空少一轮对话
-                val messageId = historyStore.beginAssistant(
-                    turnCharacterStorageKey,
-                    activeProviderKey,
-                    activeModel,
-                )
-                val result = streamChatRequest(
-                    input,
-                    messageId,
-                    turnCharacterStorageKey,
-                    turnCharacter.id,
-                    turnGeneration,
-                ) ?: continue
-
-                historyStore.finishAssistant(
-                    characterStorageKey = turnCharacterStorageKey,
-                    messageId = messageId,
-                    message = result.message,
-                    usage = result.usage,
-                    providerId = activeProviderKey,
-                    model = activeModel,
-                )
-                if (!characterSwitchGuard.isCurrent(turnGeneration, turnCharacter.id)) continue
-                Log.d(TAG, "get response ${result.text}")
-
-                val translateText = fetchTranslateIfNeed(result.text)
-                if (!characterSwitchGuard.isCurrent(turnGeneration, turnCharacter.id)) continue
-                Log.d(TAG, "translate result: $translateText")
-                chatStatusLiveData.postValue(ChatStatus.GENERATE_SOUND)
-                // 抽取和 TTS 并发：这几秒用户在听、主循环在等输入，是白送的异步窗口。
-                // 放在 generateAndPlaySound 之前启动，两者重叠（一个等网络一个吃 CPU）
-                consolidateMemoryInBackground()
-                generateAndPlaySound(
-                    needPlayText = translateText,
-                    character = turnCharacter,
-                    generation = turnGeneration,
-                )
+            _characters.value = characterRepository.loadCharacters()
+            if (_currentCharacter.value == null) {
+                _currentCharacter.value = characterRepository.getCurrentCharacter()
             }
         }
-    }
-
-    fun sendMessage(input: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            if (inputFunc != null) {
-                inputFunc?.invoke(input)
-            }
-        }
-    }
-
-    private fun setBaiduTranslate(appid: String, privateKey: String) {
-        translate = BaiduTranslateService(
-            ChatWaifuApplication.context,
-            appid = appid,
-            privateKey = privateKey
-        )
     }
 
     /**
-     * 加载角色列表。首次调用会把内置模型从 assets 解出来，之后走版本 gate 直接跳过。
-     */
-    fun initModel() {
-        initModelResultLiveData.postValue(emptyList())
-        loadingUILiveData.postValue(Pair(true, "Init Models...."))
-        viewModelScope.launch(Dispatchers.IO) {
-            val characters = characterRepository.loadCharacters()
-            val restoredCharacter = characterRepository.getCurrentCharacter()
-            if (currentCharacter == null && restoredCharacter != null) {
-                currentCharacter = restoredCharacter
-                characterSwitchGuard.begin(restoredCharacter.id)
-            }
-            initModelResultLiveData.postValue(characters)
-            loadingUILiveData.postValue(Pair(false, ""))
-        }
-        lipsValueHandler.initLipSync()
-    }
-
-    /**
-     * 选中一个角色：装载人物设定、聊天记录，然后加载它的 VITS 模型。
-     * 加载结果通过 [loadVITSModelLiveData] 通知，UI 收到 SUCCESS 后才跳聊天页。
-     */
-    fun selectCharacter(character: CharacterModel) {
-        val generation = characterSwitchGuard.begin(character.id)
-        currentCharacter = character
-        // 记忆按角色隔离，切角色时 scope 和轮次计数一起换
-        memoryContributor.characterId = character.storageKey
-        memoryConsolidator.reset()
-        vitsHelper.cancelPlayback()
-        rebuildChatSession(preserveHistory = false)
-        val targetSession = requireSession()
-        viewModelScope.launch(Dispatchers.IO) {
-            val restored = historyStore.load(character.storageKey, activeProviderKey)
-            if (
-                characterSwitchGuard.isCurrent(generation, character.id) &&
-                chatSession === targetSession
-            ) {
-                targetSession.restore(restored)
-            }
-        }
-        loadVitsModel(character, generation)
-    }
-
-    /**
-     * 装载角色的 BV2 声库。
+     * 角色页 / 模型管理页选定了角色（仓库里的「当前角色」已经由调用方写好）。
      *
-     * 改造前是 `loadConfigs()` + `loadModel()` 两次 `suspendCancellableCoroutine`，
-     * 因为老 VITS 必须先从 config 解出 symbols 才能建 textUtils。BV2 的 G2P 在
-     * `text-preprocess` 里，config 只提供采样率，所以合成了一次 suspend 调用。
+     * @param returnHome true = 选完就回 Companion（角色页的语义）；
+     *   模型管理页只是改个标记，留在原页
      */
-    private fun loadVitsModel(character: CharacterModel, generation: Long) {
-        val vitsDir = character.vitsDir
-        if (vitsDir == null) {
-            // 没有语音的角色也应该能进聊天页，只是不出声。
-            // 以前这里会走到加载失败，导致这类模型根本进不去。
-            Log.i(TAG, "${character.displayName} has no voice model, skip loading")
-            loadingUILiveData.postValue(Pair(false, ""))
-            viewModelScope.launch {
-                if (characterSwitchGuard.isCurrent(generation, character.id)) {
-                    _loadVITSModelLiveData.emit(VITSLoadStatus.STATE_SUCCESS)
-                }
-            }
-            return
-        }
-        loadingUILiveData.postValue(Pair(true, "Load TTS Model...."))
-        viewModelScope.launch(Dispatchers.IO) {
-            characterVoiceMutex.withLock {
-                if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock
-                val success = initVoiceModel(character)
-                if (characterSwitchGuard.isCurrent(generation, character.id)) {
-                    _loadVITSModelLiveData.emit(
-                        if (success) VITSLoadStatus.STATE_SUCCESS
-                        else VITSLoadStatus.STATE_FAILED
-                    )
-                    loadingUILiveData.postValue(Pair(false, ""))
-                }
-            }
-        }
+    fun selectCharacter(character: CharacterModel, returnHome: Boolean) {
+        _currentCharacter.value = character
+        if (returnHome) _navigateHome.tryEmit(Unit)
     }
 
     /**
-     * 语音设置页的试听。**复用正在服务聊天的那一份 [vitsHelper]**，
-     * 因此只允许试听**当前角色**：BV2 的声学模型是进程级单例（`setBertVITS2ModelPath`
-     * 直接改的就是那个 loader），给非当前角色试听就得重载模型，回来还要再载回去——
-     * 那是 TTS 多实例化的重构，不在这一阶段的范围里。
+     * 语音设置页的试听。
      *
-     * 走和正式播报同一把 [characterVoiceMutex] + 同一套 generation token，所以
-     * 试听和聊天 TTS 不会串音，切角色时迟到的试听结果会被闸掉。
-     * 不写聊天历史、不建 [ChatSession]、不碰记忆和 Live2D 动作，
-     * 只额外驱动口型（让用户看得出是这个角色在说话）。
+     * BV2 的 loader 是**进程级单例**（`destroyBertVITS2Loader` 销毁的是全局那一份），
+     * 所以这里和 Companion 的 TTS 不能同时活着 —— 能这样用的前提是 Companion 在跳过来之前
+     * 已经 `awaitClosed()` 释放了自己那份，而回 Companion 之前 [releaseVoice] 会释放这一份。
+     * 因为此时没有对话在跑，试听可以给**任何**角色装声库，不再限于当前角色。
      *
-     * @return true 表示播完了；false 表示没有语音 / 模型未就绪 / 已被切角色闸掉
+     * 不驱动口型：这个 Activity 里没有 Live2D。
+     *
+     * @return true 表示播完了；false 表示没有语音 / 模型装载失败 / 被打断
      */
     suspend fun previewVoice(character: CharacterModel, text: String): Boolean {
         if (!character.hasVoice) return false
-        // 用户可以在从未进过聊天页时就打开语音页（角色列表 → 详情 → 语音），
-        // 这时闸门还没为任何角色开过轮次。此刻进程里没有会话、没有播报、
-        // 没有待落库的结果可被污染，所以为它开一轮是安全的；
-        // 之后真正 selectCharacter 会再开新一轮，把这一轮作废。
-        val generation = characterSwitchGuard.currentToken(character.id)
-            ?: if (currentCharacter == null) {
-                characterSwitchGuard.begin(character.id)
-            } else {
-                // 已经有别的角色在跑了：不抢它的闸门，直接拒绝试听
-                return false
-            }
-        return characterVoiceMutex.withLock {
-            if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock false
-            // 用户可以从角色详情直接进语音页，这时声库可能还没装过（进程刚起来、
-            // 或者刚在别的角色上装的那一份）。走和正式链路同一个 init，不另开一条路。
+        return voiceMutex.withLock {
             if (loadedVoiceCharacterId != character.id && !initVoiceModel(character)) {
                 return@withLock false
             }
-            if (!characterSwitchGuard.isCurrent(generation, character.id)) return@withLock false
-            vitsHelper.generateAndPlay(text = text) { pcm, sampleRate ->
-                if (characterSwitchGuard.isCurrent(generation, character.id)) {
-                    lipsValueHandler.sendLipsValues(pcm, sampleRate)
-                }
-            }
+            vitsHelper.generateAndPlay(text = text) { _, _ -> }
         }
     }
 
-    /**
-     * 装载 [character] 的声库。**必须在 [characterVoiceMutex] 里调** ——
-     * 正式链路和试听共用这一个入口，切角色不能在旧推理中途换掉模型或 speaker。
-     */
+    /** 必须在 [voiceMutex] 里调 */
     private suspend fun initVoiceModel(character: CharacterModel): Boolean {
         val vitsDir = character.vitsDir ?: return false
+        vitsHelperCreated = true
         val success = vitsHelper.init(
             bv2Dir = vitsDir,
             bertDir = character.bertDir,
@@ -423,170 +126,27 @@ class ChatActivityViewModel : ViewModel() {
 
     /** 试听页退出 / 重复点击时立刻停掉当前 AudioTrack 轮次。 */
     fun stopVoicePreview() {
+        if (vitsHelperCreated) vitsHelper.cancelPlayback()
+    }
+
+    /**
+     * 回 Companion 之前调，**必须等它返回再起新 Activity**：
+     * 否则 Companion 刚装好的 loader 会被这边迟到的 `onCleared` 销毁。
+     */
+    suspend fun releaseVoice() = withContext(NonCancellable + Dispatchers.IO) {
+        if (!vitsHelperCreated) return@withContext
         vitsHelper.cancelPlayback()
-    }
-
-    /**
-     * fire-and-forget 地跑一次记忆巩固。
-     *
-     * **不 await**：主循环接着去做 TTS，抽取在后台跑完自己落库。
-     * 巩固器内部有 Mutex 和轮次闸门，这里可以每轮无脑调。
-     */
-    /** 用户在记忆页改了内容，让注入侧的缓存失效 */
-    fun onMemoryChanged() {
-        memoryContributor.invalidate()
-    }
-
-    private fun consolidateMemoryInBackground() {
-        val characterStorageKey = currentCharacter?.storageKey ?: return
-        val snapshot = chatSession?.snapshot() ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            memoryConsolidator.onTurnCompleted(characterStorageKey, snapshot)
-            // 事实可能变了，让下一轮重新读库
-            memoryContributor.invalidate()
+        voiceMutex.withLock {
+            vitsHelper.clear()
+            loadedVoiceCharacterId = null
+            vitsHelperCreated = false
         }
-    }
-
-    private suspend fun fetchInput(): String {
-        return suspendCancellableCoroutine {
-            inputFunc = { input ->
-                it.safeResume(input)
-            }
-        }
-    }
-
-    /**
-     * 发一轮请求，**边收边渲染**。
-     *
-     * 改造前是一次性拿到完整回复才上屏；现在每个增量都会 emit 一次累积后的文本，
-     * 气泡逐字出现。VITS 仍然吃完整文本 —— 按句切分提前合成属于后续优化。
-     *
-     * @param messageId [ChatHistoryStore.beginAssistant] 占好的那一行。失败时用它标 FAILED，
-     *   已经收到的片段一并留下 —— 用户能看出「答到一半断了」，而不是这轮凭空消失。
-     * @return null 表示这一轮失败了（错误已经 emit 给 UI），调用方应该跳过后面的翻译和合成。
-     */
-    private suspend fun streamChatRequest(
-        input: String,
-        messageId: Long,
-        characterStorageKey: String,
-        characterId: String,
-        generation: Long,
-    ): ChatResult? {
-        val session = requireSession()
-        val buffer = StringBuilder()
-        var result: ChatResult? = null
-
-        try {
-            session.send(input).collect { delta ->
-                when (delta) {
-                    is ChatDelta.TextDelta -> {
-                        buffer.append(delta.text)
-                        if (characterSwitchGuard.isCurrent(generation, characterId)) {
-                            _chatContentUIFlow.emit(
-                                ChatDialogContentUIState(
-                                    isFromMe = false,
-                                    chatContent = buffer.toString(),
-                                    isStreaming = true,
-                                )
-                            )
-                        }
-                    }
-
-                    is ChatDelta.Completed -> {
-                        result = ChatResult(delta.message, delta.usage, delta.finishReason)
-                        if (characterSwitchGuard.isCurrent(generation, characterId)) {
-                            _chatContentUIFlow.emit(
-                                ChatDialogContentUIState(
-                                    isFromMe = false,
-                                    chatContent = delta.message.text.trim(),
-                                )
-                            )
-                        }
-                    }
-
-                    // 思考过程和工具调用当前不上屏
-                    else -> Unit
-                }
-            }
-        } catch (e: Throwable) {
-            Log.e(TAG, "chat request failed", e)
-            historyStore.failAssistant(characterStorageKey, messageId, buffer.toString())
-            if (characterSwitchGuard.isCurrent(generation, characterId)) {
-                _chatContentUIFlow.emit(
-                    ChatDialogContentUIState(
-                        isFromMe = false,
-                        errorMsg = ChatErrorMessages.describe(ChatWaifuApplication.context, e),
-                    )
-                )
-                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
-            }
-            return null
-        }
-        if (result == null) {
-            // 流正常结束但没有 Completed（provider 只发了 text 就断流）。
-            // 不收尾的话这行会永远停在 STREAMING。
-            Log.w(TAG, "stream ended without Completed delta")
-            historyStore.failAssistant(characterStorageKey, messageId, buffer.toString())
-        }
-        return result
-    }
-
-    private suspend fun fetchTranslateIfNeed(responseText: String?): String? {
-        translate ?: return responseText
-        responseText ?: return null
-        if (!needTranslate) {
-            return responseText
-        }
-        chatStatusLiveData.postValue(ChatStatus.TRANSLATE)
-        return suspendCancellableCoroutine {
-            translate?.getTranslateResult(responseText) { result ->
-                it.safeResume(result?.ifBlank { responseText } ?: responseText)
-            }
-        }
-    }
-
-    private suspend fun generateAndPlaySound(
-        needPlayText: String?,
-        character: CharacterModel,
-        generation: Long,
-    ) {
-        characterVoiceMutex.withLock {
-            if (!characterSwitchGuard.isCurrent(generation, character.id)) return
-            if (!character.hasVoice) {
-                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
-                return
-            }
-            // init 和推理共用同一把锁，切角色不能在旧语音推理中途替换模型或 speaker。
-            val isSuccess = vitsHelper.generateAndPlay(text = needPlayText) { pcm, sampleRate ->
-                if (characterSwitchGuard.isCurrent(generation, character.id)) {
-                    lipsValueHandler.sendLipsValues(pcm, sampleRate)
-                }
-            }
-            Log.d(TAG, "generate sound $isSuccess")
-            if (
-                characterSwitchGuard.isCurrent(generation, character.id) &&
-                chatStatusLiveData.value == ChatStatus.GENERATE_SOUND
-            ) {
-                chatStatusLiveData.postValue(ChatStatus.DEFAULT)
-            }
-        }
-    }
-
-    fun sendMineMsgUIState(content: String) {
-        CoroutineScope(Dispatchers.Main).launch {
-            _chatContentUIFlow.emit(
-                ChatDialogContentUIState(
-                    isFromMe = true,
-                    chatContent = content
-                )
-            )
-        }
+        Log.d(TAG, "preview voice released")
     }
 
     override fun onCleared() {
-        vitsHelper.clear()
-        lipsValueHandler.shutDown()
-        chatProvider?.close()
+        // 正常路径已经由 releaseVoice() 释放过；这里兜底的是「直接被系统回收」的情况
+        if (vitsHelperCreated) vitsHelper.clear()
         // 不调 super.onCleared()：ViewModel.onCleared() 的实现是空的，调了触发 EmptySuperCall
     }
 
@@ -596,11 +156,5 @@ class ChatActivityViewModel : ViewModel() {
 
     fun resetOpenDrawerAction() {
         drawerShouldBeOpened.value = false
-    }
-}
-
-fun <T> CancellableContinuation<T>.safeResume(value: T) {
-    if (this.isActive) {
-        (this as? Continuation<T>)?.resume(value)
     }
 }

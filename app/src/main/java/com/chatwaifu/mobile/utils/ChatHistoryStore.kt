@@ -19,6 +19,8 @@ import com.chatwaifu.log.MemoryRepository
 import com.chatwaifu.log.MessageStatus
 import com.chatwaifu.log.room.RoomChatLogRepository
 import com.chatwaifu.log.room.RoomMemoryRepository
+import com.chatwaifu.log.EpisodeRepository
+import com.chatwaifu.log.room.RoomEpisodeRepository
 import com.chatwaifu.mobile.data.attachment.AttachmentStore
 
 /**
@@ -49,6 +51,7 @@ class ChatHistoryStore(
     private val repository: ChatLogRepository = RoomChatLogRepository(context),
     private val attachments: AttachmentStore = AttachmentStore(context),
     private val memory: MemoryRepository = RoomMemoryRepository(context),
+    private val episodes: EpisodeRepository = RoomEpisodeRepository(context),
 ) {
 
     /**
@@ -57,16 +60,33 @@ class ChatHistoryStore(
      *
      * @param providerId 当前基座。thinking block 的签名是绑基座+模型的，
      *   只有当条记录来自同一个基座时才回传，否则丢掉（见 [toCoreMessage]）。
+     * @param accepts 当前模型收哪些附件，见 [toModelContents]。
      */
-    suspend fun load(characterStorageKey: String, providerId: String? = null): List<ChatMessage> {
+    suspend fun load(
+        characterStorageKey: String,
+        providerId: String? = null,
+        accepts: (AttachmentKind) -> Boolean = { true },
+    ): List<ChatMessage> {
         val stored = repository.getRecentChatLog(characterStorageKey, limit = HISTORY_LIMIT)
         Log.d(TAG, "load ${stored.size} messages for $characterStorageKey")
-        return stored.mapNotNull { it.toCoreMessage(providerId) }
+        return stored.mapNotNull { it.toCoreMessage(providerId, accepts) }
     }
 
-    /** 读取 UI 历史；与模型上下文不同，这里保留带部分文本的 `FAILED` 记录。 */
-    suspend fun loadDisplayHistory(characterStorageKey: String): List<ChatLogEntry> =
-        repository.getRecentChatLog(characterStorageKey, limit = HISTORY_LIMIT)
+    /**
+     * 读取 UI 历史最近的 [limit] 条；与模型上下文不同，这里保留带部分文本的 `FAILED` 记录。
+     *
+     * 和 [load] 分开取：模型上下文要 [HISTORY_LIMIT] 条给 ContextBudget 挑，
+     * 而历史面板首屏只需要一屏多一点，更老的滑到顶再用 [loadOlderDisplayHistory] 翻。
+     */
+    suspend fun loadDisplayHistory(characterStorageKey: String, limit: Int): List<ChatLogEntry> =
+        repository.getRecentChatLog(characterStorageKey, limit = limit)
+
+    /** 历史面板往前翻一页：[beforeId] 之前的 [limit] 条，时间正序。 */
+    suspend fun loadOlderDisplayHistory(
+        characterStorageKey: String,
+        beforeId: Long,
+        limit: Int,
+    ): List<ChatLogEntry> = repository.getOlderChatLog(characterStorageKey, beforeId, limit)
 
     suspend fun appendUser(
         characterStorageKey: String,
@@ -193,13 +213,14 @@ class ChatHistoryStore(
      *
      * 两件 cascade 管不到的事：
      * - 附件的**字节**在磁盘上，FK cascade 只清行，所以要先取路径再删记录
-     * - `memory_fact` 根本没有指向角色的外键（角色层没有表），必须显式删
+     * - `memory_fact` / `memory_episode` 根本没有指向角色的外键（角色层没有表），必须显式删
      */
     suspend fun clearCharacter(characterName: String) {
         val paths = repository.attachmentPathsOf(characterName)
         repository.deleteChatLog(characterName)
         attachments.deletePaths(paths)
         memory.deleteAll(characterName)
+        episodes.deleteAll(characterName)
     }
 
     /** 回收没有任何记录引用的附件文件。启动时调一次即可。 */
@@ -276,7 +297,10 @@ class ChatHistoryStore(
      * - thinking 的 [ChatLogEntry.thinkingOpaque] **只在同一个基座下回传**。
      *   签名是绑基座+模型的，跨基座重放会校验失败直接 400
      */
-    private fun ChatLogEntry.toCoreMessage(currentProviderId: String?): ChatMessage? {
+    private fun ChatLogEntry.toCoreMessage(
+        currentProviderId: String?,
+        accepts: (AttachmentKind) -> Boolean,
+    ): ChatMessage? {
         if (status != MessageStatus.OK) return null
 
         val coreRole = when (role) {
@@ -297,11 +321,80 @@ class ChatHistoryStore(
         }
 
         if (text.isNotBlank()) contents += ChatContent.Text(text)
-        contents += modelVisibleAttachments()
-            .mapNotNull { it.toCoreContent(currentProviderId) }
+        contents += attachmentContents(modelVisibleAttachments(), currentProviderId, accepts)
 
         return if (contents.isEmpty()) null else ChatMessage(coreRole, contents)
     }
+
+    /**
+     * 本轮刚导入的附件 → 发给模型的内容块。**和历史重放走同一套规则**
+     * （[modelVisibleAttachments] 过滤父行、[attachmentContents] 按能力降级、
+     * [toCoreContent] 选内联还是 file id），所以「这一轮看到的」和「下一轮重放时看到的」是同一份东西。
+     *
+     * @param accepts 当前模型收哪些附件。各家 provider 碰到不支持的块是**直接抛错**的，
+     *   不过滤的话：在 Gemini 下发过一段语音，换到 Claude 之后每一轮都会因为重放这段历史失败；
+     *   视频的音轨在 Claude 下也会把整轮打挂。
+     */
+    fun toModelContents(
+        refs: List<AttachmentRef>,
+        providerId: String?,
+        accepts: (AttachmentKind) -> Boolean = { true },
+    ): List<ChatContent> {
+        val parentPaths = refs.mapNotNullTo(mutableSetOf()) { it.sourceRelPath }
+        return attachmentContents(refs.filter { it.relPath !in parentPaths }, providerId, accepts)
+    }
+
+    /** 模型收不了的附件降级成占位文字，规则见 [ModelVisibility] */
+    private fun attachmentContents(
+        visible: List<AttachmentRef>,
+        providerId: String?,
+        accepts: (AttachmentKind) -> Boolean,
+    ): List<ChatContent> = ModelVisibility.degrade(visible, accepts) { it.toCoreContent(providerId) }
+
+    /**
+     * UI 上要显示的附件：只要**用户直接给的**那几个（视频的抽帧和音轨不单独显示），
+     * 每个配一张预览图——图片是它自己，视频是最早的那一帧，音频 / PDF 没有。
+     * 文件被清掉的附件整个不返回。
+     */
+    fun displayAttachments(entry: ChatLogEntry): List<DisplayAttachment> {
+        val firstFrameOf = entry.attachments
+            .filter { it.kind == AttachmentKind.IMAGE && it.sourceRelPath != null }
+            .sortedBy { it.posMs ?: 0L }
+            .groupBy { it.sourceRelPath!! }
+            .mapValues { (_, frames) -> frames.first().relPath }
+        return entry.attachments
+            .filter { it.sourceRelPath == null }
+            .mapNotNull { ref -> displayAttachment(ref, firstFrameOf[ref.relPath]) }
+    }
+
+    /**
+     * 刚导入的一组 ref（第一个是父附件，见 `AttachmentIngest.Progress.Success`）→ UI 用的预览。
+     * 和 [displayAttachments] 同一套规则，输入条上和历史里看到的是同一个样子。
+     */
+    fun displayAttachment(refs: List<AttachmentRef>): DisplayAttachment? {
+        val parent = refs.firstOrNull() ?: return null
+        val firstFrame = refs.drop(1)
+            .filter { it.kind == AttachmentKind.IMAGE }
+            .minByOrNull { it.posMs ?: 0L }
+        return displayAttachment(parent, firstFrame?.relPath)
+    }
+
+    private fun displayAttachment(ref: AttachmentRef, firstFramePath: String?): DisplayAttachment? {
+        val file = attachments.resolve(ref.relPath) ?: return null
+        val preview = when (ref.kind) {
+            AttachmentKind.IMAGE -> file
+            AttachmentKind.VIDEO -> firstFramePath?.let(attachments::resolve)
+            AttachmentKind.AUDIO, AttachmentKind.DOC -> null
+        }
+        return DisplayAttachment(ref, preview, ref.durationMs)
+    }
+
+    /** 一个要显示的附件。[preview] 为 null 时 UI 画类型标签 */
+    data class DisplayAttachment(
+        val ref: AttachmentRef,
+        val preview: java.io.File?,
+        val durationMs: Long?,
+    )
 
     /**
      * 过滤掉**派生物的父行**。

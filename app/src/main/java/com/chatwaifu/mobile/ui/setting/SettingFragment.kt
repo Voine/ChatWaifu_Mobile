@@ -43,8 +43,8 @@ class SettingFragment : Fragment() {
                         activityViewModel.openDrawer()
                     },
                     onSave = {
+                        // 聊天链路回 Companion 时按最新设置重建，这里只管落盘
                         fragmentViewModel.saveData()
-                        activityViewModel.refreshAllKeys(rebuildSession = false)
                         currentDarkMode = settingState.darkModeSwitch
                         showToast("save key success...")
                     },

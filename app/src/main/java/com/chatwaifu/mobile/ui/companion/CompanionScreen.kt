@@ -26,6 +26,8 @@ fun CompanionScreen(
                 // 录音中按返回先取消录音，否则面板关了麦克风还在开着
                 state.voice.busy -> CompanionEvent.CancelVoiceInput
                 state.overlay == CompanionOverlayState.HISTORY -> CompanionEvent.DismissHistory
+                state.overlay == CompanionOverlayState.MENU -> CompanionEvent.DismissMenu
+                state.overlay == CompanionOverlayState.ADJUST -> CompanionEvent.FinishAdjust
                 else -> CompanionEvent.DismissInput
             }
         )
@@ -59,6 +61,10 @@ fun CompanionScreen(
                 submitEnabled = state.runtime != CompanionRuntimeState.THINKING &&
                     state.runtime != CompanionRuntimeState.SPEAKING,
                 voice = state.voice,
+                attachments = state.attachments,
+                onToggleAttachMenu = { onEvent(CompanionEvent.ToggleAttachMenu) },
+                onPickAttachment = { onEvent(CompanionEvent.PickAttachment(it)) },
+                onRemoveAttachment = { onEvent(CompanionEvent.RemovePendingAttachment(it)) },
                 onDraftChanged = { onEvent(CompanionEvent.DraftChanged(it)) },
                 onSubmit = { onEvent(CompanionEvent.Submit) },
                 onDismiss = { onEvent(CompanionEvent.DismissInput) },
@@ -73,6 +79,22 @@ fun CompanionScreen(
             exit = fadeOut(),
         ) {
             CompanionHistorySheet(state = state, onEvent = onEvent)
+        }
+        AnimatedVisibility(
+            visible = state.overlay == CompanionOverlayState.MENU,
+            modifier = Modifier.fillMaxSize(),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            CompanionMenu(onEvent = onEvent)
+        }
+        AnimatedVisibility(
+            visible = state.overlay == CompanionOverlayState.ADJUST,
+            modifier = Modifier.fillMaxSize(),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            CompanionAdjustBar(onEvent = onEvent)
         }
     }
 }

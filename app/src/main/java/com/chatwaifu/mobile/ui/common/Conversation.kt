@@ -79,80 +79,9 @@ import com.chatwaifu.mobile.R
 import com.chatwaifu.mobile.ui.base.ChatWaifuAppBar
 import com.chatwaifu.mobile.ui.common.JumpToBottom
 import com.chatwaifu.mobile.ui.common.Message
-import com.chatwaifu.mobile.ui.common.exampleUiState
 import com.chatwaifu.mobile.ui.common.messageFormatter
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 import kotlinx.coroutines.launch
-
-/**
- * Entry point for a conversation screen.
- *
- * @param uiState [ChatLogUiState] that contains messages to display
- * @param navigateToProfile User action when navigation to a profile is requested
- * @param modifier [Modifier] to apply to this layout node
- * @param onNavIconPressed Sends an event up when the user clicks on the menu
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ConversationContent(
-    uiState: ConversationUiState,
-    navigateToProfile: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    onNavIconPressed: () -> Unit = { }
-) {
-    val authorMe = "me"
-    val timeNow = "8:30"
-
-    val scrollState = rememberLazyListState()
-    val topBarState = rememberTopAppBarState()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
-    val scope = rememberCoroutineScope()
-
-    Scaffold(
-        topBar = {
-            ChannelNameBar(
-                channelName = uiState.channelName,
-                onNavIconPressed = onNavIconPressed,
-                scrollBehavior = scrollBehavior,
-            )
-        },
-        // Exclude ime and navigation bar padding so this can be added by the UserInput composable
-        contentWindowInsets = ScaffoldDefaults
-            .contentWindowInsets
-            .exclude(WindowInsets.navigationBars)
-            .exclude(WindowInsets.ime),
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
-    ) { paddingValues ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(paddingValues)) {
-            Messages(
-                messages = uiState.messages,
-                navigateToProfile = navigateToProfile,
-                modifier = Modifier.weight(1f),
-                scrollState = scrollState
-            )
-            UserInput(
-                onMessageSent = { content ->
-                    uiState.addMessage(
-                        Message(authorMe, content, timeNow)
-                    )
-                },
-                resetScroll = {
-                    scope.launch {
-                        scrollState.scrollToItem(0)
-                    }
-                },
-                // let this element handle the padding so that the elevation is shown behind the
-                // navigation bar
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -163,10 +92,6 @@ fun ChannelNameBar(
     onNavIconPressed: () -> Unit = { },
     externalActions: @Composable RowScope.()-> Unit = {}
 ) {
-    var functionalityNotAvailablePopupShown by remember { mutableStateOf(false) }
-    if (functionalityNotAvailablePopupShown) {
-        FunctionalityNotAvailablePopup { functionalityNotAvailablePopupShown = false }
-    }
     ChatWaifuAppBar(
         modifier = modifier,
         scrollBehavior = scrollBehavior,
@@ -450,16 +375,6 @@ fun ClickableMessage(
     )
 }
 
-@Preview
-@Composable
-fun ConversationPreview() {
-    ChatWaifu_MobileTheme {
-        ConversationContent(
-            uiState = exampleUiState,
-            navigateToProfile = { }
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
@@ -474,17 +389,6 @@ fun ChannelBarPrev() {
 @Composable
 fun DayHeaderPrev() {
     DayHeader("Aug 6")
-}
-
-@Preview
-@Composable
-fun ConversationDarkPreview() {
-    ChatWaifu_MobileTheme(darkTheme = true) {
-        ConversationContent(
-            uiState = exampleUiState,
-            navigateToProfile = { }
-        )
-    }
 }
 
 @Preview
@@ -504,16 +408,3 @@ fun DayHeaderDarkPrev() {
 }
 
 private val JumpToBottomThreshold = 56.dp
-
-class ConversationUiState(
-    val channelName: String,
-    val channelMembers: Int,
-    initialMessages: List<Message>
-) {
-    private val _messages: MutableList<Message> = initialMessages.toMutableStateList()
-    val messages: List<Message> = _messages
-
-    fun addMessage(msg: Message) {
-        _messages.add(0, msg) // Add to the beginning of the list
-    }
-}

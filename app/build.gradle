@@ -61,17 +61,21 @@ android {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
         jniLibs {
-            // libMNN.so 有两份：BV2 的 AAR 带一份（TTS 用，MNN_SEP_BUILD=ON，
-            // Express 拆在 libMNN_Express.so 里），SherpaMnn 带一份（ASR 用，
-            // SEP_BUILD=OFF 的合并版）。两者导出符号集不同，**不能互相替代** ——
-            // sherpa-mnn-jni 需要的 9 个 Express 符号不在 BV2 那份的 libMNN.so 里。
+            // libMNN.so 有两份：BV2 的 AAR 带一份（MNN_SEP_BUILD=ON，Express 拆在
+            // libMNN_Express.so 里），SherpaMnn 带一份（SEP_BUILD=OFF 的合并版）。
+            // 两份都编自同一个源码：Bert-VITS2-MNN/third_party/MNN。
             //
-            // 它们跑在不同进程（TTS 在主进程、ASR 在 :sherpa），各自 dlopen 自己的那份，
-            // 所以运行时不冲突；这里只是让打包阶段别因为同名而失败。
-            // 取 SherpaMnn 那份（符号是另一份的超集，TTS 侧仍从 libMNN_Express.so
-            // 取它需要的 Express 符号）。
+            // APK 里只能有一个 lib/arm64-v8a/libMNN.so，pickFirst 取 SherpaMnn 那份（导出符号是
+            // BV2 那份的超集）。**所以 TTS（主进程）和 ASR（:sherpa）运行时加载的是同一份**，
+            // 不是各用各的。换任何一边的 MNN 都要重新验符号，方法见 docs/v2-roadmap.md 第三节。
+            //
+            // 它必须是 16KB 对齐的：编法见 docs/v2-roadmap.md 第六节（-z max-page-size=16384）。
             pickFirsts += 'lib/arm64-v8a/libMNN.so'
         }
+    }
+    testOptions {
+        // 记忆层的 JVM 测试会走到 android.util.Log（失败日志），stub 默认抛 "not mocked"
+        unitTests.returnDefaultValues = true
     }
     namespace = 'com.chatwaifu.mobile'
 }
@@ -106,6 +110,8 @@ dependencies {
     // media3-common 只用 androidx.media3.common.audio 那一包做重采样和声道混合。
     // exifinterface 已经去掉——方向由 Coil 的 ExifOrientationPolicy.RESPECT_ALL 接管。
     implementation libs.coil.core
+    // 附件缩略图（Companion 输入条 / 历史）
+    implementation libs.coil.compose
     implementation libs.androidx.media3.common
     implementation libs.androidx.appcompat
     implementation libs.material

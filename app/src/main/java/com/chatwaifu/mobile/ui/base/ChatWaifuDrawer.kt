@@ -72,6 +72,7 @@ import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme
 @Composable
 fun ChatWaifuDrawerScaffold(
     drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+    initialSelection: NavigationItemType = NavigationItemType.TYPE_CHANNEL_LIST,
     onItemClicked: (NavigationItemType) -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -81,6 +82,7 @@ fun ChatWaifuDrawerScaffold(
             drawerContent = {
                 ModalDrawerSheet(modifier = Modifier.width(240.dp)) {
                     ChatWaifuDrawerContent(
+                        initialSelection = initialSelection,
                         onItemClicked = onItemClicked
                     )
                 }
@@ -96,12 +98,13 @@ fun ChatWaifuDrawerScaffold(
  */
 @Composable
 fun ChatWaifuDrawerContent(
+    initialSelection: NavigationItemType = NavigationItemType.TYPE_CHANNEL_LIST,
     onItemClicked: (NavigationItemType) -> Unit
 ) {
     // Use windowInsetsTopHeight() to add a spacer which pushes the drawer content
     // below the status bar (y-axis)
     var selectItem by rememberSaveable {
-        mutableStateOf(NavigationItemType.TYPE_CHANNEL_LIST)
+        mutableStateOf(initialSelection)
     }
     Column(
         modifier = Modifier
@@ -112,6 +115,13 @@ fun ChatWaifuDrawerContent(
         DrawerHeader()
         DividerItem()
         DrawerItemHeader(stringResource(id = R.string.drawer_function_list))
+        DrawerItem(
+            stringResource(id = R.string.drawer_item_companion),
+            false,
+            R.drawable.ic_drawer_character_list
+        ) {
+            onItemClicked(NavigationItemType.TYPE_COMPANION)
+        }
         DrawerItem(
             stringResource(id = R.string.drawer_item_channel_list),
             selectItem == NavigationItemType.TYPE_CHANNEL_LIST,

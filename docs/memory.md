@@ -1,7 +1,8 @@
 # 记忆分层
 
-> 状态：**Phase 0 + Phase 1 已落地**（2026/9/11），只过了编译和 lint，
-> **真机端到端未验证**。Phase 2 / 3 只列方向。
+> 状态：**Phase 0 ~ 3 均已落地**。Phase 0/1 写于 2026/9/11；2026/10/15 补上
+> L1 情节摘要、分层回忆（摘要 → 原文）、时间感、Anthropic 显式缓存，见第七、十节。
+> 抽取 / 摘要 / 工具循环有打真实网关的回归测试（`MemoryLiveTest` / `ProviderLiveTest`）。
 >
 > 相关文档：上下文裁剪在 [`chat-core.md`](chat-core.md) 的 `ContextBudget` 一节，
 > 存储层约定在 [`chat-storage.md`](chat-storage.md)。动这一层之前先看那两份。
@@ -317,10 +318,10 @@ sealed interface MemoryOp {
 
 **TTS 播报窗口为主，每 N 轮为闸门**，两者是「何时」和「是否」的关系：
 
-`mainLoop()` 在 `generateAndPlaySound()` **之前**把抽取扔进独立 scope，
-让它和 TTS 推理+播报并发。这个窗口是白送的——BV2 单句 RTF≈0.36，一段回复要播好几秒，
-这几秒里用户在听、主循环在 `fetchInput()` 挂起，而抽取是网络等待、TTS 是 CPU，
-两者重叠得很好。**不占首字延迟**。
+`CompanionRealResponseDriver` 在回复落库之后、等 TTS 播完之前把抽取扔进独立 scope，
+让它和 TTS 推理+播报并发。这个窗口是白送的——一段回复要播好几秒，
+这几秒里用户在听，而抽取是网络等待、TTS 是 CPU，两者重叠得很好。**不占首字延迟**。
+（2023 年的 `mainLoop()` 已在 T1 删除。）
 
 闸门：`turnsSinceLastRun >= MIN_TURNS`（起步值 3）才真的跑。一轮一次既浪费 token
 也没有信息量——单轮对话里能提取的稳定事实很少。
@@ -344,16 +345,133 @@ pin/unpin、手动新增。
 
 ---
 
-## 七、Phase 2 / 3 的方向（本轮不做）
+## 七、Phase 2 / 3：情节摘要与分层回忆（2026/10/15 落地）
 
-**L1 情节摘要**：按时间间隔切 session（gap > 3h 或 App 进后台封一段），
-每段一条摘要，带时间戳。同样**用角色第一人称写**，日记体。
-最近几条常驻 prompt，更老的走 L3 检索。
+### 7.1 三条拍板（和用户对齐过，不要再当开放问题）
 
-**L3 检索**：`LIKE` 扫 `chat_message`，命中的片段注在**最后一条 user 消息之前**
-（保住缓存前缀）。到这一步再评估要不要向量——如果那时 `LIKE` 已经慢到能测出来，
-`androidx.sqlite:sqlite-bundled` 那条路还在原地等着，而且届时是个孤立的性能改动，
-不和记忆功能的正确性纠缠。
+1. **切段 = 时间 + 条数结合**。间隔超过 3 小时就是两次聊天（日记感）；一段聊到
+   40 条还没断就先切一块（兜底 L0 淘汰：工作记忆最多 100 条，被挤出窗口的原文
+   一定已经写进了日记，不会出现「窗口里没有、日记里也没有」的空洞）
+2. **回忆分层**：摘要够用就不碰原文，需要原话时再顺着摘要去定位原文
+3. **她自己说过的话要记**——但记在日记（摘要层）里，不进 L2 事实层。
+   她答应过什么、你们的约定，是关系连续性的一部分；她随口编的胡话在摘要这一步
+   会被压成一句或者略掉，成本可控。L2 仍然只记对方的事实
+
+### 7.2 L1 情节摘要
+
+`memory_episode` 表（**DB v6**）：`characterId` + 消息区间 `[startMessageId, endMessageId]`
++ 时间 + 第一人称日记 `summary` + 检索用 `keywords`。
+
+- **消息区间是「回到原文的指针」不是外键**：删聊天记录不该连带删日记
+- **游标就是 `max(endMessageId)`**，不另存状态。摘要失败不插行，下次自然重试
+- **用户删日记是软删除**（summary 置空）：真删最新那行游标会回退，用户想忘掉的那段
+  又被重新写回来
+- 生成：`LlmEpisodeSummarizer`，和 L2 抽取同一个形状（无历史的一次性 `ChatSession`，
+  模型走 `SAVED_MEMORY_MODEL`）。**关键词要求用聊天里的原词**——它以后是拿去匹配用户原话的
+- 时机：每轮结束后（和 L2 一起在 TTS 窗口里）+ Companion 准备会话时（隔几小时再打开 App，
+  上一段在这时封存）。绝大多数时候没有可封存的段，只是一次本地查询
+
+### 7.3 分层回忆（原 L3）
+
+| 层 | 什么时候 | 怎么进上下文 | 成本 |
+|---|---|---|---|
+| 常驻 | 每轮 | 最近 3 篇日记跟 L2 事实一起在 system 区 | 进缓存前缀，几乎免费 |
+| 自动想起 | 用户原话里出现某篇老日记的关键词 | 附在本轮 user 消息前（最多 2 篇，带「回忆#id」） | 零往返 |
+| 搜日记 | 模型觉得该记得但上面都没有 | 工具 `search_memories(query)` | 一次往返 |
+| 读原文 | 摘要说不清、需要原话 | 工具 `read_original(episode_id)` | 一次往返 |
+
+**自动想起的匹配方向是反的**：拿日记的关键词去原话里 `contains`，而不是从原话里切词去搜。
+中文不分词时从原话切不出靠谱的检索词，而关键词是摘要时用原词挑好的。
+仍然是 `LIKE` 级别的子串匹配，不上 FTS（4.3）。
+
+**工具只在需要时才付延迟**。最常见的「她记得上次聊过的事」由前两层覆盖，零往返；
+工具那两层模型自己判断要不要用。工具循环在 `ChatSession` 里（`ToolHandler`），
+中间的 tool_use / tool_result **不进历史**，下一轮前缀不变。
+`read_original` 校验回忆归属当前角色（id 是模型给的，不校验就能读到别的角色的记录）。
+模型不支持工具调用时（`capabilitiesFor(model).toolCalling == false`）不声明工具，只剩前两层。
+
+### 7.4 时间感
+
+每轮附在 user 消息前的备注（`CompanionTurnContext`，实现 `ChatCore` 的 `TurnContextContributor`）：
+
+```
+（系统备注，不是对方说的话）现在是 10月15日 周三 23:10，距离上次聊天过去了 4 天。
+你想起了以前的事：
+- [回忆#12 · 9月3日] ……
+```
+
+每轮都不同，所以**不能放 system 区**。备注生成后**跟着那条消息留在会话历史里**、以后原样重发：
+只在当前轮临时拼上的话，上一轮写进缓存的前缀（带备注）和这一轮（不带）对不上，
+滚动缓存每轮被打穿。备注不进 `snapshot()`——落库和记忆抽取看到的仍是原话。
+
+### 7.5 Anthropic 显式缓存
+
+三家里只有 Anthropic 要显式打 `cache_control`，之前一处都没打，**分块淘汰在这一家的收益是零**。
+现在每个请求两个断点：system 末尾（人设 + 记忆）+ 最后一条消息末尾（滚动）。
+实测（`ProviderLiveTest`，~5k token 人设）：第 2、3 轮 `cachedTokens` ≈ 4.9k。
+顺带把 Anthropic 的 `promptTokens` 统一成「含缓存」的口径（它的 `input_tokens` 不含缓存读写）。
+
+### 7.6 对照 Hermes Agent / OpenClaw 补的四条（2026/10/16）
+
+读过两家源码（本地在 `_ref/`，不入库）。它们是助理型，记任务进度 / 决策 / 命令，
+检索偏精确字符串，**整体不照搬**；但下面四条工程做法通用，已经落地：
+
+1. **会话内冻结记忆块**（抄 Hermes 的 frozen snapshot）。抽取写入事实后**不再**让记忆块失效，
+   只在准备会话、新日记封存时刷新。改之前每 3 轮抽一次就把 system 区改一次，Claude 的缓存
+   从头写一遍。刚抽出的事实来自眼前的对话，原文还在工作记忆里，冻结不丢信息。
+   模拟器实测（5 轮，第 3 轮后抽取写了 5 条事实）：第 2~5 轮 `cached` 依次
+   2035 / 2229 / 2489 / 2730，抽取前后都没断
+2. **Claude 缓存有效期 1h**（Hermes 对「人在打字的会话」的选择）。陪伴聊天两句之间
+   常超过 5 分钟。写入 2×（原 1.25×），读 0.1× 不变
+3. **抽取写陈述事实不写指令**（Hermes 的记忆指引）：「喜欢被叫小林」✓「以后都要叫他小林」✗。
+   后者注进 system 区等于变相改人设。`MemoryLiveTest` 守着
+4. **单批最多删 2 条**（OpenClaw dreaming 单次最多移除 25%）。删除是唯一不可逆的操作
+
+刻意没借的：OpenClaw 的压缩前 memory flush（我们靠「40 条一段 < 工作记忆 100 条」兜底，
+不用多跑一轮）、向量 + BM25 混合检索（陪伴场景「换个说法也要想起」确实是现在关键词匹配的弱点，
+但 OpenClaw 自己在没有 embedding 时退化成纯关键词，说明这条路可以以后孤立地加）、
+Skills / 群聊隔离 / 多 profile（场景不需要）。
+
+**网关的一个坑**：AthenAI 会把同一个 Claude 模型路由到不同后端（直连 / Bedrock），
+缓存不跨后端共享，偶尔会有一轮 `cached=0`。不是我们的 bug，`ProviderLiveTest` 的断言已放宽。
+
+### 7.7 第二轮：换说法召回、约定、自我设定、便宜模型、长程评测（2026/10/16）
+
+**换说法也能想起（便宜版）**：写日记时关键词 = 原词 + 别名 / 上位词
+（「豆豆」→「橘猫」「猫」「宠物」），上限 12 → 16。零额外调用，替代向量检索的第一步。
+
+**L2 分三类**（`memory_fact.subject`，**DB v7**，`MIGRATION_6_7` 加 `subject` / `dueAt`）：
+
+| subject | 记什么 | 注入 |
+|---|---|---|
+| `USER` | 对方的长期事实（原来的 L2） | 【你记得关于对方的这些事】 |
+| `PROMISE` | 双方约定、她答应过的事、待跟进；能推算日子的带 `dueAt` | 【你们之间的约定……做完了就不用再提】 |
+| `SELF` | 她在聊天里给自己定的设定（「我喜欢晴天」） | 【你自己说过的关于自己的事（和人设冲突时以人设为准）】 |
+
+- 三类共用 `(characterId, slot)` 唯一索引，抽取指令里让 SELF 的 slot 以「我的」开头、
+  PROMISE 以「约定：」开头，避免撞名
+- 抽取器拿到「今天是哪天」，把「下周一」换算成 `due`；换算不了就不给，不丢整条
+- **到期提醒**：`dueAt` 落在 ±36 小时内的约定，在本轮备注里点一句「找个自然的时机提起」，
+  **每个约定每次会话只提醒一次**。完成 / 取消后由抽取器 delete（受单批删除上限约束）
+
+**记忆模型默认取便宜档**：设置页的记忆模型空着时，不再跟随主模型，而是用这家标了
+`ModelInfo.cheap` 的那一档（Claude → Haiku 5.5、Gemini → Flash Lite、OpenAI → nano、
+兼容基座 → `deepseek-v4-flash`）。兼容基座只在主模型本身是 deepseek 时才换——
+它对面是什么服务由用户决定，对着 Ollama 发 `deepseek-v4-flash` 只会 404。
+`ModelInfo.requestExtras` 让 V4 flash 默认带 `thinking: disabled`（不关的话每次先吐一大段推理）。
+
+**长程评测 `LongHorizonMemoryLiveTest`**：整套记忆组件按 App 的接法串起来，虚拟时钟回放
+「12 次会话、跨 45 天」的剧本（自我介绍 → 面试 → 拿 offer → 约好入职唱歌 → 搬家 → 入职），
+一周后开新会话抽查 9 项（名字 / 城市 / 宠物 / 换说法召回 / 喜好 / 约定 / 面试日期 / 住处 /
+自我设定一致）。全程 `deepseek-v4-flash`，一次约 80 秒。门槛 3/4。
+
+调出来的两个问题：
+1. 抽取在改写已有槽位时会把日期弄丢（「9月10号面试」被重写成「9月11号」）→ 指令加
+   「更新时保留仍然成立的细节」
+2. 隔了一周再来，她会只顾着说「一周没声了」而不回答问题（5~6 / 9）→ 备注里加
+   「先回应对方这句话本身，时间是背景不是话题」，之后 7~9 / 9
+
+### 7.8 遗留
 
 **遗忘**：`importance × 时间衰减 × 命中次数` 的综合打分（Stanford generative agents
 那套）。等事实库真的长到几百条、`memoryTokens` 明显不够分的时候再说。
@@ -386,6 +504,20 @@ Phase 1：
 - [x] `mainLoop()` 在 `generateAndPlaySound()` 前 fire-and-forget
 - [x] `nav_memory` 页面 + Drawer 入口 + 改写后让注入缓存失效
 
+Phase 2 / 3（2026/10/15）：
+
+- [x] `Log`：`MemoryEpisode` / `EpisodeRepository` + `MemoryEpisodeEntity` / `Dao` /
+      `RoomEpisodeRepository`；`MIGRATION_5_6`，DB 5 → 6，schema 6.json 已导出；
+      `ChatLogRepository` 加 `getChatLogAfter` / `getChatLogRange`
+- [x] `EpisodeSegmenter`（时间 + 条数）、`LlmEpisodeSummarizer`、`EpisodeConsolidator`（游标 + 软删除）
+- [x] `MemoryBlockContributor`（原 `FactMemoryContributor`）：事实 + 最近 3 篇日记，
+      `DEFAULT_MEMORY_TOKENS` 600 → 1200
+- [x] `ChatCore`：`TurnContextContributor`（备注随消息留在历史）、`ToolHandler` + 会话内工具循环、
+      `ChatSession.dropLast()`（重试不再整段 restore，保住备注和裁剪起点）
+- [x] `CompanionTurnContext`（时间感 + 自动想起）、`MemoryRecallTools`（搜日记 / 读原文）
+- [x] Anthropic `cache_control` 两个断点
+- [x] 记忆页加「日记」一节（改摘要 / 删除）；删角色时连日记一起清
+
 ### 施工中做的两个补充决定
 
 **手动添加的事实默认 `pinned = true`**。用户特意敲进来的东西，不该被抽取器
@@ -398,6 +530,16 @@ Phase 1：
 会换掉自增 id、丢掉 `createdAt` 和用户设的 `pinned`，还会触发外键动作。
 
 ## 九、验证
+
+**2026/10/15 补的回归**（`ATHENAI_KEY` 环境变量存在时才跑）：
+
+- `app` 的 `MemoryLiveTest`（Haiku 5.5）：北京 → 上海收敛成一条 ✓；养猫事实在「送给妹妹」后失效 ✓；
+  纯闲聊不长事实 ✓；日记记下「我答应入职那天给对方唱歌」，关键词含「杭州」「面试」原词 ✓
+- `ChatCore` 的 `ProviderLiveTest`：四种协议的会话工具循环都能跑通；Anthropic 第 2 轮起命中缓存
+- 不走网络的：`EpisodeMemoryTest`（切段 / 游标 / 软删除不复写 / 自动想起 / 工具不串台）、
+  `ChatSessionTest`（备注随历史重发、不进 snapshot、工具循环）
+
+以下是 Phase 1 当时的记录：
 
 已经过的：`assembleDebug` 通过；`:app:lintDebug` **0 error / 196 warning，
 和不含本功能的基线完全一致**（stash 后重跑对比过），零新增；

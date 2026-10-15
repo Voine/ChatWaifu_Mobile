@@ -41,13 +41,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.chatwaifu.log.MemoryEpisode
 import com.chatwaifu.log.MemoryFact
+import com.chatwaifu.log.MemorySubject
 import com.chatwaifu.mobile.R
+import com.chatwaifu.mobile.data.memory.MemoryTime
 import com.chatwaifu.mobile.ui.common.ChannelNameBar
 import com.chatwaifu.mobile.ui.setting.SettingEditText
 
 /**
- * Description: 记忆页。列出当前角色的 L2 事实，可编辑 / 删除 / 固定 / 手动新增。
+ * Description: 记忆页。两段：L2 事实（可编辑 / 删除 / 固定 / 手动新增）和
+ * L1 日记（可改摘要 / 删除，不能手动新增——日记是从聊天里写出来的）。
  *
  * 这一页同时是**记忆系统唯一的可观测面**：抽取记错了、记重了、该忘的没忘，
  * 只能在这里看出来。见 docs/memory.md 6.6。
@@ -65,10 +69,13 @@ fun MemoryContent(
     onDelete: (MemoryFact) -> Unit = {},
     onTogglePinned: (MemoryFact) -> Unit = {},
     onAdd: (String, String) -> Unit = { _, _ -> },
+    onUpdateEpisode: (MemoryEpisode, String) -> Unit = { _, _ -> },
+    onDeleteEpisode: (MemoryEpisode) -> Unit = {},
 ) {
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
     var pendingDelete by remember { mutableStateOf<MemoryFact?>(null) }
+    var pendingEpisodeDelete by remember { mutableStateOf<MemoryEpisode?>(null) }
     var showAdd by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -99,16 +106,37 @@ fun MemoryContent(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (uiState.facts.isEmpty()) {
+            if (uiState.facts.isEmpty() && uiState.episodes.isEmpty()) {
                 EmptyHint()
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
-                    items(uiState.facts, key = { it.id }) { fact ->
-                        FactRow(
-                            fact = fact,
-                            onUpdateContent = { onUpdateContent(fact, it) },
-                            onDelete = { pendingDelete = fact },
-                            onTogglePinned = { onTogglePinned(fact) },
+                    FACT_SECTIONS.forEach { (subject, title) ->
+                        val group = uiState.facts.filter { it.subject == subject }
+                        if (group.isNotEmpty()) {
+                            item(key = "facts_header_${subject.name}") {
+                                SectionHeader(stringResource(id = title))
+                            }
+                        }
+                        items(group, key = { "fact_${it.id}" }) { fact ->
+                            FactRow(
+                                fact = fact,
+                                onUpdateContent = { onUpdateContent(fact, it) },
+                                onDelete = { pendingDelete = fact },
+                                onTogglePinned = { onTogglePinned(fact) },
+                            )
+                            HorizontalDivider()
+                        }
+                    }
+                    if (uiState.episodes.isNotEmpty()) {
+                        item(key = "diary_header") {
+                            SectionHeader(stringResource(id = R.string.memory_section_diary))
+                        }
+                    }
+                    items(uiState.episodes, key = { "episode_${it.id}" }) { episode ->
+                        EpisodeRow(
+                            episode = episode,
+                            onUpdateSummary = { onUpdateEpisode(episode, it) },
+                            onDelete = { pendingEpisodeDelete = episode },
                         )
                         HorizontalDivider()
                     }
@@ -136,6 +164,32 @@ fun MemoryContent(
         )
     }
 
+    pendingEpisodeDelete?.let { episode ->
+        AlertDialog(
+            onDismissRequest = { pendingEpisodeDelete = null },
+            title = { Text(stringResource(id = R.string.memory_delete_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        id = R.string.memory_episode_delete_message,
+                        MemoryTime.dayLabel(episode.endedAt),
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteEpisode(episode)
+                    pendingEpisodeDelete = null
+                }) { Text(stringResource(id = R.string.memory_delete_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingEpisodeDelete = null }) {
+                    Text(stringResource(id = R.string.memory_cancel))
+                }
+            },
+        )
+    }
+
     if (showAdd) {
         AddFactDialog(
             onDismiss = { showAdd = false },
@@ -157,7 +211,9 @@ private fun FactRow(
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = fact.slot,
+                text = fact.dueAt?.let {
+                    fact.slot + " · " + stringResource(id = R.string.memory_due, MemoryTime.dayLabel(it))
+                } ?: fact.slot,
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -195,6 +251,70 @@ private fun FactRow(
                 initValue = fact.content,
                 hint = stringResource(id = R.string.memory_content_hint),
                 onValueChanged = onUpdateContent,
+            )
+        }
+    }
+}
+
+/** 记忆页的分节顺序，和注入 system 区的顺序一致 */
+private val FACT_SECTIONS = listOf(
+    MemorySubject.USER to R.string.memory_section_facts,
+    MemorySubject.PROMISE to R.string.memory_section_promises,
+    MemorySubject.SELF to R.string.memory_section_self,
+)
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun EpisodeRow(
+    episode: MemoryEpisode,
+    onUpdateSummary: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                // 编号和模型看到的「回忆#12」一致，排查「她为什么想起这件事」时能对上
+                text = stringResource(
+                    id = R.string.memory_episode_title,
+                    MemoryTime.dayLabel(episode.endedAt),
+                    episode.id,
+                ),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(id = R.string.memory_delete),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        key(episode.updatedAt) {
+            SettingEditText(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                initValue = episode.summary,
+                hint = stringResource(id = R.string.memory_episode_hint),
+                onValueChanged = onUpdateSummary,
+            )
+        }
+        if (episode.keywordList.isNotEmpty()) {
+            Text(
+                text = episode.keywordList.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }

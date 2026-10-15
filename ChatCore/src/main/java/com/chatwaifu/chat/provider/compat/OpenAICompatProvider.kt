@@ -57,7 +57,6 @@ class OpenAICompatProvider(
     override val id: ProviderId = ProviderId.OPENAI_COMPAT,
     override val displayName: String = "OpenAI 兼容",
     override val availableModels: List<ModelInfo> = DEFAULT_MODELS,
-    override val defaultModel: String = FALLBACK_MODEL,
     override val capabilities: ProviderCapabilities = DEFAULT_CAPABILITIES,
 ) : ChatProvider {
 
@@ -143,9 +142,12 @@ class OpenAICompatProvider(
 
     // ---------------- 请求映射 ----------------
 
-    private fun buildRequestJson(request: ChatRequest, stream: Boolean): String {
+    internal fun buildRequestJson(request: ChatRequest, stream: Boolean = true): String {
         val root = JsonObject()
-        root.addProperty("model", request.model ?: defaultModel)
+        // 局域网服务清单为空、用户也没填时不发 model：llama.cpp / vLLM 会用自己加载的那个，
+        // 发个空串或者瞎猜一个名字反而会被拒
+        (request.model ?: defaultModel).takeIf { it.isNotBlank() }
+            ?.let { root.addProperty("model", it) }
         root.add("messages", buildMessages(request))
 
         request.maxOutputTokens?.let { root.addProperty("max_tokens", it) }
@@ -163,6 +165,9 @@ class OpenAICompatProvider(
             // 不加这个大多数实现不会在流里回 usage
             root.add("stream_options", JsonObject().apply { addProperty("include_usage", true) })
         }
+        // 模型专属字段先合，请求自己的 extras 后合（后者优先）
+        availableModels.firstOrNull { it.id == (request.model ?: defaultModel) }
+            ?.let { mergeExtras(root, it.requestExtras) }
         mergeExtras(root, request.extras)
         return root.toString()
     }
@@ -341,8 +346,6 @@ class OpenAICompatProvider(
         /** 改造前 ChatGPTNetService 里内置的那个代理地址，迁过来保持可用。 */
         const val LEGACY_PROXY_BASE_URL = "https://api.openai-proxy.com/"
 
-        private const val FALLBACK_MODEL = "gpt-4o-mini"
-
         /**
          * 这个 provider 的对端是什么服务完全由用户决定，所以能力只能按「协议保证的部分」声明。
          * 想开图片输入之类的，构造时自己传 [capabilities] 覆盖。
@@ -362,12 +365,19 @@ class OpenAICompatProvider(
 
         /**
          * 只是设置页下拉框的默认候选，不是白名单 —— 用户可以直接手填任意模型名。
-         * 本地服务的模型名（`qwen3:8b` 之类）不可能穷举。
+         * 本地服务的模型名（`qwen3:8b` 之类）不可能穷举。**第一个是默认模型**。
          */
         val DEFAULT_MODELS = listOf(
-            ModelInfo("gpt-4o-mini", "gpt-4o-mini", 128_000, supportsImageInput = true, note = "便宜"),
-            ModelInfo("gpt-4o", "gpt-4o", 128_000, supportsImageInput = true),
+            ModelInfo("gpt-5.4-mini", "GPT-5.4 mini", 400_000, supportsImageInput = true, note = "默认"),
+            ModelInfo("gpt-5.4", "GPT-5.4", 400_000, supportsImageInput = true),
             ModelInfo("deepseek-chat", "DeepSeek Chat", 64_000),
+            // V4 flash 默认开思考（reasoning_content 里先吐一大段），陪伴聊天和记忆抽取都不需要，
+            // 关掉之后首字快、token 少一个数量级。要思考的话请求自己的 extras 可以覆盖
+            ModelInfo(
+                "deepseek-v4-flash", "DeepSeek V4 Flash", 128_000,
+                note = "便宜", cheap = true,
+                requestExtras = mapOf("thinking" to mapOf("type" to "disabled")),
+            ),
         )
     }
 }

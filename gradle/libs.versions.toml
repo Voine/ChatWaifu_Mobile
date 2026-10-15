@@ -122,9 +122,10 @@ compose-ui-viewbinding = { module = "androidx.compose.ui:ui-viewbinding" }
 
 # --- third party ---
 # coil-core 只要解码能力（ImageLoader / ImageRequest / Decoder 链）。
-# 附件缩略图那步 UI 要另加 coil-compose；动图和视频帧的 Decoder 在 coil-gif / coil-video 里，
+# coil-compose 给附件缩略图（AsyncImage）。动图和视频帧的 Decoder 在 coil-gif / coil-video 里，
 # 当前都不需要——归一化后落盘的就是静态 JPEG/PNG，UI 直接显示那份文件。
 coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 
 # BV2 端内 TTS。三个都要显式声明，因为源码里直接 import 了它们的类型：
 # - infer-wrapper: BertVITS2FullInferImpl / IBertVITS2FullInfer

@@ -86,3 +86,5 @@ lint/tmp/
 .DS_Store
 .idea
 app/release
+# 本地参考用的第三方仓库（记忆设计调研），不入库
+/_ref/

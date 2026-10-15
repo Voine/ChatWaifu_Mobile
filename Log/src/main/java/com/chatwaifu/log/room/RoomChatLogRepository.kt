@@ -45,6 +45,18 @@ class RoomChatLogRepository(context: Context) : ChatLogRepository {
         limit: Int,
     ): List<ChatLogEntry> = dao.loadOlder(characterId, beforeId, limit).map { it.toDomain() }
 
+    override suspend fun getChatLogAfter(
+        characterId: String,
+        afterId: Long,
+        limit: Int,
+    ): List<ChatLogEntry> = dao.loadAfter(characterId, afterId, limit).map { it.toDomain() }
+
+    override suspend fun getChatLogRange(
+        characterId: String,
+        fromId: Long,
+        toId: Long,
+    ): List<ChatLogEntry> = dao.loadRange(characterId, fromId, toId).map { it.toDomain() }
+
     override fun observeChatLog(characterId: String, limit: Int): Flow<List<ChatLogEntry>> =
         dao.observeRecent(characterId, limit).map { rows -> rows.map { it.toDomain() } }
 

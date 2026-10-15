@@ -23,7 +23,7 @@ enum class ProviderId(val key: String) {
     /** Anthropic Messages API（`POST /v1/messages`）。 */
     ANTHROPIC("anthropic"),
 
-    /** Google Gemini Interactions API。 */
+    /** Google Gemini（`streamGenerateContent`，为什么不是 Interactions 见 GeminiProvider 类注释）。 */
     GOOGLE("google"),
 
     /** 端内推理。 */

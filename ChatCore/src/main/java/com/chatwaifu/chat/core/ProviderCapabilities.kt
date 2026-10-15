@@ -61,7 +61,21 @@ data class ModelInfo(
     val supportsFileInput: Boolean = supportsImageInput,
     /** 供 UI 打标，比如「便宜」「最强」。 */
     val note: String? = null,
+    /**
+     * 这家最便宜的一档。记忆抽取 / 写日记这类结构化小活没单独配模型时用它，
+     * 而不是跟着主模型按 Sonnet / Opus 计费。见 [cheapModel]
+     */
+    val cheap: Boolean = false,
+    /**
+     * 这个模型专属的请求体字段，原样合进请求顶层（和 [ChatRequest.extras] 一个机制，
+     * 请求自己的 extras 优先）。比如 DeepSeek V4 默认开思考，陪伴聊天要 `thinking: disabled`
+     */
+    val requestExtras: Map<String, Any?> = emptyMap(),
 )
+
+/** 这家标了 [ModelInfo.cheap] 的那一档；没有就 null（调用方回落到主模型） */
+val ChatProvider.cheapModel: String?
+    get() = availableModels.firstOrNull { it.cheap }?.id
 
 /**
  * 把 provider 级能力和**具体模型**的能力取交集。

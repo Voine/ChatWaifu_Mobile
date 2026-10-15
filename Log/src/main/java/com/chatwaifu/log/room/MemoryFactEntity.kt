@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.chatwaifu.log.MemoryFact
+import com.chatwaifu.log.MemorySubject
 
 /**
  * Description: [MemoryFact] 的 Room 实体。**不跨模块边界**，和 room 包里其余类型一样 internal。
@@ -48,6 +49,9 @@ internal data class MemoryFactEntity(
     @ColumnInfo(defaultValue = "0")
     val pinned: Boolean = false,
     val sourceMessageId: Long? = null,
+    @ColumnInfo(defaultValue = "USER")
+    val subject: String = MemorySubject.USER.name,
+    val dueAt: Long? = null,
     val createdAt: Long,
     val updatedAt: Long,
 )
@@ -60,6 +64,9 @@ internal fun MemoryFactEntity.toDomain(): MemoryFact = MemoryFact(
     importance = importance,
     pinned = pinned,
     sourceMessageId = sourceMessageId,
+    // 认不出的值（将来加了新类别又降级回来）当成 USER，别让一行坏数据弄崩整个记忆页
+    subject = MemorySubject.entries.firstOrNull { it.name == subject } ?: MemorySubject.USER,
+    dueAt = dueAt,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -72,6 +79,8 @@ internal fun MemoryFact.toEntity(): MemoryFactEntity = MemoryFactEntity(
     importance = importance,
     pinned = pinned,
     sourceMessageId = sourceMessageId,
+    subject = subject.name,
+    dueAt = dueAt,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

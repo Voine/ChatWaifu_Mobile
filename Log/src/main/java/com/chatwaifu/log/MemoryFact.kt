@@ -41,6 +41,15 @@ data class MemoryFact(
     /** 来源消息，可溯源。消息被删时置 null，不影响本行 */
     val sourceMessageId: Long? = null,
 
+    /** 这条记的是谁 / 什么，决定注入时进哪一节。见 [MemorySubject] */
+    val subject: MemorySubject = MemorySubject.USER,
+
+    /**
+     * 只对 [MemorySubject.PROMISE] 有意义：大致到期时间（epoch ms），null = 没说具体哪天。
+     * 到期前后注入时会被标成「该提起了」
+     */
+    val dueAt: Long? = null,
+
     val createdAt: Long,
     val updatedAt: Long,
 ) {
@@ -50,4 +59,27 @@ data class MemoryFact(
         /** slot 的长度上限。模型偶尔会吐出一整句话当 slot，截断以免把索引撑坏 */
         const val MAX_SLOT_LENGTH = 64
     }
+}
+
+/**
+ * 事实的三类主体。共用一张表、一套 upsert / pin / 删除规则，只在注入时分节。
+ *
+ * 存 `name` 不存 ordinal（工程约定，见 ChatMessageEntity）。
+ */
+enum class MemorySubject {
+    /** 关于对方：名字、职业、宠物、喜恶。L2 最初就只有这一类 */
+    USER,
+
+    /**
+     * 关于「我」（角色）自己在聊天里即兴定下的设定：「我最喜欢下雨天」「我不会做饭」。
+     * 不记的话下次被问到可能给出不一样的答案，人设就漂了。
+     * 和人设 prompt 冲突时以人设为准（注入时有说明）
+     */
+    SELF,
+
+    /**
+     * 双方的约定和待跟进：「入职那天我给对方唱歌」「问问豆豆喜不喜欢新罐头」。
+     * 完成或者失效后由抽取器删掉（受单批删除上限约束）
+     */
+    PROMISE,
 }

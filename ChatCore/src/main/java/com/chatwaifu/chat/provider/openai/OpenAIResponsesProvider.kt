@@ -63,7 +63,6 @@ class OpenAIResponsesProvider(
     override val displayName: String = "OpenAI"
     override val capabilities: ProviderCapabilities = CAPABILITIES
     override val availableModels: List<ModelInfo> = MODELS
-    override val defaultModel: String = DEFAULT_MODEL
 
     private val http = StreamingHttpClient(config) {
         val key = config.apiKey?.takeIf { it.isNotBlank() }
@@ -378,8 +377,6 @@ class OpenAIResponsesProvider(
     companion object {
         const val DEFAULT_BASE_URL = "https://api.openai.com/"
 
-        private const val DEFAULT_MODEL = "gpt-5.4-mini"
-
         val CAPABILITIES = ProviderCapabilities(
             streaming = true,
             imageInput = true,
@@ -399,13 +396,13 @@ class OpenAIResponsesProvider(
             maxContextTokens = 400_000,
         )
 
-        /** 设置页下拉框的默认候选，用户可以手填任意模型名。 */
+        /** 设置页下拉框的默认候选，用户可以手填任意模型名。**第一个是默认模型**。 */
         val MODELS = listOf(
             ModelInfo("gpt-5.4-mini", "GPT-5.4 mini", 400_000, supportsImageInput = true, note = "默认"),
             ModelInfo("gpt-5.4", "GPT-5.4", 400_000, supportsImageInput = true),
             ModelInfo("gpt-5.6-luna", "GPT-5.6 luna", 400_000, supportsImageInput = true),
             ModelInfo("gpt-5.6-sol", "GPT-5.6 sol", 400_000, supportsImageInput = true, note = "最强"),
-            ModelInfo("gpt-4o-mini", "GPT-4o mini", 128_000, supportsImageInput = true, note = "便宜"),
+            ModelInfo("gpt-5.4-nano", "GPT-5.4 nano", 400_000, supportsImageInput = true, note = "便宜", cheap = true),
         )
     }
 }

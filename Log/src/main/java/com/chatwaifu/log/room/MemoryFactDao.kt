@@ -34,7 +34,8 @@ internal interface MemoryFactDao {
         """
         update memory_fact
         set content = :content, importance = :importance,
-            sourceMessageId = :sourceMessageId, updatedAt = :updatedAt
+            sourceMessageId = :sourceMessageId, subject = :subject, dueAt = :dueAt,
+            updatedAt = :updatedAt
         where id = :id
         """
     )
@@ -43,6 +44,8 @@ internal interface MemoryFactDao {
         content: String,
         importance: Int,
         sourceMessageId: Long?,
+        subject: String,
+        dueAt: Long?,
         updatedAt: Long,
     )
 
@@ -81,6 +84,8 @@ internal interface MemoryFactDao {
                 content = fact.content,
                 importance = fact.importance,
                 sourceMessageId = fact.sourceMessageId,
+                subject = fact.subject,
+                dueAt = fact.dueAt,
                 updatedAt = fact.updatedAt,
             )
         }

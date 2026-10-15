@@ -29,7 +29,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +47,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chatwaifu.mobile.R
+import androidx.compose.foundation.layout.size
 
 @Composable
 fun CompanionHistorySheet(
@@ -91,12 +96,27 @@ fun CompanionHistorySheet(
                         )
                     }
                 } else {
+                    // 打开时停在最新一条：列表是时间正序，最新的在底部
+                    val listState = rememberLazyListState(
+                        initialFirstVisibleItemIndex = state.history.lastIndex.coerceAtLeast(0),
+                    )
+                    // 第一条可见 = 滑到顶了，往前翻一页
+                    val atTop by remember {
+                        derivedStateOf { listState.firstVisibleItemIndex == 0 }
+                    }
+                    LaunchedEffect(atTop, state.hasOlderHistory, state.history.size) {
+                        if (atTop && state.hasOlderHistory) onEvent(CompanionEvent.LoadOlderHistory)
+                    }
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxSize()
                             .navigationBarsPadding(),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
+                        if (state.loadingOlderHistory) {
+                            item(key = "loading_older") { LoadingOlderRow() }
+                        }
                         items(state.history, key = { it.id }) { item ->
                             HistoryItem(item)
                         }
@@ -177,6 +197,30 @@ private fun HistoryHandle(
 }
 
 @Composable
+private fun LoadingOlderRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            color = Color.White.copy(alpha = 0.58f),
+            strokeWidth = 1.5.dp,
+        )
+        Text(
+            stringResource(R.string.companion_history_loading_older),
+            modifier = Modifier.padding(start = 8.dp),
+            color = Color.White.copy(alpha = 0.58f),
+            fontFamily = FontFamily.SansSerif,
+            fontSize = 12.sp,
+        )
+    }
+}
+
+@Composable
 private fun HistoryItem(item: CompanionHistoryItem) {
     val isUser = item.author == CompanionAuthor.USER
     Row(
@@ -192,11 +236,23 @@ private fun HistoryItem(item: CompanionHistoryItem) {
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
         ) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(
-                    item.text,
-                    color = Color.White.copy(alpha = 0.90f),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                if (item.attachments.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.padding(bottom = if (item.text.isBlank()) 0.dp else 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        item.attachments.forEach { attachment ->
+                            AttachmentThumb(attachment, size = 72.dp)
+                        }
+                    }
+                }
+                if (item.text.isNotBlank()) {
+                    Text(
+                        item.text,
+                        color = Color.White.copy(alpha = 0.90f),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
                 Text(
                     text = item.time,
                     modifier = Modifier.align(Alignment.End),

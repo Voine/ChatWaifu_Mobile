@@ -18,6 +18,8 @@ import androidx.room.RoomDatabase
  *   见 [Migrations.MIGRATION_3_4] 和 docs/media-pipeline.md
  * - v5（2026）：新增 `memory_fact` 表（L2 长期记忆）。见 [Migrations.MIGRATION_4_5]
  *   和 docs/memory.md
+ * - v6（2026）：新增 `memory_episode` 表（L1 情节摘要）。见 [Migrations.MIGRATION_5_6]
+ * - v7（2026）：`memory_fact` 加 `subject` / `dueAt`（关于我自己、约定待跟进）。见 [Migrations.MIGRATION_6_7]
  *
  * **刻意不加 `fallbackToDestructiveMigration()`**：聊天记录是用户资产，
  * 宁可升级时抛一个能被发现的异常，也不要静默清空。
@@ -26,8 +28,13 @@ import androidx.room.RoomDatabase
  * Date: 2023/3/13
  */
 @Database(
-    version = 5,
-    entities = [ChatMessageEntity::class, AttachmentEntity::class, MemoryFactEntity::class],
+    version = 7,
+    entities = [
+        ChatMessageEntity::class,
+        AttachmentEntity::class,
+        MemoryFactEntity::class,
+        MemoryEpisodeEntity::class,
+    ],
     exportSchema = true,
 )
 internal abstract class ChatDatabase : RoomDatabase() {
@@ -35,6 +42,8 @@ internal abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
 
     abstract fun memoryFactDao(): MemoryFactDao
+
+    abstract fun memoryEpisodeDao(): MemoryEpisodeDao
 
     companion object {
         private const val DB_NAME = "chat_log"

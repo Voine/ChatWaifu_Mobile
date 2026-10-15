@@ -6,11 +6,6 @@
     app:startDestination="@+id/nav_channel_list">
 
     <fragment
-        android:id="@+id/nav_chat"
-        android:name="com.chatwaifu.mobile.ui.chat.ChatFragment"
-        tools:layout="@layout/fragment_home" />
-
-    <fragment
         android:id="@+id/nav_channel_list"
         android:name="com.chatwaifu.mobile.ui.channellist.ChannelListFragment"
         tools:layout="@layout/fragment_channel_list" />

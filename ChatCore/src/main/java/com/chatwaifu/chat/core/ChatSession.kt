@@ -1,5 +1,6 @@
 package com.chatwaifu.chat.core
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -32,9 +33,21 @@ class ChatSession(
      * [MemoryContributor] 的 KDoc）。
      */
     var memory: MemoryContributor? = null,
+
+    /** 每轮附在用户消息上的备注（时间、自动想起的往事）。见 [TurnContextContributor] */
+    var turnContext: TurnContextContributor? = null,
+
+    /** 会话自己跑工具循环。null = 不声明工具。见 [ToolHandler] */
+    var tools: ToolHandler? = null,
 ) {
 
     private val history = mutableListOf<ChatMessage>()
+
+    /**
+     * history 下标 → 这条 user 消息生成时附上的备注。和 history 平行存，不混进消息本身：
+     * [snapshot] 要给出原话（落库、记忆抽取都不该看到备注），只在组装请求时合进去。
+     */
+    private val turnNotes = HashMap<Int, String>()
 
     /**
      * 上一轮裁剪用的历史起点，喂回 [ContextBudget.trim] 让前缀保持粘性。
@@ -47,13 +60,28 @@ class ChatSession(
         history.clear()
         history.addAll(messages)
         historyStart = 0
+        turnNotes.clear()
     }
 
     fun snapshot(): List<ChatMessage> = history.toList()
 
+    /**
+     * 撤掉最后一条（重试前去掉上一次的 user 输入、或者丢掉一条空回复）。
+     *
+     * 和 `restore(snapshot().dropLast(1))` 的区别：保留其余消息的备注和裁剪起点，
+     * 前缀不变，缓存不会因为一次重试整段作废。
+     */
+    fun dropLast() {
+        if (history.isEmpty()) return
+        turnNotes.remove(history.lastIndex)
+        history.removeAt(history.lastIndex)
+        historyStart = historyStart.coerceAtMost(maxOf(0, history.size - 1))
+    }
+
     fun clear() {
         history.clear()
         historyStart = 0
+        turnNotes.clear()
     }
 
     /**
@@ -66,34 +94,99 @@ class ChatSession(
      * 失败时抛 [ChatError]，历史里不会留下半截 assistant 消息。
      */
     fun send(userMessage: ChatMessage): Flow<ChatDelta> = flow {
+        // 备注在入历史之前取：取失败（抛异常）不影响这一轮，只是没有备注
+        val note = turnContext?.runCatching { turnContext(userMessage) }
+            ?.getOrNull()
+            ?.takeIf { it.isNotBlank() }
         history.add(userMessage)
+        note?.let { turnNotes[history.lastIndex] = it }
 
         // 记忆先取：它要从 maxPromptTokens 里占掉一块，trim 得知道还剩多少
         val memoryBlock = memory?.runCatching { memoryBlock(budget.memoryTokens) }
             ?.getOrNull()
             ?.takeIf { it.isNotBlank() }
 
-        val trimmed = budget.trim(history, systemPrompt, historyStart)
+        val trimmed = budget.trim(withNotes(), systemPrompt, historyStart)
         historyStart = trimmed.startIndex
+        val system = composeSystemPrompt(memoryBlock, trimmed.truncated)
+        val toolSpecs = tools?.runCatching { specs() }?.getOrNull().orEmpty()
 
-        val request = options.toRequest(
-            messages = trimmed.messages,
-            systemPrompt = composeSystemPrompt(memoryBlock, trimmed.truncated),
-        )
+        // 工具循环：模型要调工具就执行、回填结果、再问一次。中间这些往返**不进历史**，
+        // 历史里只留最终回复——下一轮的前缀和这一轮第一次请求的前缀一致，缓存照样命中
+        val exchange = mutableListOf<ChatMessage>()
+        val spokenBefore = StringBuilder()
+        var usage: TokenUsage? = null
+        for (round in 0..MAX_TOOL_ROUNDS) {
+            val request = options.toRequest(trimmed.messages + exchange, system)
+                .let { if (toolSpecs.isEmpty()) it else it.copy(tools = it.tools + toolSpecs) }
 
-        val accumulator = MessageAccumulator()
-        provider.chatStream(request).collect { delta ->
-            accumulator.accept(delta)
-            if (delta is ChatDelta.Completed) {
-                // 用 provider 给的完整消息，缺内容时用累加结果兜底
-                val finalMessage = delta.message.takeIf { it.contents.isNotEmpty() }
-                    ?: accumulator.build()
-                history.add(finalMessage)
-                emit(delta.copy(message = finalMessage))
-            } else if (options.streamResponse) {
-                emit(delta)
+            val accumulator = MessageAccumulator()
+            var completed: ChatDelta.Completed? = null
+            provider.chatStream(request).collect { delta ->
+                accumulator.accept(delta)
+                if (delta is ChatDelta.Completed) {
+                    completed = delta
+                } else if (options.streamResponse) {
+                    emit(delta)
+                }
             }
+            val done = completed ?: return@flow
+            // 用 provider 给的完整消息，缺内容时用累加结果兜底
+            val message = done.message.takeIf { it.contents.isNotEmpty() } ?: accumulator.build()
+            usage = usage plus done.usage
+
+            val handler = tools
+            if (handler != null && message.toolCalls.isNotEmpty() && round < MAX_TOOL_ROUNDS) {
+                spokenBefore.append(message.text)
+                exchange += message
+                message.toolCalls.forEach { call ->
+                    val (output, failed) = try {
+                        handler.call(call.name, call.argumentsJson) to false
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        (e.message ?: e::class.simpleName.orEmpty()) to true
+                    }
+                    exchange += ChatMessage.toolResult(call.id, output, failed)
+                }
+                continue
+            }
+
+            // 调工具前说过的话（「让我想想……」）已经流式发出去了，并进最终消息，
+            // 否则落库的文本和用户刚才看到 / 听到的对不上
+            val finalMessage = if (spokenBefore.isEmpty()) {
+                message
+            } else {
+                message.copy(
+                    contents = listOf(ChatContent.Text(spokenBefore.toString())) +
+                        message.contents.filterNot { it is ChatContent.ToolCall },
+                )
+            }
+            history.add(finalMessage)
+            emit(done.copy(message = finalMessage, usage = usage))
+            return@flow
         }
+    }
+
+    /** 把备注合进对应的 user 消息：备注在前，原话在后，同一条消息里的两个文本块 */
+    private fun withNotes(): List<ChatMessage> {
+        if (turnNotes.isEmpty()) return history
+        return history.mapIndexed { index, message ->
+            val note = turnNotes[index] ?: return@mapIndexed message
+            message.copy(contents = listOf(ChatContent.Text(note)) + message.contents)
+        }
+    }
+
+    private infix fun TokenUsage?.plus(other: TokenUsage?): TokenUsage? {
+        if (this == null) return other
+        if (other == null) return this
+        fun add(a: Int?, b: Int?) = if (a == null && b == null) null else (a ?: 0) + (b ?: 0)
+        return TokenUsage(
+            promptTokens = add(promptTokens, other.promptTokens),
+            completionTokens = add(completionTokens, other.completionTokens),
+            totalTokens = add(totalTokens, other.totalTokens),
+            cachedTokens = add(cachedTokens, other.cachedTokens),
+        )
     }
 
     /** 便捷入口：纯文本一问一答。 */
@@ -125,6 +218,12 @@ class ChatSession(
     }
 
     companion object {
+        /**
+         * 一轮最多跑几次工具。到上限那次仍然带着工具声明（Anthropic 要求历史里有 tool_use
+         * 时必须声明 tools），但它再要调工具就不执行了，直接用它给的文字收尾
+         */
+        const val MAX_TOOL_ROUNDS = 3
+
         private const val TRUNCATION_NOTICE =
             "（更早的对话已从上下文中省略。需要时依据上面记录的记忆作答，不要凭空编造。）"
     }

@@ -14,9 +14,9 @@ import kotlinx.coroutines.sync.withLock
  *
  * ## 时机：TTS 播报窗口
  *
- * 调用点在 `mainLoop()` 里 `generateAndPlaySound()` **之前**，fire-and-forget。
- * 这几秒是白送的：BV2 单句 RTF≈0.36，一段回复要播好几秒，期间用户在听、
- * 主循环在 `fetchInput()` 挂起。而抽取是网络等待、TTS 是 CPU 密集，两者重叠得很好。
+ * 调用点在 `CompanionRealResponseDriver` 里 LLM 回复落库之后、`voice.finish()`（等 TTS 播完）
+ * 之前，fire-and-forget。这几秒是白送的：一段回复要播好几秒，期间用户在听。
+ * 而抽取是网络等待、TTS 是 CPU 密集，两者重叠得很好。
  * **完全不占首字延迟** —— 这是整个设计里最不该浪费的一个便宜。
  *
  * ## 闸门：每 [MIN_TURNS] 轮才真跑
@@ -101,6 +101,8 @@ class MemoryConsolidator(
                         slot = op.slot,
                         content = op.content,
                         importance = op.importance,
+                        subject = op.subject,
+                        dueAt = op.dueAt,
                         createdAt = now,
                         updatedAt = now,
                     )

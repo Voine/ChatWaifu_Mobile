@@ -68,10 +68,11 @@ class LocalLlmProvider(
     override val id: ProviderId = ProviderId.LOCAL
     override val displayName: String = "端内模型"
     override val capabilities: ProviderCapabilities = CAPABILITIES
+    /**
+     * 端内模型没有「模型名」的概念，用户选的是一个文件（[ProviderConfig.localModelPath]），
+     * 所以清单为空，[defaultModel] 随之是空串。
+     */
     override val availableModels: List<ModelInfo> = emptyList()
-
-    /** 端内模型没有「模型名」的概念，用户选的是一个文件（[ProviderConfig.localModelPath]）。 */
-    override val defaultModel: String = ""
 
     override fun chatStream(request: ChatRequest): Flow<ChatDelta> =
         throw NotImplementedError("LocalLlmProvider 还没实现，见类注释里的两条路线")

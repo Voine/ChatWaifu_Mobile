@@ -89,11 +89,6 @@ val exampleUiMsg2 = listOf(
     )
 ).reversed()
 
-val exampleUiState = ConversationUiState(
-    initialMessages = initialMessages,
-    channelName = "#composers",
-    channelMembers = 42
-)
 
 /**
  * Example colleague profile

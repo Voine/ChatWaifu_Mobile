@@ -66,7 +66,7 @@ class ModelManagerFragment : Fragment() {
                         }
 
                         is ModelManagerEvent.CurrentChanged ->
-                            activityViewModel.selectCharacter(event.character)
+                            activityViewModel.selectCharacter(event.character, returnHome = false)
 
                     }
                 }

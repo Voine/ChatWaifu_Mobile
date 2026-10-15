@@ -234,7 +234,7 @@ internal class ModelStorage(private val context: Context) {
  * meta.json 的落盘结构。
  *
  * 存在的意义是干掉两个隐式约定：以前 live2d 目录名必须和 vits 目录名一致，
- * 且 model3.json 文件名必须和目录名一致（ChatFragment 里硬编码拼的）。
+ * 且 model3.json 文件名必须和目录名一致（2023 年的老聊天页里硬编码拼的）。
  * 现在入口文件名在导入时解析出来直接写死在这里。
  *
  * 字段给默认值是为了兼容 Gson 反序列化缺字段的情况，读出来后一律走 [isValid] 校验。

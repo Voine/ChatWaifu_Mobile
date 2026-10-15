@@ -191,9 +191,10 @@ class ContextBudget(
         const val DEFAULT_MAX_MESSAGES = 100
 
         /**
-         * 记忆块额度。够装几十条事实，再多就该考虑摘要压缩而不是继续加额度了。
+         * 记忆块额度：L2 事实（几十条）+ L1 最近几段日记。再多就该靠检索按需取，
+         * 而不是继续加常驻额度。
          */
-        const val DEFAULT_MEMORY_TOKENS = 600
+        const val DEFAULT_MEMORY_TOKENS = 1_200
 
         /**
          * 一次淘汰多少条。越大越省缓存、越浪费上下文；20 条大约是 10 轮对话。

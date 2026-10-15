@@ -2,6 +2,7 @@ package com.chatwaifu.mobile.data.memory
 
 import com.chatwaifu.chat.core.ChatMessage
 import com.chatwaifu.log.MemoryFact
+import com.chatwaifu.log.MemorySubject
 
 /**
  * Description: 从最近几轮对话里抽出长期记忆的操作。
@@ -40,6 +41,9 @@ sealed interface MemoryOp {
         val slot: String,
         val content: String,
         val importance: Int,
+        val subject: MemorySubject = MemorySubject.USER,
+        /** 约定的到期日（epoch ms），只对 [MemorySubject.PROMISE] 有意义 */
+        val dueAt: Long? = null,
     ) : MemoryOp
 
     /** 事实已失效（"我把猫送人了"）。`pinned` 的行不会真的被删掉 */

@@ -70,10 +70,7 @@ import com.chatwaifu.mobile.data.Constant
 import com.chatwaifu.mobile.ui.common.JumpToBottom
 import com.chatwaifu.mobile.ui.common.Message
 import com.chatwaifu.mobile.ui.common.ChannelNameBar
-import com.chatwaifu.mobile.ui.channellist.LoadingIndicator
-import com.chatwaifu.mobile.ui.common.ConversationContent
 import com.chatwaifu.mobile.ui.common.exampleUiMsg2
-import com.chatwaifu.mobile.ui.common.exampleUiState
 import com.chatwaifu.mobile.ui.common.initialMessages
 import com.chatwaifu.mobile.ui.common.messageFormatter
 import com.chatwaifu.mobile.ui.theme.ChatWaifu_MobileTheme

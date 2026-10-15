@@ -37,20 +37,10 @@
     <string name="title_activity_main">MainActivity</string>
 
 
-    <string name="emoji_selector_desc">Emoji selector</string>
-    <string name="emoji_selector_bt_desc">Show Emoji selector</string>
-    <string name="dm_desc">Direct Message</string>
-    <string name="attach_photo_desc">Attach Photo</string>
-    <string name="map_selector_desc">Location selector</string>
-    <string name="videochat_desc">Start videochat</string>
-    <string name="textfield_desc">Text input</string>
-    <string name="not_available">Functionality currently not available</string>
-    <string name="not_available_subtitle">Grab a beverage and check back later!</string>
     <string name="attached_image">Attached image</string>
     <string name="search">Search</string>
     <string name="info">Information</string>
     <string name="more_options">More options</string>
-    <string name="chat_bar_start_touch">Start Touch</string>
 
     <string name="conversations">Conversations</string>
     <string name="profile">Profile</string>
@@ -59,9 +49,6 @@
     <string name="author_me">me</string>
     <string name="now">8:30 PM</string>
     <string name="members">%d members</string>
-    <string name="textfield_hint">Type your msg here…</string>
-    <string name="emojis_label">Emojis</string>
-    <string name="stickers_label">Stickers</string>
 
 
     <string name="setting_btn_save">Save</string>
@@ -154,9 +141,17 @@
     <string name="memory_delete_confirm">Delete</string>
     <string name="memory_slot_hint">Topic, e.g. name / hometown</string>
     <string name="memory_content_hint">What to remember</string>
+    <string name="memory_section_facts">About them</string>
+    <string name="memory_section_promises">Promises &amp; follow-ups</string>
+    <string name="memory_section_self">About herself</string>
+    <string name="memory_due">due %1$s</string>
+    <string name="memory_section_diary">Diary</string>
+    <string name="memory_episode_title">%1$s · #%2$d</string>
+    <string name="memory_episode_hint">Diary summary</string>
+    <string name="memory_episode_delete_message">The diary of %1$s will be forgotten. The original chat log is kept.</string>
     <string name="memory_empty">Nothing remembered yet. Memories are extracted from your chats automatically.</string>
     <string name="setting_memory_model">Memory extraction model</string>
-    <string name="setting_memory_model_hint">blank = same as chat model</string>
+    <string name="setting_memory_model_hint">blank = cheapest model of the provider</string>
     <string name="model_manager_import">Import model zip</string>
     <string name="model_manager_empty">No imported model yet. Tap the import button to add one.</string>
     <string name="model_manager_built_in">Built-in</string>
@@ -263,18 +258,12 @@
     <string name="import_error_unsafe">Archive rejected for safety: %1$s</string>
     <string name="import_error_io">Import failed: %1$s</string>
 
-    <string name="chat_dialog_sender_me">Me</string>
-    <string name="chat_status_hint_send_request">send request…</string>
-    <string name="chat_status_hint_generate_sound">generating sound…</string>
-    <string name="chat_status_hint_translate">translating…</string>
 
 
-    <string name="chat_record_too_short">record audio is too short… try again</string>
 
     <string name="chat_log_loading_hint">Loading…</string>
     <string name="chat_log_empty_hint">Can\'t find any chat log :(</string>
 
-    <string name="sample_very_long_str">example contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample contentexample content</string>
     <string name="title_activity_text">TextActivity</string>
     <string name="companion_chat">对话</string>
     <string name="companion_interact">互动</string>
@@ -302,5 +291,33 @@
     <string name="companion_tts_failed">语音播放失败，文字回复已保留</string>
     <string name="companion_response_incomplete">回复意外中断，请重试</string>
     <string name="companion_history_previous">历史</string>
-    <string name="companion_open_existing">进入原功能</string>
+    <string name="companion_open_existing">更多功能</string>
+    <string name="companion_menu_characters">角色</string>
+    <string name="companion_menu_chat_log">聊天记录</string>
+    <string name="companion_menu_memory">记忆</string>
+    <string name="companion_menu_settings">设置</string>
+    <string name="companion_menu_adjust">调整角色位置</string>
+    <string name="companion_adjust_hint">拖动移动，双指缩放</string>
+    <string name="companion_adjust_reset">重置</string>
+    <string name="companion_adjust_done">完成</string>
+    <string name="drawer_item_companion">返回陪伴</string>
+    <string name="companion_add_attachment">添加附件</string>
+    <string name="companion_remove_attachment">移除附件</string>
+    <string name="companion_attach_image">图片 / 视频</string>
+    <string name="companion_attach_audio">音频</string>
+    <string name="companion_attach_doc">PDF</string>
+    <string name="companion_attachment_audio">音频</string>
+    <string name="companion_attachment_video">视频</string>
+    <string name="companion_attachment_doc">PDF</string>
+    <string name="companion_attachment_not_ready">聊天链路正在准备，请稍候再选文件</string>
+    <string name="companion_attachment_unreadable">读不了这个文件</string>
+    <string name="companion_attachment_unsupported">不支持这种格式，或者这台设备解不开它</string>
+    <string name="companion_attachment_wrong_type">选到的文件类型不对</string>
+    <string name="companion_attachment_model_unsupported">当前模型收不了这种文件</string>
+    <string name="companion_attachment_video_no_frames">没能从视频里抽出画面</string>
+    <string name="companion_attachment_no_track">文件里没有可用的音轨</string>
+    <string name="companion_attachment_write_failed">文件保存失败，存储空间可能不足</string>
+    <string name="companion_attachment_too_large">文件太大（%1$d MB），最大支持 %2$d MB</string>
+    <string name="companion_attachment_too_long">太长了，最长支持 %1$d 分钟</string>
+    <string name="companion_history_loading_older">正在加载更早的记录…</string>
 </resources>

@@ -48,6 +48,9 @@ class BaiduTranslateService(
         }
         val startIndex  = input.indexOfFirst { it.isLetterOrDigit() }
         val endIndex = input.indexOfLast { it.isLetterOrDigit() }
+        // 只有标点 / emoji 时没东西可翻（以前这里 substring(-1, 0) 直接崩）。
+        // 按句流水线会把「……」「！」这类碎片单独送进来，必须兜住
+        if (startIndex < 0) return callback.invoke(null)
         val realInput = input.substring(startIndex, endIndex + 1).replace("\n","").trimIndent()
 
         sign = DigestUtils.md5("$appid$realInput$salt$privateKey")
@@ -65,7 +68,13 @@ class BaiduTranslateService(
                 response: Response<BaiduTranslateResponseData>
             ) {
                 Log.d(TAG,"receive response $response")
-                callback.invoke(response.body()?.trans_result?.firstOrNull()?.dst)
+                // 百度按行返回多段 dst；只取第一段会把多行输入的后半截丢掉
+                callback.invoke(
+                    response.body()?.trans_result
+                        ?.mapNotNull { it.dst }
+                        ?.joinToString("")
+                        ?.takeIf { it.isNotBlank() }
+                )
             }
 
             override fun onFailure(call: Call<BaiduTranslateResponseData>, t: Throwable) {

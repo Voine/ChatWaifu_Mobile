@@ -30,6 +30,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatWaifuRootView(
     chatViewModel: ChatActivityViewModel = viewModel(),
+    initialSelection: NavigationItemType = NavigationItemType.TYPE_CHANNEL_LIST,
+    onCompanionClick: () -> Unit = {},
     onChannelListClick: ()->Unit = {},
     onChatLogClick: () ->Unit= {},
     onSettingClick: ()->Unit= {},
@@ -62,8 +64,15 @@ fun ChatWaifuRootView(
 
     ChatWaifuDrawerScaffold(
         drawerState = drawerState,
+        initialSelection = initialSelection,
         onItemClicked = {navigationItemType ->
             when (navigationItemType) {
+                NavigationItemType.TYPE_COMPANION -> {
+                    scope.launch {
+                        drawerState.close()
+                    }
+                    onCompanionClick()
+                }
                 NavigationItemType.TYPE_CHANNEL_LIST -> {
                     scope.launch {
                         drawerState.close()
@@ -102,6 +111,8 @@ fun ChatWaifuRootView(
 }
 
 enum class NavigationItemType{
+    /** 回 Companion 根页面。不是 Fragment，由宿主 Activity 交棒处理 */
+    TYPE_COMPANION,
     TYPE_SETTING,
     TYPE_CHAT_LOG,
     TYPE_CHANNEL_LIST,

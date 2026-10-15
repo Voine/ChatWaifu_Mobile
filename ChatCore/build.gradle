@@ -39,4 +39,7 @@ dependencies {
     implementation libs.gson
     implementation libs.kotlinx.coroutines.android
     implementation libs.androidx.annotation
+
+    testImplementation libs.junit
+    testImplementation libs.kotlinx.coroutines.test
 }

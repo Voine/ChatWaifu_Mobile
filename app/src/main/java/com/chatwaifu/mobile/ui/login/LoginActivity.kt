@@ -1,7 +1,6 @@
 package com.chatwaifu.mobile.ui.login
 
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -11,9 +10,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.chatwaifu.mobile.BuildConfig
-import com.chatwaifu.mobile.ChatActivity
 import com.chatwaifu.mobile.databinding.ActivityLoginBinding
 import com.chatwaifu.mobile.data.Constant
+import com.chatwaifu.mobile.ui.companion.CompanionActivity
 import com.chatwaifu.mobile.ui.showToast
 
 /**
@@ -90,9 +89,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun jumpToChat() {
-        Intent(this, ChatActivity::class.java).apply {
-            startActivity(this)
-        }
+        startActivity(CompanionActivity.intent(this))
         finish()
     }
 

@@ -1,26 +1,30 @@
 # ChatWaifu_Mobile
 
-Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → 本地 Bert-VITS2 推理出语音 → 驱动 Live2D 模型口型与动作；语音输入走本地 Sherpa-ncnn ASR。
+Android 版「AI 纸片人聊天器」。LLM 出文本 →（可选）翻译成日文 → 本地 Bert-VITS2 推理出语音 → 驱动 Live2D 模型口型与动作；语音输入走本地 sherpa-mnn ASR。
 
 初版写于 2023 年初（GPT-3.5 刚发布），2023 年后基本停止维护，2026 年重新开始迭代。当前开发分支 `feature/v2.0.0`。
 
-## Companion UI 施工入口
+## 进度入口
 
-下一轮前台 UI 改造的跨机器交接文档是 **[docs/companion-ui-construction-plan.md](docs/companion-ui-construction-plan.md)**。
-接手此任务时先完整阅读它和文中指定的设计包，再从第 10 节第一个未完成批次施工；
-默认只做 Phase 1 的四态前台壳与隔离 Mock，不直接进入真实链路接线。
-本文档记录环境准备、源码落点、验收标准和续接状态，不需要原 Copilot 对话。
-当前是规划完成，尚未实施；实际进度以后以施工文档第 12 节为准。
+**全工程进度的唯一权威入口是 [docs/v2-roadmap.md](docs/v2-roadmap.md) 开头的「进度总览」**，
+新会话先看它，完成一批就先更新那张表。截至 2026-10-16：Companion 前台（Phase 1~2.8 + T1 转正）、
+T2~T6（四种附件入口）、记忆全部分层、Companion 历史分页都已完成；未做的是 T7 真机验证。
+**Live2D 表演力（表情 / 动作 / 情绪 / 真实口型）是刻意留白的独立调研课题，不要碰。**
+Companion 的逐批施工日志在 `docs/companion-ui-construction-plan.md` 第 12 节。
 
 ## 技术栈
 
 - Kotlin + Jetpack Compose（UI 全部 Compose，但外壳仍是 Activity + Fragment + Navigation 混合架构）
 - MVVM + LiveData / SharedFlow，Retrofit + Gson 做网络，Room 做聊天记录持久化
 - Native：Bert-VITS2 + MNN 语音合成（走 `Bert-VITS2-MNN` submodule 打的 AAR，本仓库自己不再有 TTS 的 cpp）、Live2D Cubism SDK(C++) 渲染、meta-lipSync 口型分析
-- Sherpa-ncnn 语音识别跑在**独立进程** `:sherpa`，通过 AIDL 通信
+- 语音识别走 sherpa-mnn（2026/9 从 Sherpa-ncnn 换过来），跑在**独立进程** `:sherpa`，通过 AIDL 通信；
+  抽象是 `data/asr/` 的 `AsrEngine`，`AsrProvider` 按 `AsrEngineType` 选实现（`AsrEngineContractTest` 守着）
 - AGP 9.3.1 / Gradle 9.6.1 / Kotlin 2.3.21 / JDK 17 toolchain，全模块字节码目标 Java 11
 - `compileSdk` = 37，`targetSdk` = 36，`minSdk` = 29（先为媒体管线从 24 抬到 28，
   理由见 `docs/media-pipeline.md` 第三节；再被 Bert-VITS2-MNN 顶到 29）
+- **native 库必须 16KB 页对齐**（Android 15+ / Google Play）。`libMNN.so`（TTS 和 ASR 共用同一份，
+  见 `app/build.gradle` 的 `pickFirsts` 注释）已于 2026-10 重编对齐；剩 Meta 闭源的
+  `libOVRLipSync.so` 没对齐，16KB 设备上口型不可用。检查：`llvm-readelf -lW x.so | grep LOAD` 的 Align 列
 - **只出 `arm64-v8a`**：BV2 的 native 只有 arm64 一份。决定 APK 里有哪些 ABI 的是
   `app/build.gradle` 的 `defaultConfig.ndk.abiFilters`——库模块里的 `abiFilters` 只管自己
   CMake 的产物，管不到预置 jniLibs（Sherpa）和 AAR 带进来的 `.so`
@@ -40,7 +44,7 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 | `VITS` | `com.chatwaifu.vits` | TTS 门面：包 BV2 的 AAR + 音频播放 + 文件/权限工具（模块名沿用，Bert-VITS2 本身就是 VITS） |
 | `Live2D` | `com.chatwaifu.live2d` | Live2D Cubism SDK Native 封装（含 CMake + SDKRoot） |
 | `Lipsync` | `com.chatwaifu.lipsync` | meta-lipSync Native 封装（含 CMake） |
-| `Sherpa` | `com.k2fsa.sherpa.ncnn` | Sherpa-ncnn ASR，跑在 `:sherpa` 进程，AIDL 暴露 |
+| `SherpaMnn` | `com.k2fsa.sherpa.mnn` | sherpa-mnn ASR，跑在 `:sherpa` 进程，AIDL 暴露 |
 | `Log` | `com.chatwaifu.log` | Room 数据库，聊天记录 + 附件引用读写（见 `docs/chat-storage.md`） |
 
 依赖方向：`app` → 其余 7 个模块，模块之间**无横向依赖**。
@@ -50,24 +54,36 @@ Android 版「AI 纸片人聊天器」。LLM 出文本 → 翻译成日文 → �
 
 ## 核心链路
 
-### 主循环
-`ChatActivity` 启动后调用 `ChatActivityViewModel.mainLoop()`（`app/src/main/java/com/chatwaifu/mobile/ChatActivityViewModel.kt`），是一个跑在 `Dispatchers.IO` 上的 `while(true)`，每轮：
+### 对话链路（Companion）
 
-1. `fetchInput()` — 用 `suspendCancellableCoroutine` 挂起，等 UI 层调 `sendMessage()` 唤醒（`inputFunc` 回调持有 continuation）
-2. `ChatHistoryStore.appendUser()` 写入用户消息（Room）
-3. `beginAssistant()` 先插一行 `STREAMING` 占位，拿到 messageId
-4. `streamChatRequest()` → `ChatSession.send()`，collect `Flow<ChatDelta>`；`TextDelta` 逐字累积后 emit 到 `_chatContentUIFlow` 渲染气泡（`isStreaming = true`）。结束时 `finishAssistant()` 把占位行补成最终文本 + usage + thinking + `OK`；失败或断流走 `failAssistant()` 标 `FAILED` 并保留片段
-5. `fetchTranslateIfNeed()` — 默认把回复翻成日文（内置模型都是日语声库）
-6. `generateAndPlaySound()` → `SoundGenerateHelper.generateAndPlay()`，BV2 **按句**推理出的 `FloatArray` 一路给 `SoundPlayHandler` 播放、一路连同**采样率**一起 `forwardResult` 给 `LipsValueHandler` 驱动口型
+**T2 首句流水线**：`SoundGenerateHelper.openStream()` 开一个流式播报轮次，LLM 每凑满一句
+（`SentenceSplitter`，首句可以在逗号处提前切）就交给 `VoicePipeline`：翻译（可选）和 TTS 各是一个
+串行协程，用 Channel 串起来，所以播放顺序恒等于原文顺序。第一句入队时发
+`CompanionResponseEvent.VoiceStarted`，UI 进 SPEAKING（此时文本可能还在写）。
+取消时 `VoicePipeline.cancel()` 会停播**并等推理协程退出**——BV2 的 native 推理不可中断，
+不等的话下一轮会和残余推理同时碰进程级单例。首声延迟用 `adb logcat -s CWLatency` 量化
+`LoginActivity` → **`CompanionActivity`**（正式前台，`ui/companion/`）。对话由 `CompanionViewModel`
+（四态状态机：IDLE / LISTENING / THINKING / SPEAKING / ERROR + 覆盖层）驱动
+`CompanionRealResponseDriver.responses()`，一个 Flow 跑完一轮：
 
-`ChatStatus` 枚举（`DEFAULT/FETCH_INPUT/SEND_REQUEST/TRANSLATE/GENERATE_SOUND`）通过 `chatStatusLiveData` 给 UI 显示当前阶段。
+1. `ChatHistoryStore.appendUser()` 写入用户消息（Room）
+2. `beginAssistant()` 先插一行 `STREAMING` 占位，拿到 messageId
+3. `ChatSession.send()` collect `Flow<ChatDelta>`，`TextDelta` 累积后发 `Streaming` 上屏；结束时
+   `finishAssistant()` 补成最终文本 + usage + `OK`，失败或断流走 `failAssistant()` 标 `FAILED` 并保留片段
+4. fire-and-forget 跑 L2 记忆巩固（`MemoryConsolidator`，和 TTS 并发）
+5. 翻译（百度，可关）→ `SoundGenerateHelper.generateAndPlay()`，BV2 **按句**推理，PCM 连同**采样率**
+   给 `SoundPlayHandler` 播放、给 `LipsValueHandler` 驱动口型；`awaitPlaybackComplete` 按真实播放完成回 IDLE
+
+2023 年的 `ChatActivityViewModel.mainLoop()`（`while(true)` + continuation 唤醒）已在 T1 删除。
 
 ### 聊天基座（ChatCore）
 业务只认 `ChatMessage` / `ChatDelta`，不认某一家的 `choices[0]`。核心是一个抽象方法
 `ChatProvider.chatStream(request): Flow<ChatDelta>`；历史**统一由客户端的 `ChatSession` 持有**
 （因为 Anthropic 没有服务端会话，必须重发全量）。已落地 `OpenAICompatProvider`（覆盖代理 /
-DeepSeek / Ollama / llama.cpp / vLLM）和 `OpenAIResponsesProvider`；Anthropic / Gemini / 端内
-三个是 stub，`chatStream` 抛 `NotImplementedError`，**映射方案写在各自类 KDoc 里**。
+DeepSeek / Ollama / llama.cpp / vLLM）、`OpenAIResponsesProvider`、`AnthropicMessagesProvider`、
+`GeminiProvider`（走 `streamGenerateContent`，不是 Interactions）；只有端内 `LocalLlmProvider` 还是 stub。
+四家都在真实网关上联调过（`ProviderLiveTest`，没设 `ATHENAI_KEY` 环境变量时自动跳过，
+**key 只走环境变量，不要写进任何入库文件**）。
 
 设计意图、三家 API 映射表、扩展新 provider 的步骤、进度与待办全在 **`docs/chat-core.md`**，
 动这一层之前先看它。
@@ -78,7 +94,8 @@ DeepSeek / Ollama / llama.cpp / vLLM）和 `OpenAIResponsesProvider`；Anthropic
 Room 实体不跨模块边界；`ChatLogEntry` 也刻意不是 `ChatCore` 的 `ChatMessage`
 （`Log` 不依赖 `ChatCore`），映射由 app 侧的 `ChatHistoryStore` 做。
 
-数据库 `version = 3`，两张表 `chat_message` / `chat_attachment`（FK CASCADE），
+数据库 `version = 7`，核心两张表 `chat_message` / `chat_attachment`（FK CASCADE），
+记忆两张 `memory_fact` / `memory_episode` 见下面「记忆分层」，
 `exportSchema = true`，迁移**手写**在 `room/Migrations.kt`，
 **刻意没有 `fallbackToDestructiveMigration()`**（聊天记录是用户资产，迁移错了应该崩）。
 枚举列存 `name` 不存 ordinal。
@@ -159,7 +176,7 @@ LFS 指针文件，会被打进 AAR 但体积可忽略。代价是 **`BertVITS2S
 ### 记忆分层
 
 设计和落地记录在 **`docs/memory.md`**，动这一层之前先看它。
-**Phase 0 + 1 已落地，真机未验证**；L1 情节摘要和 L3 检索还没做。
+Phase 0 ~ 3 全部落地（L0 分块淘汰、L1 日记、L2 事实、分层回忆、时间感）。
 
 两件事：
 
@@ -174,15 +191,35 @@ LFS 指针文件，会被打进 AAR 但体积可忽略。代价是 **`BertVITS2S
 独立事实，删聊天记录不该连带删记忆，和附件表刻意相反）。抽取跑在 TTS 播报窗口，
 和推理并发，不占首字延迟。注入走 `MemoryContributor`，`ChatCore` 仍然不碰 Room。
 
-三条拍过板的决策不要再当开放问题：**记忆按角色隔离不共享**、
+**L1 日记**（`memory_episode`，DB v6）：按「隔 3 小时 / 满 40 条」切段，写成角色第一人称日记，
+**双方说的话都记**（她答应过的事是关系的一部分），关键词用原词。游标 = `max(endMessageId)`，
+用户删日记是**软删除**（真删会让游标回退、同一段被重新写回来）。
+
+**分层回忆**：最近 3 篇日记常驻 system 区 → 原话撞上老日记关键词时自动想起（附在 user 消息前）→
+模型自己调工具 `search_memories` / `read_original` 搜日记、读原文。工具循环在 `ChatSession`
+（`ToolHandler`），中间往返不进历史。**时间感**也附在 user 消息前（`TurnContextContributor`），
+**备注随消息留在历史里重发**——临时拼上再摘掉会每轮打穿缓存前缀。
+
+**L2 事实分三类**（`memory_fact.subject`，DB v7）：对方的事（USER）、约定和待跟进（PROMISE，
+带 `dueAt`，到期前后在本轮备注里提醒一次）、她自己即兴定下的设定（SELF，防人设漂移）。
+记忆后台活（抽取 / 写日记）**默认用这家最便宜的模型**（`ModelInfo.cheap`），不跟主模型。
+长程回归：`LongHorizonMemoryLiveTest`（12 次会话 / 45 天剧本 + 9 项抽查，`deepseek-v4-flash`）。
+
+**Anthropic 要显式 `cache_control` 才缓存**（另外三家自动），`AnthropicMessagesProvider` 打两个断点：
+system 末尾 + 最后一条消息末尾。
+
+拍过板的决策不要再当开放问题：**记忆按角色隔离不共享**、
 抽取走接口且模型可单独配置（`SAVED_MEMORY_MODEL`，空 = 跟随主模型）、
-L3 检索用 `LIKE` 不上 FTS。
+检索用 `LIKE` 级子串匹配不上 FTS、切段是时间 + 条数结合、回忆先摘要后原文。
 
 ### 口型同步
 `LipsValueHandler` 里 `USE_REAL_LIP_SYNC = false` —— meta-lipSync 的真实 viseme 映射因为时长对齐问题效果不好，**当前默认只播一个 0→1→0 的循环假动画**（`playDefaultAnimation`），时长按音频采样数估算。真实逻辑代码还在，改常量即可启用。
 
 ### 语音识别
-`ChatFragmentViewModel` 用 `bindService` 绑 `SherpaService`（`:sherpa` 进程），拿 `ISherpaAidlInterface`。按住说话 → `startRecord()`，松手 → `finishRecord(callback)` 回传识别文本。多个 ncnn 库像是进程独享资源，所以才拆进程。
+`CompanionVoiceInput`（`AsrCompanionVoiceInput`）→ `AsrEngine.listen(): Flow<AsrEvent>` →
+`MnnAsrEngine` 用 `bindService` 绑 `SherpaMnnService`（`:sherpa` 进程）拿 AIDL。
+点麦克风开始、再点停止（只有一种交互）；partial 直接落进草稿，final 落到可编辑草稿等用户点发送。
+多个 ncnn 库像是进程独享资源，所以才拆进程。
 
 ### 模型存取（`app/.../data/model/`）
 
@@ -221,9 +258,14 @@ Yuuka/Amadeus/ATRI 没关系），等炼了自己的模型再替换 `_bv2/bv2_mo
 内置模型的解包有**版本 gate**（`Constant.BUILT_IN_MODEL_VERSION` ↔ `SAVED_BUILT_IN_MODEL_VERSION`），改动 assets 里的内置模型时要手动 +1，否则新资源不会被解出来。
 
 ### 页面
-`ChatActivity` 单 Activity + `mobile_navigation.xml` 五个 Fragment（每个 Fragment 内部是 ComposeView）：
-`nav_channel_list`（启动页，选角色）、`nav_chat`、`nav_chat_log`、`nav_setting`、`nav_model_manager`。
-`LoginActivity` 是 launcher，填 OpenAI Key / 百度翻译 appid+key。
+- `LoginActivity`（launcher，View 布局）→ `CompanionActivity`（根页面：Live2D + 对话/互动/视觉/更多）
+- 「更多」菜单 → `ChatActivity`（二级页面宿主，`mobile_navigation.xml`）：
+  `nav_channel_list`（角色）、`nav_chat_log`、`nav_memory`、`nav_setting`、`nav_model_manager`（无入口）。
+  栈底按返回 = 回 Companion
+- **两者是「交棒」不是「压栈」**：Live2D renderer 和 BV2 loader 都是进程级单例，
+  跳转前离开的一方必须先释放（Companion `awaitClosed()`，ChatActivity `releaseVoice()`），
+  再 `startActivity` + `finish()`。Companion 每次起来都按最新设置/当前角色重建链路
+- 模型摆位（拖动/缩放）只在 Companion 的「调整角色位置」覆盖层生效，存老的 `LOCAL_MODEL_TRANSLATE_*` key
 
 气泡里的富文本走 `ui/common/MessageFormatter.kt`（markdown-lite：`@提及`、URL、`*粗*`、`_斜_`、`~删除~`、`` `code` ``）。
 它产出的 `AnnotatedString` 已经把可点击区域以 **`LinkAnnotation` 内嵌**（`Url` 交给 `LocalUriHandler`，
@@ -312,22 +354,20 @@ Kotlin 最新是 **2.4.10**，但这个工程只能用 2.3.21，原因是一条�
 ## 已知技术债 / 坑
 
 - `ChatWaifuApplication.context` 是静态 Context，多处直接引用而非注入
-- `ChatCore` 只联调过编译，**实机端到端还没验证**；Anthropic / Gemini / 端内三个 provider 是 stub
+- 端内 `LocalLlmProvider` 是 stub。Gemini 3.x 的思考 token 计入 `maxOutputTokens`，设置页把 max tokens 设得很小会出空回复
 - 存储层同样只过了编译：**Room 1→2 和 3→4 的数据迁移都还没在真机老库上跑过**
-- 多模态**存储、归一化、映射都通了，但 UI 没有附件入口**：`ChatSession.send()` 还只收
-  `String`，聊天页也没有「加图片」按钮。接线点见 `docs/media-pipeline.md` 第八节
+- 多模态四种都有入口（「+」菜单 / 「视觉」），按模型能力 gate；换到收不了的模型时历史里的附件降级成占位文字（`utils/ModelVisibility.kt`）
 - `Log/schemas/` 缺 `2.json`（只有 1/3/4），不影响构建但迁移测试要用
-- `mainLoop()` 的 `while(true)` + continuation 唤醒设计，异常和取消路径比较脆
 - lint 还有 **195 条 warning / 0 error** 的历史存量（其中 `ChromeOsAbiSupport` 那条是
   只出 arm64 的直接后果）：`UnusedResources` 66（含
   `activity_chat.xml` + `app_bar_chat.xml` 两个 Navigation 模板留下的死布局，从来没被 inflate，
   真正的内容是 `content_main.xml`）、`HardcodedText` 27、`Typos` 20、`Autofill`/`TextFields` 各 11
-- manifest 里锁死横屏（`DiscouragedApi`）：Android 16 起固定屏幕方向在多数情况下会被忽略
+- manifest 里锁死竖屏（`DiscouragedApi`）：Android 16 起固定屏幕方向在多数情况下会被忽略
 - APK 体积 ~354MB（换 BV2 后从 ~440MB 降下来的）。大头是 openjtalk 词典 98MB +
   BV2 日文声学模型 49MB + 日文 BERT 43MB + zh/en 预处理词典 17MB + Live2D 22MB，
   全打进 `assets`，没有做按需下载
-- **BV2 的端到端还没在真机上验过**：整条链路只过了编译和打包
-- 无任何单元测试 / instrumentation 测试
+- **BV2 的端到端只在模拟器（`CW_API36_4k`）上验过**，物理真机一次没跑（见 roadmap T7）
+- 有约 148 个 JVM 单测（含无 key 自动跳过的网关联调），**0 个 instrumentation 测试**
 
 ## 常用命令
 

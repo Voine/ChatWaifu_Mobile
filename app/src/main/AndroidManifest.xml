@@ -32,7 +32,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- 只由 LoginActivity 用显式 Intent 拉起，不需要对外导出 -->
+        <!--
+          正式前台（T1：由 debug-only 的 CompanionDemoActivity 提升而来）。
+          adjustResize 是 Phase 1 真机修过的 IME 缺陷（输入条被键盘挡住），不能删。
+        -->
+        <activity
+            android:name=".ui.companion.CompanionActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+        <!-- 二级页面宿主（角色 / 记录 / 记忆 / 设置），只从 Companion 的「更多」进入 -->
         <activity
             android:name=".ChatActivity"
             android:exported="false"
